@@ -1,0 +1,50 @@
+name: Push to PyPI
+on:
+  workflow_call:
+    inputs:
+      package-name:
+        required: true
+        type: string
+      nightly:
+        required: true
+        type: boolean
+    secrets:
+      pypi-username:
+        required: true
+      pypi-password:
+        required: true
+jobs:
+  push-to-pypi:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install twine & build
+        run: |
+          # Assert using Python 3.8
+          if [ $(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))') != '3.8' ] ; then
+            exit 1
+          fi
+
+          # twine & build.
+          sudo pip install twine build
+      - name: Change package name
+        run: |
+          # Build wheel.
+          SED_PATTERN="s|name = vkit|name = ${{ inputs.package-name }}|g"
+          sed -i "$SED_PATTERN" setup.cfg
+      - name: Change nightly version
+        run: |
+          SED_PATTERN="s|version = .*|version = $(date +'%y.%m%d.%H%M')|g"
+          sed -i "$SED_PATTERN" setup.cfg
+        if: inputs.nightly
+      - name: Build and push
+        run: |
+          python setup.py clean --all
+          python -m build --wheel
+
+          # Publish.
+          LATEST_WHEEL=$(ls -t dist/*-py3-none-any.whl | head -1 | xargs -n 1 basename)
+          twine upload --skip-existing "dist/${LATEST_WHEEL}"
+        env:
+          TWINE_USERNAME: ${{ secrets.pypi-username }}
+          TWINE_PASSWORD: ${{ secrets.pypi-password }}

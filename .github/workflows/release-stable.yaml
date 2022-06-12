@@ -1,0 +1,44 @@
+name: release-stable
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm'
+        required: true
+jobs:
+  check-version-update:
+    runs-on: ubuntu-20.04
+    outputs:
+      abort: ${{ steps.set-output.outputs.abort }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - id: set-output
+        name: Check if the version has been changed.
+        run: |
+          if [ $(git --no-pager diff HEAD^ setup.cfg | grep +version | wc -l) -eq 0 ] ; then
+            echo "::set-output name=abort::1"
+          else
+            echo "::set-output name=abort::0"
+          fi
+  call-type-checking:
+    uses: ./.github/workflows/type-checking.yaml
+    needs: check-version-update
+    if: needs.check-version-update.outputs.abort != 1 || github.event.inputs.confirm == 'yes'
+  call-test:
+    uses: ./.github/workflows/test.yaml
+    needs: check-version-update
+    if: needs.check-version-update.outputs.abort != 1 || github.event.inputs.confirm == 'yes'
+  call-push-to-pypi:
+    uses: ./.github/workflows/push-to-pypi.yaml
+    needs: [call-type-checking, call-test]
+    with:
+      package-name: "vkit"
+      nightly: false
+    secrets:
+      pypi-username: ${{ secrets.PYPI_USERNAME }}
+      pypi-password: ${{ secrets.PYPI_PASSWORD }}

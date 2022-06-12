@@ -1,0 +1,89 @@
+name: Test
+on:
+  workflow_call:
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        image:
+          - "quay.io/pypa/manylinux_2_24_x86_64"
+        python_abi:
+          - "cp38-cp38"
+          - "cp39-cp39"
+          - "cp310-cp310"
+        test_legacy_deps:
+          - "yes"
+          - "no"
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup python/pip.
+        run: |
+          update-alternatives --install /usr/bin/python python /opt/python/${{ matrix.python_abi }}/bin/python 0
+          python --version
+          update-alternatives --install /usr/bin/pip pip /opt/python/${{ matrix.python_abi }}/bin/pip 0
+          pip install -U pip
+          pip --version
+      - name: Set to the legacy dependencies.
+        run: |
+          PYTHON_SCRIPT=$(
+          cat << 'EOF'
+
+          import sys
+          import os.path
+
+          assert len(sys.argv) == 2
+          _, setup_cfg = sys.argv
+
+          with open(setup_cfg) as fin:
+              text = fin.read()
+
+          begin = text.find('install_requires')
+          end = text.find('extras_require')
+          text_deps = text[begin:end]
+
+          lines = text_deps.splitlines()
+          new_lines = []
+          for line in lines:
+              line = line.replace('>=', '==', 1)
+              new_lines.append(line)
+          new_text_deps = '\n'.join(new_lines)
+
+          new_text = text[:begin] + new_text_deps + text[end:]
+
+          with open(setup_cfg, 'w') as fout:
+              fout.write(new_text)
+
+          EOF
+          )
+
+          python -c "$PYTHON_SCRIPT" "setup.cfg"
+          cat setup.cfg
+        if: matrix.test_legacy_deps == 'yes'
+      - name: Install.
+        run: |
+          # Install with the latest dependencies.
+          pip install -e .
+
+          # yapf & flake8.
+          pip install yapf flake8
+          update-alternatives --install /usr/bin/yapf yapf /opt/python/${{ matrix.python_abi }}/bin/yapf 0
+          update-alternatives --install /usr/bin/flake8 flake8 /opt/python/${{ matrix.python_abi }}/bin/flake8 0
+
+          # pytest.
+          pip install pytest pytest-parallel
+          update-alternatives --install /usr/bin/pytest pytest /opt/python/${{ matrix.python_abi }}/bin/pytest 0
+      - name: Lint (vkit)
+        run: |
+          yapf -d -r vkit && flake8 vkit
+        if: matrix.test_legacy_deps == 'no' && matrix.python_abi == 'cp38-cp38'
+      - name: Test
+        run: |
+          # Download dataset.
+          git clone https://github.com/vkit-x/vkit-dataset.git dataset
+          export VKIT_DATASET=./dataset
+
+          # Test (non-local).
+          pytest

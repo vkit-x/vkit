@@ -1,0 +1,9 @@
+name: schedule
+on:
+  schedule:
+    - cron: '0 */1 * * *'
+jobs:
+  call-type-checking:
+    uses: ./.github/workflows/type-checking.yaml
+  call-test:
+    uses: ./.github/workflows/test.yaml

@@ -1,0 +1,57 @@
+name: ci
+on:
+  pull_request:
+jobs:
+  check-code-update:
+    runs-on: ubuntu-20.04
+    outputs:
+      abort: ${{ steps.set-output.outputs.abort }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: master
+      - uses: actions/checkout@v2
+      - id: set-output
+        name: Check if the code or workflows has been changed.
+        run: |
+          if [ $(git --no-pager diff --name-only origin/master HEAD -- vkit | wc -l) -eq 0 ] \
+              && [ $(git --no-pager diff origin/master HEAD -- setup.cfg | wc -l) -eq 0 ] \
+              && [ $(git --no-pager diff --name-only origin/master HEAD -- .github | wc -l) -eq 0 ]
+          then
+            echo "::set-output name=abort::1"
+          else
+            echo "::set-output name=abort::0"
+          fi
+  call-type-checking:
+    uses: ./.github/workflows/type-checking.yaml
+    needs: check-code-update
+    if: needs.check-code-update.outputs.abort != 1
+  call-test:
+    uses: ./.github/workflows/test.yaml
+    needs: check-code-update
+    if: needs.check-code-update.outputs.abort != 1
+  signoff:
+    runs-on: ubuntu-20.04
+    needs: [check-code-update, call-type-checking, call-test]
+    if: ${{ always() }}
+    steps:
+      - name: Signoff based on the previous jobs.
+        run: |
+          if [ "${{ needs.check-code-update.outputs.abort }}" = "1" ] ; then
+            exit 0
+          else
+            if [ "${{ needs.call-type-checking.result }}" = "success" ] \
+              && [ "${{ needs.call-test.result }}" = "success"  ]
+            then
+              exit 0
+            else
+              exit 1
+            fi
+          fi
+      - name: Auto approve for the project owner
+        run: |
+          gh pr review ${{ github.event.number }} --approve
+        if: github.event.sender.login == 'huntzhan'
+        env:
+          GH_TOKEN: ${{ secrets.VKIT_X_BOT_PAT }}
+          GH_REPO: ${{ github.repository }}

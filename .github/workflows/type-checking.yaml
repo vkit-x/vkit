@@ -1,0 +1,40 @@
+name: Type checking
+on:
+  workflow_call:
+jobs:
+  type-checking:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup pyright
+        run: |
+          node -v
+          yarn --version
+
+          npm install -g pyright@1.1.254
+          pyright --version
+      - name: Install project (required by pyright)
+        run: |
+          # Assert using Python 3.8
+          if [ $(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))') != '3.8' ] ; then
+            exit 1
+          fi
+
+          sudo pip install -e .
+          sudo pip install pytest
+      - name: Type checking
+        run: |
+          EXTRA_PATH=$(python -c 'import sys, json; print(json.dumps([path for path in sys.path if path]).replace("[", "\[").replace("]", "\]"))')
+          echo "EXTRA_PATH=${EXTRA_PATH}"
+
+          SED_PATTERN_0='s|"extraPaths": \[\]|"extraPaths": '
+          SED_PATTERN_1="$EXTRA_PATH"
+          SED_PATTERN_2='|g'
+          SED_PATTERN="${SED_PATTERN_0}${SED_PATTERN_1}${SED_PATTERN_2}"
+          echo "SED_PATTERN=${SED_PATTERN}"
+
+          sed -i "$SED_PATTERN" pyrightconfig.json
+
+          git clone https://github.com/microsoft/python-type-stubs.git .github/typings
+
+          pyright

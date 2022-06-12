@@ -1,0 +1,42 @@
+name: release-nightly
+on:
+  push:
+    branches:
+      - master
+jobs:
+  check-code-update:
+    runs-on: ubuntu-20.04
+    outputs:
+      abort: ${{ steps.set-output.outputs.abort }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - id: set-output
+        name: Check if the code or workflows has been changed.
+        run: |
+          if [ $(git --no-pager diff --name-only HEAD^ vkit | wc -l) -eq 0 ] \
+              && [ $(git --no-pager diff HEAD^ setup.cfg | wc -l) -eq 0 ] \
+              && [ $(git --no-pager diff --name-only HEAD^ .github | wc -l) -eq 0 ]
+          then
+            echo "::set-output name=abort::1"
+          else
+            echo "::set-output name=abort::0"
+          fi
+  call-type-checking:
+    uses: ./.github/workflows/type-checking.yaml
+    needs: check-code-update
+    if: needs.check-code-update.outputs.abort != 1
+  call-test:
+    uses: ./.github/workflows/test.yaml
+    needs: check-code-update
+    if: needs.check-code-update.outputs.abort != 1
+  call-push-to-pypi:
+    uses: ./.github/workflows/push-to-pypi.yaml
+    needs: [call-type-checking, call-test]
+    with:
+      package-name: "vkit-nightly"
+      nightly: true
+    secrets:
+      pypi-username: ${{ secrets.PYPI_USERNAME }}
+      pypi-password: ${{ secrets.PYPI_PASSWORD }}

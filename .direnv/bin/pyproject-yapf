@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -eo pipefail
+trap "echo 'error: Script failed: see failed command above'" ERR
+
+watchexec -e py 'yapf -i --verbose "${WATCHEXEC_COMMON_PATH}/${WATCHEXEC_WRITTEN_PATH}"'

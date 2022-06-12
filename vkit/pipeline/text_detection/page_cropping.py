@@ -1,0 +1,209 @@
+from typing import Sequence, List, Optional
+
+import attrs
+from numpy.random import RandomState
+import cv2 as cv
+
+from vkit.element import Box, Mask, ScoreMap, Image
+from .page_resizing import PageResizingStep
+from ..interface import (
+    PipelineStep,
+    PipelineStepFactory,
+    PipelineState,
+)
+
+
+@attrs.define
+class PageCroppingStepConfig:
+    core_size: int
+    pad_size: int
+    num_samples: Optional[int] = None
+    pad_value: int = 0
+    drop_cropped_page_with_no_text: bool = True
+    enable_downsample_labeling: bool = True
+    downsample_labeling_factor: int = 2
+
+    @property
+    def crop_size(self):
+        return 2 * self.pad_size + self.core_size
+
+
+@attrs.define
+class CroppedPage:
+    page_image: Image
+    page_text_line_mask: Mask
+    page_text_line_height_score_map: ScoreMap
+    core_box: Box
+    page_downsampled_text_line_mask: Optional[Mask]
+    page_downsampled_text_line_height_score_map: Optional[ScoreMap]
+
+
+@attrs.define
+class PageCroppingStepOutput:
+    cropped_pages: Sequence[CroppedPage]
+
+
+class PageCroppingStep(
+    PipelineStep[
+        PageCroppingStepConfig,
+        PageCroppingStepOutput,
+    ]
+):  # yapf: disable
+
+    def __init__(self, config: PageCroppingStepConfig):
+        super().__init__(config)
+
+    def sample_cropped_positions(self, length: int, rnd: RandomState):
+        if self.config.core_size <= length:
+            core_begin = rnd.randint(0, length - self.config.core_size + 1)
+            begin = core_begin - self.config.pad_size
+            offset = 0
+            if begin < 0:
+                offset = abs(begin)
+                begin = 0
+
+        else:
+            begin = 0
+            offset = self.config.pad_size
+            offset += rnd.randint(0, self.config.core_size - length + 1)
+
+        end = min(length - 1, begin + (self.config.crop_size - offset) - 1)
+        return offset, begin, end, end + 1 - begin
+
+    def sample_cropped_page(
+        self,
+        page_image: Image,
+        page_text_line_mask: Mask,
+        page_text_line_height_score_map: ScoreMap,
+        rnd: RandomState,
+    ):
+        height, width = page_image.shape
+        assert page_text_line_mask.shape == (height, width)
+        assert page_text_line_height_score_map.shape == (height, width)
+
+        vert_offset, up, down, origin_height = self.sample_cropped_positions(height, rnd)
+        hori_offset, left, right, origin_width = self.sample_cropped_positions(width, rnd)
+
+        cropped_shape = (self.config.crop_size, self.config.crop_size)
+        origin_box = Box(up=up, down=down, left=left, right=right)
+        page_image = origin_box.extract_image(page_image)
+        page_text_line_mask = origin_box.extract_mask(page_text_line_mask)
+        page_text_line_height_score_map = origin_box.extract_score_map(
+            page_text_line_height_score_map
+        )
+
+        if origin_height == origin_width == self.config.crop_size:
+            assert vert_offset == hori_offset == 0
+            assert page_text_line_mask.shape == cropped_shape
+            assert page_text_line_height_score_map.shape == cropped_shape
+
+        else:
+            target_box = Box(
+                up=vert_offset,
+                down=vert_offset + origin_height - 1,
+                left=hori_offset,
+                right=hori_offset + origin_width - 1,
+            )
+            assert target_box.down < self.config.crop_size
+            assert target_box.right < self.config.crop_size
+
+            new_page_image = Image.from_shape(
+                cropped_shape,
+                num_channels=page_image.num_channels,
+                value=self.config.pad_value,
+            )
+            target_box.fill_image(new_page_image, page_image)
+            page_image = new_page_image
+
+            new_page_text_line_mask = Mask.from_shape(cropped_shape)
+            target_box.fill_mask(new_page_text_line_mask, page_text_line_mask)
+            page_text_line_mask = new_page_text_line_mask
+
+            new_page_text_line_height_score_map = ScoreMap.from_shape(
+                cropped_shape,
+                score_as_prob=False,
+            )
+            target_box.fill_score_map(
+                new_page_text_line_height_score_map, page_text_line_height_score_map
+            )
+            page_text_line_height_score_map = new_page_text_line_height_score_map
+
+        core_begin = self.config.pad_size
+        core_end = core_begin + self.config.core_size - 1
+        core_box = Box(up=core_begin, down=core_end, left=core_begin, right=core_end)
+
+        page_text_line_mask = core_box.extract_mask(page_text_line_mask)
+        page_text_line_mask.box = core_box
+
+        page_text_line_height_score_map = core_box.extract_score_map(
+            page_text_line_height_score_map
+        )
+        page_text_line_height_score_map.box = core_box
+
+        if self.config.drop_cropped_page_with_no_text:
+            if not page_text_line_mask.mat.any():
+                return None
+
+        page_downsampled_text_line_mask: Optional[Mask] = None
+        page_downsampled_text_line_height_score_map: Optional[ScoreMap] = None
+        if self.config.enable_downsample_labeling:
+            assert core_box.height % self.config.downsample_labeling_factor == 0
+            assert core_box.width % self.config.downsample_labeling_factor == 0
+
+            page_downsampled_text_line_mask = page_text_line_mask.copy()
+            page_downsampled_text_line_mask.box = None
+            page_downsampled_text_line_height_score_map = page_text_line_height_score_map.copy()
+            page_downsampled_text_line_height_score_map.box = None
+
+            resized_height = core_box.height // self.config.downsample_labeling_factor
+            resized_width = core_box.width // self.config.downsample_labeling_factor
+
+            page_downsampled_text_line_mask = \
+                page_downsampled_text_line_mask.to_resized_mask(
+                    resized_height=resized_height,
+                    resized_width=resized_width,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+            page_downsampled_text_line_height_score_map = \
+                page_downsampled_text_line_height_score_map.to_resized_score_map(
+                    resized_height=resized_height,
+                    resized_width=resized_width,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
+        return CroppedPage(
+            page_image=page_image,
+            page_text_line_mask=page_text_line_mask,
+            page_text_line_height_score_map=page_text_line_height_score_map,
+            core_box=core_box,
+            page_downsampled_text_line_mask=page_downsampled_text_line_mask,
+            page_downsampled_text_line_height_score_map=page_downsampled_text_line_height_score_map,
+        )
+
+    def run(self, state: PipelineState, rnd: RandomState):
+        page_resizing_step_output = self.get_output(state, PageResizingStep)
+        page_image = page_resizing_step_output.page_image
+        page_text_line_mask = page_resizing_step_output.page_text_line_mask
+        page_text_line_height_score_map = page_resizing_step_output.page_text_line_height_score_map
+
+        num_samples = self.config.num_samples
+        if num_samples is None:
+            num_samples = max(
+                1,
+                round(page_image.height * page_image.width / (self.config.core_size**2)),
+            )
+
+        cropped_pages: List[CroppedPage] = []
+        for _ in range(num_samples):
+            cropped_page = self.sample_cropped_page(
+                page_image=page_image,
+                page_text_line_mask=page_text_line_mask,
+                page_text_line_height_score_map=page_text_line_height_score_map,
+                rnd=rnd,
+            )
+            if cropped_page:
+                cropped_pages.append(cropped_page)
+        return PageCroppingStepOutput(cropped_pages=cropped_pages)
+
+
+page_cropping_step_factory = PipelineStepFactory(PageCroppingStep)
