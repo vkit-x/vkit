@@ -32,4 +32,4 @@ jobs:
       github-page-repo: "vkit-x/vkit-website-nightly-github-page"
       domain: "vkit-nightly.vkit-x.com"
     secrets:
-      github-page-repo-deploy-key: ${{ secrets.GH_PAGE_NIGHTLY_REPO_KEY }}
+      github-page-repo-deploy-key: ${{ secrets.VKIT_WEBSITE_NIGHTLY_GITHUB_PAGE_DEPLOY_KEY }}

@@ -39,4 +39,4 @@ jobs:
       github-page-repo: "vkit-x/vkit-website-github-page"
       domain: "vkit.vkit-x.com"
     secrets:
-      github-page-repo-deploy-key: ${{ secrets.GH_PAGE_STABLE_REPO_KEY }}
+      github-page-repo-deploy-key: ${{ secrets.VKIT_WEBSITE_GITHUB_PAGE_DEPLOY_KEY }}
