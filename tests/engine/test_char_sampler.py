@@ -30,7 +30,7 @@ abbb cd dd ef
         temp_file.write(text.encode())
         temp_file.flush()
         corpus_sampler = corpus_char_sampler_factory.create(
-            {'txt_file': temp_file.name},
+            {'txt_files': [temp_file.name]},
             {'lexicon_collection': lexicon_collection},
         )
 

@@ -11,7 +11,7 @@ from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
 
 @attrs.define
 class CorpusCharSamplerEngineConfig:
-    txt_file: str
+    txt_files: Sequence[str]
 
 
 class CorpusCharSamplerEngine(
@@ -38,13 +38,14 @@ class CorpusCharSamplerEngine(
         self.lexicon_collection = resource.lexicon_collection
 
         self.texts: List[str] = []
-        for line in io.read_text_lines(
-            config.txt_file,
-            expandvars=True,
-            strip=True,
-            skip_empty=True,
-        ):
-            self.texts.append(line)
+        for txt_file in config.txt_files:
+            for line in io.read_text_lines(
+                txt_file,
+                expandvars=True,
+                strip=True,
+                skip_empty=True,
+            ):
+                self.texts.append(line)
 
     def sample_and_prep_text(self, rnd: RandomState):
         while True:
