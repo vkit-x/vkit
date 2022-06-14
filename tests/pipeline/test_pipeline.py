@@ -243,7 +243,7 @@ def test_page():
                         "weight": 1,
                         "type": "corpus",
                         "config": {
-                            "txt_file": "$VKIT_PRIVATE_DATA/char_sampler/debug.txt"
+                            "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/debug.txt"]
                         }
                     }],
                     'font_configs': [{
