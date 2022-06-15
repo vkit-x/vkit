@@ -1,8 +1,9 @@
-from typing import Sequence, Dict, Any, List
+from typing import Sequence, Dict, Any, List, Union
 
 import attrs
 from numpy.random import RandomState
 
+from vkit.utility import PathType
 from vkit.element import Image, Box
 from vkit.engine.image import image_factory
 from ..interface import (
@@ -15,7 +16,7 @@ from .page_layout import PageLayoutStep
 
 @attrs.define
 class PageImageStepConfig:
-    image_configs: Sequence[Dict[str, Any]]
+    image_configs: Union[Sequence[Dict[str, Any]], PathType]
 
 
 @attrs.define

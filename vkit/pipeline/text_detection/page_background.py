@@ -1,10 +1,14 @@
-from typing import Sequence, Dict, Any
+from typing import Sequence, Dict, Any, Union
 from enum import Enum, unique
 
 import attrs
 from numpy.random import RandomState
 
-from vkit.utility import normalize_to_keys_and_probs, rnd_choice
+from vkit.utility import (
+    normalize_to_keys_and_probs,
+    rnd_choice,
+    PathType,
+)
 from vkit.element import Image
 from vkit.engine.image import image_factory
 from .page_shape import PageShapeStep
@@ -17,7 +21,7 @@ from ..interface import (
 
 @attrs.define
 class PageBackgroundStepConfig:
-    image_configs: Sequence[Dict[str, Any]]
+    image_configs: Union[Sequence[Dict[str, Any]], PathType]
     weight_image: float = 0.8
     weight_random_grayscale: float = 0.2
     grayscale_min: int = 127

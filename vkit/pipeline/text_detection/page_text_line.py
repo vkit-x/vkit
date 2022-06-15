@@ -1,11 +1,15 @@
-from typing import Sequence, Dict, Any, List
+from typing import Sequence, Dict, Any, List, Union
 from enum import Enum, unique
 
 import attrs
 from numpy.random import RandomState
 
 from vkit.element import LexiconCollection
-from vkit.utility import normalize_to_keys_and_probs, rnd_choice
+from vkit.utility import (
+    normalize_to_keys_and_probs,
+    rnd_choice,
+    PathType,
+)
 from vkit.engine.font import (
     font_factory,
     FontEngineRunConfigStyle,
@@ -26,8 +30,8 @@ from .page_layout import PageLayoutStep
 class PageTextLineStepConfig:
     lexicon_collection_json: str
     font_collection_folder: str
-    char_sampler_configs: Sequence[Dict[str, Any]]
-    font_configs: Sequence[Dict[str, Any]]
+    char_sampler_configs: Union[Sequence[Dict[str, Any]], PathType]
+    font_configs: Union[Sequence[Dict[str, Any]], PathType]
     font_style: FontEngineRunConfigStyle = attrs.field(factory=FontEngineRunConfigStyle)
     weight_font_style_glyph_color_grayscale: float = 0.9
     font_style_glyph_color_grayscale_min: int = 0
