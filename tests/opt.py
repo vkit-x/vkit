@@ -10,7 +10,7 @@ from vkit.utility import get_data_folder
 
 
 def read_image(rel_path: str):
-    dataset_fd = io.folder(os.getenv('VKIT_DATASET'), exists=True)
+    dataset_fd = io.folder(str(os.getenv('VKIT_DATASET')), exists=True)
     return Image.from_file(dataset_fd / rel_path)
 
 
