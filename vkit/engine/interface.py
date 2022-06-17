@@ -163,7 +163,7 @@ class EngineRunnerAggregatorFactory(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPU
         if resource is not None:
             resource = dyn_structure(resource, resource_cls)
 
-        if is_path_type(configs):  # type: ignore
+        if is_path_type(configs):
             configs = read_json_file(configs)  # type: ignore
         configs = cast(Sequence[Dict[str, Any]], configs)
 
