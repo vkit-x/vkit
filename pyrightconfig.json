@@ -20,4 +20,5 @@
     "reportUnusedImport": false,
     "reportMissingTypeStubs": false,
     "reportImportCycles": false,
+    "reportUnnecessaryIsInstance": false
 }

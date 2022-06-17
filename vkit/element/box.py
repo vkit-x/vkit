@@ -260,7 +260,7 @@ class Box(Shapable):
     def fill_mask(
         self,
         mask: 'Mask',
-        value: Union['Mask', np.ndarray, float] = 1,
+        value: Union['Mask', np.ndarray, int] = 1,
     ):
         if isinstance(value, Mask):
             value = value.mat

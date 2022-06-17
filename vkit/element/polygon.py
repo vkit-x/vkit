@@ -193,8 +193,11 @@ class Polygon:
     def fill_mask(
         self,
         mask: 'Mask',
-        value: Union[np.ndarray, float] = 1,
+        value: Union['Mask', np.ndarray, int] = 1,
     ):
+        if isinstance(value, Mask):
+            value = value.mat
+
         self.fill_np_array(mask.mat, value)
 
     def fill_score_map(
