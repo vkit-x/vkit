@@ -1,22 +1,21 @@
-from typing import cast, Optional, Tuple, Union, Iterable
-from enum import Enum, unique
+from typing import cast, Optional, Tuple, Union, List, Iterable
+from collections import abc
+from itertools import chain
 
 import attrs
 import numpy as np
 import cv2 as cv
 
-from .type import Shapable
-from .opt import (
-    generate_resized_shape,
-    fill_np_array,
-)
+from .type import Shapable, FillByElementsMode
+from .opt import generate_resized_shape, fill_np_array
 
 
-@unique
-class MaskFillByMode(Enum):
-    UNION = 'union'
-    DISTINCT = 'distinct'
-    INTERSECTION = 'intersection'
+@attrs.define
+class MaskSetItemConfig:
+    value: Union['Mask', np.ndarray, int, Iterable[Union['Mask', np.ndarray, int]]] = 1
+    mode: FillByElementsMode = FillByElementsMode.UNION
+    keep_max_value: bool = False
+    keep_min_value: bool = False
 
 
 @attrs.define
@@ -71,55 +70,219 @@ class Mask(Shapable):
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
 
+    def fill_by_box_value_pairs(
+        self,
+        box_value_pairs: Iterable[Tuple['Box', Union['Mask', np.ndarray, int]]],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
+        skip_values_uniqueness_check: bool = False,
+    ):
+        boxes: List[Box] = []
+        values: List[Union[Mask, np.ndarray, int]] = []
+        for box, value in box_value_pairs:
+            boxes.append(box)
+            values.append(value)
+
+        boxes_mask = generate_fill_by_boxes_mask(self.shape, boxes, mode)
+        if boxes_mask is None:
+            for box, value in zip(boxes, values):
+                box.fill_mask(
+                    mask=self,
+                    value=value,
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                for idx, value in enumerate(values):
+                    if idx == 0:
+                        continue
+                    if values[0] != value:
+                        unique = False
+                        break
+
+            if unique:
+                boxes_mask.fill_mask(
+                    mask=self,
+                    value=values[0],
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+            else:
+                for box, value in zip(boxes, values):
+                    box_mask = box.extract_mask(boxes_mask).to_box_attached(box)
+                    box_mask.fill_mask(
+                        mask=self,
+                        value=value,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+
     def fill_by_boxes(
         self,
         boxes: Iterable['Box'],
-        mode: MaskFillByMode = MaskFillByMode.UNION,
+        value: int = 1,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
     ):
-        if mode == MaskFillByMode.UNION:
-            for box in boxes:
-                box.fill_mask(self)
+        self.fill_by_box_value_pairs(
+            box_value_pairs=((box, value) for box in boxes),
+            mode=mode,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+            skip_values_uniqueness_check=True,
+        )
+
+    def fill_by_polygon_value_pairs(
+        self,
+        polygon_value_pairs: Iterable[Tuple['Polygon', Union['Mask', np.ndarray, int]]],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
+        skip_values_uniqueness_check: bool = False,
+    ):
+        polygons: List[Polygon] = []
+        values: List[Union[Mask, np.ndarray, int]] = []
+        for polygon, value in polygon_value_pairs:
+            polygons.append(polygon)
+            values.append(value)
+
+        polygons_mask = generate_fill_by_polygons_mask(self.shape, polygons, mode)
+        if polygons_mask is None:
+            for polygon, value in zip(polygons, values):
+                polygon.fill_mask(
+                    mask=self,
+                    value=value,
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
 
         else:
-            for box in boxes:
-                boxed_mat = box.extract_np_array(self.mat)
-                np_non_oob_mask = (boxed_mat < 255)
-                boxed_mat[np_non_oob_mask] += 1
+            unique = True
+            if not skip_values_uniqueness_check:
+                for idx, value in enumerate(values):
+                    if idx == 0:
+                        continue
+                    if values[0] != value:
+                        unique = False
+                        break
 
-            if mode == MaskFillByMode.DISTINCT:
-                self.mat[self.mat > 1] = 0
-
-            elif mode == MaskFillByMode.INTERSECTION:
-                self.mat[self.mat == 1] = 0
-
+            if unique:
+                polygons_mask.fill_mask(
+                    mask=self,
+                    value=values[0],
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
             else:
-                raise NotImplementedError()
+                for polygon, value in zip(polygons, values):
+                    bounding_box = polygon.to_bounding_box()
+                    polygon_mask = bounding_box.extract_mask(polygons_mask)
+                    polygon_mask = polygon_mask.to_box_attached(bounding_box)
+                    polygon_mask.fill_mask(
+                        mask=self,
+                        value=value,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
 
     def fill_by_polygons(
         self,
         polygons: Iterable['Polygon'],
-        mode: MaskFillByMode = MaskFillByMode.UNION,
+        value: int = 1,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
     ):
-        if mode == MaskFillByMode.UNION:
-            for polygon in polygons:
-                polygon.fill_mask(self)
+        self.fill_by_polygon_value_pairs(
+            polygon_value_pairs=((polygon, value) for polygon in polygons),
+            mode=mode,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+            skip_values_uniqueness_check=True,
+        )
 
+    def __setitem__(
+        self,
+        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+        config: Union['Mask', np.ndarray, int, Iterable[Union['Mask', np.ndarray, int]],
+                      MaskSetItemConfig],
+    ):
+        if isinstance(config, (int, abc.Iterable)):
+            value = config
+            mode = FillByElementsMode.UNION
+            keep_max_value = False
+            keep_min_value = False
+        elif isinstance(config, MaskSetItemConfig):
+            value = config.value
+            mode = config.mode
+            keep_max_value = config.keep_min_value
+            keep_min_value = config.keep_min_value
         else:
-            for polygon in polygons:
-                internals = polygon.to_fill_np_array_internals()
-                boxed_mat = internals.bounding_box.extract_np_array(self.mat)
-                np_polygon_mask = internals.get_np_mask()
-                np_non_oob_mask = (boxed_mat < 255)
-                boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
+            raise NotImplementedError()
 
-            if mode == MaskFillByMode.DISTINCT:
-                self.mat[self.mat > 1] = 0
+        if isinstance(element, Box):
+            assert not isinstance(value, abc.Iterable)
+            element.fill_mask(mask=self, value=value)
 
-            elif mode == MaskFillByMode.INTERSECTION:
-                self.mat[self.mat == 1] = 0
+        elif isinstance(element, Polygon):
+            assert not isinstance(value, abc.Iterable)
+            element.fill_mask(mask=self, value=value)
+
+        elif isinstance(element, abc.Iterable):
+            elements_iter = iter(element)
+            first_element = next(elements_iter)
+            original_elements_iter = chain((first_element,), elements_iter)
+
+            if isinstance(first_element, Box):
+                boxes = cast(Iterable[Box], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    self.fill_by_box_value_pairs(
+                        box_value_pairs=zip(boxes, value),
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                elif isinstance(value, int):
+                    self.fill_by_boxes(
+                        boxes=boxes,
+                        value=value,
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                else:
+                    raise NotImplementedError()
+
+            elif isinstance(first_element, Polygon):
+                polygons = cast(Iterable[Polygon], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    self.fill_by_polygon_value_pairs(
+                        polygon_value_pairs=zip(polygons, value),
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                elif isinstance(value, int):
+                    self.fill_by_polygons(
+                        polygons=polygons,
+                        value=value,
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                else:
+                    raise NotImplementedError()
 
             else:
                 raise NotImplementedError()
+
+        else:
+            raise NotImplementedError()
 
     def to_inverted_mask(self):
         mat = (~self.np_mask).astype(np.uint8)
@@ -226,11 +389,18 @@ class Mask(Shapable):
         self,
         mask: 'Mask',
         value: Union['Mask', np.ndarray, int] = 1,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
     ):
         if isinstance(value, Mask):
             value = value.mat
 
-        self.fill_np_array(mask.mat, value)
+        self.fill_np_array(
+            mask.mat,
+            value,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def fill_score_map(
         self,
@@ -256,6 +426,6 @@ class Mask(Shapable):
 
 # Cyclic dependency, by design.
 from .image import Image  # noqa: E402
-from .box import Box  # noqa: E402
+from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
+from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402
 from .score_map import ScoreMap  # noqa: E402
-from .polygon import Polygon  # noqa: E402

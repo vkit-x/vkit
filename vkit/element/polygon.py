@@ -16,7 +16,7 @@ from shapely.geometry import (
 from shapely.ops import unary_union
 import pyclipper
 
-from .type import Shapable
+from .type import Shapable, FillByElementsMode
 from .opt import fill_np_array
 
 logger = logging.getLogger(__name__)
@@ -194,11 +194,18 @@ class Polygon:
         self,
         mask: 'Mask',
         value: Union['Mask', np.ndarray, int] = 1,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
     ):
         if isinstance(value, Mask):
             value = value.mat
 
-        self.fill_np_array(mask.mat, value)
+        self.fill_np_array(
+            mask.mat,
+            value,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def fill_score_map(
         self,
@@ -404,6 +411,35 @@ class TextPolygon:
                 resized_width=resized_width,
             ),
         )
+
+
+def generate_fill_by_polygons_mask(
+    shape: Tuple[int, int],
+    polygons: Iterable[Polygon],
+    mode: FillByElementsMode,
+):
+    if mode == FillByElementsMode.UNION:
+        return None
+
+    polygons_mask = Mask.from_shape(shape)
+
+    for polygon in polygons:
+        internals = polygon.to_fill_np_array_internals()
+        boxed_mat = internals.bounding_box.extract_np_array(polygons_mask.mat)
+        np_polygon_mask = internals.get_np_mask()
+        np_non_oob_mask = (boxed_mat < 255)
+        boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
+
+    if mode == FillByElementsMode.DISTINCT:
+        polygons_mask.mat[polygons_mask.mat > 1] = 0
+
+    elif mode == FillByElementsMode.INTERSECTION:
+        polygons_mask.mat[polygons_mask.mat == 1] = 0
+
+    else:
+        raise NotImplementedError()
+
+    return polygons_mask
 
 
 # Cyclic dependency, by design.

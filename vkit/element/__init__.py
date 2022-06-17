@@ -1,10 +1,10 @@
-from .type import Shapable
+from .type import Shapable, FillByElementsMode
 from .image import Image, ImageKind
 from .point import Point, PointList
 from .line import Line
 from .box import Box, CharBox
 from .polygon import Polygon, TextPolygon
-from .mask import Mask, MaskFillByMode
+from .mask import Mask
 from .score_map import ScoreMap
 from .painter import Painter
 from .lexicon import Lexicon, LexiconCollection

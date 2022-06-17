@@ -1,10 +1,10 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Iterable
 import math
 
 import attrs
 import numpy as np
 
-from .type import Shapable
+from .type import Shapable, FillByElementsMode
 from .opt import (
     clip_val,
     resize_val,
@@ -261,11 +261,18 @@ class Box(Shapable):
         self,
         mask: 'Mask',
         value: Union['Mask', np.ndarray, int] = 1,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
     ):
         if isinstance(value, Mask):
             value = value.mat
 
-        self.fill_np_array(mask.mat, value)
+        self.fill_np_array(
+            mask.mat,
+            value,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def fill_score_map(
         self,
@@ -365,6 +372,33 @@ class CharBox(Shapable):
             self,
             box=self.box.to_shifted_box(y_offset=y_offset, x_offset=x_offset),
         )
+
+
+def generate_fill_by_boxes_mask(
+    shape: Tuple[int, int],
+    boxes: Iterable[Box],
+    mode: FillByElementsMode,
+):
+    if mode == FillByElementsMode.UNION:
+        return None
+
+    boxes_mask = Mask.from_shape(shape)
+
+    for box in boxes:
+        boxed_mat = box.extract_np_array(boxes_mask.mat)
+        np_non_oob_mask = (boxed_mat < 255)
+        boxed_mat[np_non_oob_mask] += 1
+
+    if mode == FillByElementsMode.DISTINCT:
+        boxes_mask.mat[boxes_mask.mat > 1] = 0
+
+    elif mode == FillByElementsMode.INTERSECTION:
+        boxes_mask.mat[boxes_mask.mat == 1] = 0
+
+    else:
+        raise NotImplementedError()
+
+    return boxes_mask
 
 
 # Cyclic dependency, by design.
