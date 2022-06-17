@@ -13,7 +13,7 @@ from .opt import (
 
 
 @unique
-class MaskFillByPolygonsMode(Enum):
+class MaskFillByMode(Enum):
     UNION = 'union'
     DISTINCT = 'distinct'
     INTERSECTION = 'intersection'
@@ -71,12 +71,36 @@ class Mask(Shapable):
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
 
+    def fill_by_boxes(
+        self,
+        boxes: Iterable['Box'],
+        mode: MaskFillByMode = MaskFillByMode.UNION,
+    ):
+        if mode == MaskFillByMode.UNION:
+            for box in boxes:
+                box.fill_mask(self)
+
+        else:
+            for box in boxes:
+                boxed_mat = box.extract_np_array(self.mat)
+                np_non_oob_mask = (boxed_mat < 255)
+                boxed_mat[np_non_oob_mask] += 1
+
+            if mode == MaskFillByMode.DISTINCT:
+                self.mat[self.mat > 1] = 0
+
+            elif mode == MaskFillByMode.INTERSECTION:
+                self.mat[self.mat == 1] = 0
+
+            else:
+                raise NotImplementedError()
+
     def fill_by_polygons(
         self,
         polygons: Iterable['Polygon'],
-        mode: MaskFillByPolygonsMode = MaskFillByPolygonsMode.UNION,
+        mode: MaskFillByMode = MaskFillByMode.UNION,
     ):
-        if mode == MaskFillByPolygonsMode.UNION:
+        if mode == MaskFillByMode.UNION:
             for polygon in polygons:
                 polygon.fill_mask(self)
 
@@ -88,10 +112,10 @@ class Mask(Shapable):
                 np_non_oob_mask = (boxed_mat < 255)
                 boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
 
-            if mode == MaskFillByPolygonsMode.DISTINCT:
+            if mode == MaskFillByMode.DISTINCT:
                 self.mat[self.mat > 1] = 0
 
-            elif mode == MaskFillByPolygonsMode.INTERSECTION:
+            elif mode == MaskFillByMode.INTERSECTION:
                 self.mat[self.mat == 1] = 0
 
             else:
@@ -153,7 +177,7 @@ class Mask(Shapable):
             cv_resize_interpolation=cv_resize_interpolation,
             binarization_threshold=binarization_threshold,
         )
-        resized_mask.box = resized_box
+        resized_mask = resized_mask.to_box_attached(resized_box)
         return resized_mask
 
     def to_box_attached(self, box: 'Box'):

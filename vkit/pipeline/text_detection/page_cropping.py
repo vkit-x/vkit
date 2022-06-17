@@ -133,12 +133,12 @@ class PageCroppingStep(
         core_box = Box(up=core_begin, down=core_end, left=core_begin, right=core_end)
 
         page_text_line_mask = core_box.extract_mask(page_text_line_mask)
-        page_text_line_mask.box = core_box
+        page_text_line_mask = page_text_line_mask.to_box_attached(core_box)
 
         page_text_line_height_score_map = core_box.extract_score_map(
             page_text_line_height_score_map
         )
-        page_text_line_height_score_map.box = core_box
+        page_text_line_height_score_map = page_text_line_height_score_map.to_box_attached(core_box)
 
         if self.config.drop_cropped_page_with_no_text:
             if not page_text_line_mask.mat.any():

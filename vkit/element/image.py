@@ -339,6 +339,9 @@ class Image(Shapable):
         mat = self.mat.copy()
         return attrs.evolve(self, mat=mat)
 
+    def to_box_attached(self, box: 'Box'):
+        return attrs.evolve(self, box=box)
+
     def to_gcn_image(
         self,
         lamb: float = 0,
@@ -478,7 +481,7 @@ class Image(Shapable):
             resized_width=resized_box.width,
             cv_resize_interpolation=cv_resize_interpolation,
         )
-        resized_image.box = resized_box
+        resized_image = resized_image.to_box_attached(resized_box)
         return resized_image
 
 

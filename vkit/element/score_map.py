@@ -244,6 +244,35 @@ class ScoreMap(Shapable):
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
 
+    def fill_by_box_value_pairs(
+        self,
+        box_value_pairs: Iterable[Tuple['Box', float]],
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
+    ):
+        for box, value in box_value_pairs:
+            if self.score_as_prob:
+                assert 0.0 <= value <= 1.0
+            box.fill_score_map(
+                self,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
+
+    def fill_by_boxes(
+        self,
+        boxes: Iterable['Box'],
+        value: float = 1.0,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
+    ):
+        self.fill_by_box_value_pairs(
+            box_value_pairs=((box, value) for box in boxes),
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
+
     def fill_by_polygon_value_pairs(
         self,
         polygon_value_pairs: Iterable[Tuple['Polygon', float]],
@@ -324,7 +353,7 @@ class ScoreMap(Shapable):
             resized_width=resized_box.width,
             cv_resize_interpolation=cv_resize_interpolation,
         )
-        resized_score_map.box = resized_box
+        resized_score_map = resized_score_map.to_box_attached(resized_box)
         return resized_score_map
 
     def to_resized_score_map(

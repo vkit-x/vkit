@@ -155,6 +155,10 @@ class Polygon:
             shifted_np_points=np_points,
         )
 
+    def to_bounding_box(self):
+        internals = self.to_fill_np_array_internals()
+        return internals.bounding_box
+
     def fill_np_array(
         self,
         mat: np.ndarray,
