@@ -1,4 +1,6 @@
-from typing import Optional, Tuple, Union, Iterable, Callable, List
+from typing import cast, Optional, Tuple, Union, Iterable, Callable, List
+from collections import abc
+from itertools import chain
 
 import attrs
 import numpy as np
@@ -9,6 +11,15 @@ from .opt import (
     generate_shape_and_resized_shape,
     fill_np_array,
 )
+
+
+@attrs.define
+class ScoreMapSetItemConfig:
+    value: Union['ScoreMap', np.ndarray, float, Iterable[Union['ScoreMap', np.ndarray,
+                                                               float]]] = 1.0
+    mode: FillByElementsMode = FillByElementsMode.UNION
+    keep_max_value: bool = False
+    keep_min_value: bool = False
 
 
 @attrs.define
@@ -326,6 +337,9 @@ class ScoreMap(Shapable):
         values: List[Union[ScoreMap, np.ndarray, float]] = []
         for polygon, value in polygon_value_pairs:
             polygons.append(polygon)
+
+            if self.score_as_prob and isinstance(value, float):
+                assert 0.0 <= value <= 1.0
             values.append(value)
 
         polygons_mask = generate_fill_by_polygons_mask(self.shape, polygons, mode)
@@ -382,6 +396,94 @@ class ScoreMap(Shapable):
             keep_min_value=keep_min_value,
             skip_values_uniqueness_check=True,
         )
+
+    def __setitem__(
+        self,
+        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+        config: Union['ScoreMap', np.ndarray, float, Iterable[Union['ScoreMap', np.ndarray, float]],
+                      ScoreMapSetItemConfig],
+    ):
+        if isinstance(config, (int, abc.Iterable)):
+            value = config
+            mode = FillByElementsMode.UNION
+            keep_max_value = False
+            keep_min_value = False
+        elif isinstance(config, ScoreMapSetItemConfig):
+            value = config.value
+            mode = config.mode
+            keep_max_value = config.keep_max_value
+            keep_min_value = config.keep_min_value
+        else:
+            raise NotImplementedError()
+
+        if isinstance(element, (Box, Polygon)):
+            assert not isinstance(value, abc.Iterable)
+            element.fill_score_map(score_map=self, value=value)
+
+        elif isinstance(element, abc.Iterable):
+            elements_iter = iter(element)
+            first_element = next(elements_iter)
+            original_elements_iter = chain((first_element,), elements_iter)
+
+            if isinstance(first_element, Box):
+                boxes = cast(Iterable[Box], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    self.fill_by_box_value_pairs(
+                        box_value_pairs=zip(boxes, value),
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                elif isinstance(value, int):
+                    self.fill_by_boxes(
+                        boxes=boxes,
+                        value=value,
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                else:
+                    raise NotImplementedError()
+
+            elif isinstance(first_element, Polygon):
+                polygons = cast(Iterable[Polygon], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    self.fill_by_polygon_value_pairs(
+                        polygon_value_pairs=zip(polygons, value),
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                elif isinstance(value, int):
+                    self.fill_by_polygons(
+                        polygons=polygons,
+                        value=value,
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                else:
+                    raise NotImplementedError()
+
+            else:
+                raise NotImplementedError()
+
+        else:
+            raise NotImplementedError()
+
+    def __getitem__(
+        self,
+        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+    ):
+        if isinstance(element, (Box, Polygon)):
+            return element.extract_score_map(self)
+
+        elif isinstance(element, abc.Iterable):
+            elements = element
+            return [element.extract_score_map(self) for element in elements]
+
+        else:
+            raise NotImplementedError()
 
     def fill_by_quad_interpolation(
         self,

@@ -171,6 +171,18 @@ class Polygon:
 
         return extracted_mask
 
+    def extract_score_map(self, score_map: 'ScoreMap'):
+        internals = self.to_fill_np_array_internals()
+
+        extracted_score_map = internals.bounding_box.extract_score_map(score_map)
+
+        polygon_mask = Mask.from_shapable(extracted_score_map)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_score_map(extracted_score_map, value=0.0)
+
+        return extracted_score_map
+
     def fill_np_array(
         self,
         mat: np.ndarray,
