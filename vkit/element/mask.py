@@ -124,7 +124,7 @@ class Mask(Shapable):
     def fill_by_boxes(
         self,
         boxes: Iterable['Box'],
-        value: int = 1,
+        value: Union['Mask', np.ndarray, int] = 1,
         mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
@@ -193,7 +193,7 @@ class Mask(Shapable):
     def fill_by_polygons(
         self,
         polygons: Iterable['Polygon'],
-        value: int = 1,
+        value: Union['Mask', np.ndarray, int] = 1,
         mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,

@@ -164,10 +164,10 @@ class Polygon:
 
         extracted_mask = internals.bounding_box.extract_mask(mask)
 
-        negative_mask = Mask.from_shapable(extracted_mask)
+        polygon_mask = Mask.from_shapable(extracted_mask)
         shifted_polygon = internals.get_shifted_polygon()
-        shifted_polygon.fill_mask(negative_mask)
-        extracted_mask.mat[negative_mask.mat == 0] = 0
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_mask(extracted_mask, value=0)
 
         return extracted_mask
 
