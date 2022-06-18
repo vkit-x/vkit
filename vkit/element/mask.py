@@ -209,9 +209,14 @@ class Mask(Shapable):
     def __setitem__(
         self,
         element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
-        config: Union['Mask', np.ndarray, int, Iterable[Union['Mask', np.ndarray, int]],
-                      MaskSetItemConfig],
-    ):
+        config: Union[
+            'Mask',
+            np.ndarray,
+            int,
+            Iterable[Union['Mask', np.ndarray, int]],
+            MaskSetItemConfig,
+        ],
+    ):  # yapf: disable
         if isinstance(config, (int, abc.Iterable)):
             value = config
             mode = FillByElementsMode.UNION

@@ -15,8 +15,12 @@ from .opt import (
 
 @attrs.define
 class ScoreMapSetItemConfig:
-    value: Union['ScoreMap', np.ndarray, float, Iterable[Union['ScoreMap', np.ndarray,
-                                                               float]]] = 1.0
+    value: Union[
+        'ScoreMap',
+        np.ndarray,
+        float,
+        Iterable[Union['ScoreMap', np.ndarray, float]],
+    ] = 1.0  # yapf: disable
     mode: FillByElementsMode = FillByElementsMode.UNION
     keep_max_value: bool = False
     keep_min_value: bool = False
@@ -400,9 +404,14 @@ class ScoreMap(Shapable):
     def __setitem__(
         self,
         element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
-        config: Union['ScoreMap', np.ndarray, float, Iterable[Union['ScoreMap', np.ndarray, float]],
-                      ScoreMapSetItemConfig],
-    ):
+        config: Union[
+            'ScoreMap',
+            np.ndarray,
+            float,
+            Iterable[Union['ScoreMap', np.ndarray, float]],
+            ScoreMapSetItemConfig,
+        ],
+    ):  # yapf: disable
         if isinstance(config, (int, abc.Iterable)):
             value = config
             mode = FillByElementsMode.UNION
