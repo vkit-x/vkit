@@ -220,16 +220,12 @@ class Mask(Shapable):
         elif isinstance(config, MaskSetItemConfig):
             value = config.value
             mode = config.mode
-            keep_max_value = config.keep_min_value
+            keep_max_value = config.keep_max_value
             keep_min_value = config.keep_min_value
         else:
             raise NotImplementedError()
 
-        if isinstance(element, Box):
-            assert not isinstance(value, abc.Iterable)
-            element.fill_mask(mask=self, value=value)
-
-        elif isinstance(element, Polygon):
+        if isinstance(element, (Box, Polygon)):
             assert not isinstance(value, abc.Iterable)
             element.fill_mask(mask=self, value=value)
 
@@ -283,6 +279,12 @@ class Mask(Shapable):
 
         else:
             raise NotImplementedError()
+
+    def __getitem__(
+        self,
+        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+    ):
+        pass
 
     def to_inverted_mask(self):
         mat = (~self.np_mask).astype(np.uint8)
