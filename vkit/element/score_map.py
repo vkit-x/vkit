@@ -1,10 +1,10 @@
-from typing import Optional, Tuple, Union, Iterable, Callable
+from typing import Optional, Tuple, Union, Iterable, Callable, List
 
 import attrs
 import numpy as np
 import cv2 as cv
 
-from .type import Shapable
+from .type import Shapable, FillByElementsMode
 from .opt import (
     generate_shape_and_resized_shape,
     fill_np_array,
@@ -246,60 +246,141 @@ class ScoreMap(Shapable):
 
     def fill_by_box_value_pairs(
         self,
-        box_value_pairs: Iterable[Tuple['Box', float]],
+        box_value_pairs: Iterable[Tuple['Box', Union['ScoreMap', np.ndarray, float]]],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
+        skip_values_uniqueness_check: bool = False,
     ):
+        boxes: List[Box] = []
+        values: List[Union[ScoreMap, np.ndarray, float]] = []
         for box, value in box_value_pairs:
-            if self.score_as_prob:
+            boxes.append(box)
+
+            if self.score_as_prob and isinstance(value, float):
                 assert 0.0 <= value <= 1.0
-            box.fill_score_map(
-                self,
-                value,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+            values.append(value)
+
+        boxes_mask = generate_fill_by_boxes_mask(self.shape, boxes, mode)
+        if boxes_mask is None:
+            for box, value in zip(boxes, values):
+                box.fill_score_map(
+                    score_map=self,
+                    value=value,
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                for idx, value in enumerate(values):
+                    if idx == 0:
+                        continue
+                    if values[0] != value:
+                        unique = False
+                        break
+
+            if unique:
+                boxes_mask.fill_score_map(
+                    score_map=self,
+                    value=values[0],
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+            else:
+                for box, value in zip(boxes, values):
+                    box_mask = box.extract_mask(boxes_mask).to_box_attached(box)
+                    box_mask.fill_score_map(
+                        score_map=self,
+                        value=value,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
 
     def fill_by_boxes(
         self,
         boxes: Iterable['Box'],
-        value: float = 1.0,
+        value: Union['ScoreMap', np.ndarray, float] = 1.0,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
         self.fill_by_box_value_pairs(
             box_value_pairs=((box, value) for box in boxes),
+            mode=mode,
             keep_max_value=keep_max_value,
             keep_min_value=keep_min_value,
+            skip_values_uniqueness_check=True,
         )
 
     def fill_by_polygon_value_pairs(
         self,
-        polygon_value_pairs: Iterable[Tuple['Polygon', float]],
+        polygon_value_pairs: Iterable[Tuple['Polygon', Union['ScoreMap', np.ndarray, float]]],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
+        skip_values_uniqueness_check: bool = False,
     ):
+        polygons: List[Polygon] = []
+        values: List[Union[ScoreMap, np.ndarray, float]] = []
         for polygon, value in polygon_value_pairs:
-            if self.score_as_prob:
-                assert 0.0 <= value <= 1.0
-            polygon.fill_score_map(
-                self,
-                value,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+            polygons.append(polygon)
+            values.append(value)
+
+        polygons_mask = generate_fill_by_polygons_mask(self.shape, polygons, mode)
+        if polygons_mask is None:
+            for polygon, value in zip(polygons, values):
+                polygon.fill_score_map(
+                    score_map=self,
+                    value=value,
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                for idx, value in enumerate(values):
+                    if idx == 0:
+                        continue
+                    if values[0] != value:
+                        unique = False
+                        break
+
+            if unique:
+                polygons_mask.fill_score_map(
+                    score_map=self,
+                    value=values[0],
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+            else:
+                for polygon, value in zip(polygons, values):
+                    bounding_box = polygon.to_bounding_box()
+                    polygon_mask = bounding_box.extract_mask(polygons_mask)
+                    polygon_mask = polygon_mask.to_box_attached(bounding_box)
+                    polygon_mask.fill_score_map(
+                        score_map=self,
+                        value=value,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
 
     def fill_by_polygons(
         self,
         polygons: Iterable['Polygon'],
-        value: float = 1.0,
+        value: Union['ScoreMap', np.ndarray, float] = 1,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
         self.fill_by_polygon_value_pairs(
             polygon_value_pairs=((polygon, value) for polygon in polygons),
+            mode=mode,
             keep_max_value=keep_max_value,
             keep_min_value=keep_min_value,
+            skip_values_uniqueness_check=True,
         )
 
     def fill_by_quad_interpolation(
@@ -427,7 +508,7 @@ class ScoreMap(Shapable):
 
 # Cyclic dependency, by design.
 from .image import Image  # noqa: E402
-from .box import Box  # noqa: E402
+from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
 from .mask import Mask  # noqa: E402
 from .point import Point  # noqa: E402
-from .polygon import Polygon  # noqa: E402
+from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402
