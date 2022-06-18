@@ -159,6 +159,18 @@ class Polygon:
         internals = self.to_fill_np_array_internals()
         return internals.bounding_box
 
+    def extract_mask(self, mask: 'Mask'):
+        internals = self.to_fill_np_array_internals()
+
+        extracted_mask = internals.bounding_box.extract_mask(mask)
+
+        negative_mask = Mask.from_shapable(extracted_mask)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(negative_mask)
+        extracted_mask.mat[negative_mask.mat == 0] = 0
+
+        return extracted_mask
+
     def fill_np_array(
         self,
         mat: np.ndarray,

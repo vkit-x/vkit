@@ -284,7 +284,15 @@ class Mask(Shapable):
         self,
         element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
     ):
-        pass
+        if isinstance(element, (Box, Polygon)):
+            return element.extract_mask(self)
+
+        elif isinstance(element, abc.Iterable):
+            elements = element
+            return [element.extract_mask(self) for element in elements]
+
+        else:
+            raise NotImplementedError()
 
     def to_inverted_mask(self):
         mat = (~self.np_mask).astype(np.uint8)
