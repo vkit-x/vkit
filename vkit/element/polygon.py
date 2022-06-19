@@ -159,32 +159,6 @@ class Polygon:
         internals = self.to_fill_np_array_internals()
         return internals.bounding_box
 
-    def extract_mask(self, mask: 'Mask'):
-        internals = self.to_fill_np_array_internals()
-
-        extracted_mask = internals.bounding_box.extract_mask(mask)
-        extracted_mask = extracted_mask.copy()
-
-        polygon_mask = Mask.from_shapable(extracted_mask)
-        shifted_polygon = internals.get_shifted_polygon()
-        shifted_polygon.fill_mask(polygon_mask)
-        polygon_mask.to_inverted_mask().fill_mask(extracted_mask, value=0)
-
-        return extracted_mask
-
-    def extract_score_map(self, score_map: 'ScoreMap'):
-        internals = self.to_fill_np_array_internals()
-
-        extracted_score_map = internals.bounding_box.extract_score_map(score_map)
-        extracted_score_map = extracted_score_map.copy()
-
-        polygon_mask = Mask.from_shapable(extracted_score_map)
-        shifted_polygon = internals.get_shifted_polygon()
-        shifted_polygon.fill_mask(polygon_mask)
-        polygon_mask.to_inverted_mask().fill_score_map(extracted_score_map, value=0.0)
-
-        return extracted_score_map
-
     def fill_np_array(
         self,
         mat: np.ndarray,
@@ -205,16 +179,18 @@ class Polygon:
             keep_min_value=keep_min_value,
         )
 
-    def fill_image(
-        self,
-        image: 'Image',
-        value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
-    ):
-        if isinstance(value, Image):
-            value = value.mat
+    def extract_mask(self, mask: 'Mask'):
+        internals = self.to_fill_np_array_internals()
 
-        self.fill_np_array(image.mat, value, alpha=alpha)
+        extracted_mask = internals.bounding_box.extract_mask(mask)
+        extracted_mask = extracted_mask.copy()
+
+        polygon_mask = Mask.from_shapable(extracted_mask)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_mask(extracted_mask, value=0)
+
+        return extracted_mask
 
     def fill_mask(
         self,
@@ -233,6 +209,19 @@ class Polygon:
             keep_min_value=keep_min_value,
         )
 
+    def extract_score_map(self, score_map: 'ScoreMap'):
+        internals = self.to_fill_np_array_internals()
+
+        extracted_score_map = internals.bounding_box.extract_score_map(score_map)
+        extracted_score_map = extracted_score_map.copy()
+
+        polygon_mask = Mask.from_shapable(extracted_score_map)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_score_map(extracted_score_map, value=0.0)
+
+        return extracted_score_map
+
     def fill_score_map(
         self,
         score_map: 'ScoreMap',
@@ -249,6 +238,30 @@ class Polygon:
             keep_max_value=keep_max_value,
             keep_min_value=keep_min_value,
         )
+
+    def extract_image(self, image: 'Image'):
+        internals = self.to_fill_np_array_internals()
+
+        extracted_image = internals.bounding_box.extract_image(image)
+        extracted_image = extracted_image.copy()
+
+        polygon_mask = Mask.from_shapable(extracted_image)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_image(extracted_image, value=0)
+
+        return extracted_image
+
+    def fill_image(
+        self,
+        image: 'Image',
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        alpha: Union[float, np.ndarray] = 1.0,
+    ):
+        if isinstance(value, Image):
+            value = value.mat
+
+        self.fill_np_array(image.mat, value, alpha=alpha)
 
     @staticmethod
     def remove_duplicated_xy_pairs(xy_pairs: Sequence[Tuple[int, int]]):

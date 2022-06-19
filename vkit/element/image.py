@@ -756,16 +756,15 @@ class Image(Shapable):
             Iterable['Mask'],
         ],
     ):  # yapf: disable
-        # if isinstance(element, (Box, Polygon, Mask)):
-        #     return element.extract_image(self)
+        if isinstance(element, (Box, Polygon, Mask)):
+            return element.extract_image(self)
 
-        # elif isinstance(element, abc.Iterable):
-        #     elements = element
-        #     return [element.extract_image(self) for element in elements]
+        elif isinstance(element, abc.Iterable):
+            elements = element
+            return [element.extract_image(self) for element in elements]
 
-        # else:
-        #     raise NotImplementedError()
-        pass
+        else:
+            raise NotImplementedError()
 
     def to_box_attached(self, box: 'Box'):
         return attrs.evolve(self, box=box)

@@ -423,17 +423,6 @@ class Mask(Shapable):
                 keep_min_value=keep_min_value,
             )
 
-    def fill_image(
-        self,
-        image: 'Image',
-        value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
-    ):
-        if isinstance(value, Image):
-            value = value.mat
-
-        self.fill_np_array(image.mat, value, alpha=alpha)
-
     def fill_mask(
         self,
         mask: 'Mask',
@@ -479,6 +468,25 @@ class Mask(Shapable):
     def to_score_map(self):
         mat = self.np_mask.astype(np.float32)
         return ScoreMap(mat=mat, box=self.box)
+
+    def extract_image(self, image: 'Image'):
+        if self.box:
+            image = self.box.extract_image(image)
+
+        image = image.copy()
+        self.to_inverted_mask().fill_image(image, value=0)
+        return image
+
+    def fill_image(
+        self,
+        image: 'Image',
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        alpha: Union[float, np.ndarray] = 1.0,
+    ):
+        if isinstance(value, Image):
+            value = value.mat
+
+        self.fill_np_array(image.mat, value, alpha=alpha)
 
 
 def generate_fill_by_masks_mask(
