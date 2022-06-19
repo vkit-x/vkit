@@ -524,7 +524,7 @@ class ScoreMap(Shapable):
             ScoreMapSetItemConfig,
         ],
     ):  # yapf: disable
-        if isinstance(config, (int, abc.Iterable)):
+        if isinstance(config, (float, abc.Iterable)):
             value = config
             mode = FillByElementsMode.UNION
             keep_max_value = False
@@ -555,7 +555,7 @@ class ScoreMap(Shapable):
                         keep_max_value=keep_max_value,
                         keep_min_value=keep_min_value,
                     )
-                elif isinstance(value, int):
+                elif isinstance(value, float):
                     self.fill_by_boxes(
                         boxes=boxes,
                         value=value,
@@ -575,7 +575,7 @@ class ScoreMap(Shapable):
                         keep_max_value=keep_max_value,
                         keep_min_value=keep_min_value,
                     )
-                elif isinstance(value, int):
+                elif isinstance(value, float):
                     self.fill_by_polygons(
                         polygons=polygons,
                         value=value,
@@ -595,7 +595,7 @@ class ScoreMap(Shapable):
                         keep_max_value=keep_max_value,
                         keep_min_value=keep_min_value,
                     )
-                elif isinstance(value, int):
+                elif isinstance(value, float):
                     self.fill_by_masks(
                         masks=masks,
                         value=value,
