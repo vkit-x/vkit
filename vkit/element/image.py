@@ -1,4 +1,4 @@
-from typing import Dict, Sequence, Tuple, Union, Optional
+from typing import cast, Dict, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
 from enum import Enum, unique
 
 import attrs
@@ -10,7 +10,7 @@ from PIL import (
 import cv2 as cv
 
 from vkit.utility import PathType
-from .type import Shapable
+from .type import Shapable, FillByElementsMode
 from .opt import generate_shape_and_resized_shape
 
 
@@ -207,6 +207,21 @@ _IMAGE_SRC_DST_KIND_TO_CV_CODE: Dict[Tuple[ImageKind, ImageKind], int] = {
 
 
 @attrs.define
+class ImageSetItemConfig:
+    value: Union[
+        'Image',
+        np.ndarray,
+        Tuple[int, ...],
+        int,
+        Iterable[Union['Image', np.ndarray, Tuple[int, ...], int]],
+    ]  # yapf: disable
+    mode: FillByElementsMode = FillByElementsMode.UNION
+
+
+_E = TypeVar('_E', 'Box', 'Polygon', 'Mask')
+
+
+@attrs.define
 class Image(Shapable):
     mat: np.ndarray
     kind: ImageKind = ImageKind.NONE
@@ -338,6 +353,319 @@ class Image(Shapable):
     def copy(self):
         mat = self.mat.copy()
         return attrs.evolve(self, mat=mat)
+
+    @staticmethod
+    def check_value_uniqueness(
+        value0: Union['Image', np.ndarray, Tuple[int, ...], int, float],
+        value1: Union['Image', np.ndarray, Tuple[int, ...], int, float],
+    ):
+        if type(value0) is not type(value1):
+            return False
+
+        if isinstance(value0, Image):
+            value1 = cast(Image, value1)
+            if value0.shape != value1.shape:
+                return False
+            return (value0.mat == value1.mat).all()
+
+        elif isinstance(value0, np.ndarray):
+            value1 = cast(np.ndarray, value1)
+            if value0.shape != value1.shape:
+                return False
+            return (value0 == value1).all()
+
+        elif isinstance(value0, tuple):
+            value1 = cast(tuple, value1)
+            assert len(value0) == len(value1)
+            return value0 == value1
+
+        elif isinstance(value0, int):
+            value1 = cast(int, value1)
+            return value0 == value1
+
+        elif isinstance(value0, float):
+            value1 = cast(float, value1)
+            return value0 == value1
+
+        else:
+            raise NotImplementedError()
+
+    @staticmethod
+    def check_values_uniqueness(
+        values: Sequence[Union['Image', np.ndarray, Tuple[int, ...], int, float]],
+        alphas: Sequence[Union[float, np.ndarray]]
+    ):
+        unique = True
+        for idx, (value, alpha) in enumerate(zip(values, alphas)):
+            if idx == 0:
+                continue
+            if not Image.check_value_uniqueness(values[0], value):
+                unique = False
+                break
+            if not Image.check_value_uniqueness(alphas[0], alpha):
+                unique = False
+                break
+        return unique
+
+    @staticmethod
+    def unpack_element_value_tuples(
+        element_value_tuples: Iterable[
+            Union[
+                Tuple[
+                    _E,
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                ],
+                Tuple[
+                    _E,
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                    Union[float, np.ndarray],
+                ],
+            ]
+        ],
+    ):  # yapf: disable
+        elements: List[_E] = []
+        values: List[Union[Image, np.ndarray, Tuple[int, ...], int]] = []
+        alphas: List[Union[float, np.ndarray]] = []
+
+        for element_value_tuple in element_value_tuples:
+            if len(element_value_tuple) == 2:
+                element, value = element_value_tuple
+                alpha = 1.0
+            else:
+                element, value, alpha = element_value_tuple
+            elements.append(element)
+            values.append(value)
+            alphas.append(alpha)
+
+        return elements, values, alphas
+
+    def fill_by_box_value_tuples(
+        self,
+        box_value_tuples: Iterable[
+            Union[
+                Tuple[
+                    'Box',
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                ],
+                Tuple[
+                    'Box',
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                    Union[float, np.ndarray],
+                ],
+            ]
+        ],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        skip_values_uniqueness_check: bool = False,
+    ):  # yapf: disable
+        boxes, values, alphas = self.unpack_element_value_tuples(box_value_tuples)
+
+        boxes_mask = generate_fill_by_boxes_mask(self.shape, boxes, mode)
+        if boxes_mask is None:
+            for box, value, alpha in zip(boxes, values, alphas):
+                box.fill_image(
+                    image=self,
+                    value=value,
+                    alpha=alpha,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                unique = self.check_values_uniqueness(values, alphas)
+
+            if unique:
+                boxes_mask.fill_image(
+                    image=self,
+                    value=values[0],
+                    alpha=alphas[0],
+                )
+            else:
+                for box, value, alpha in zip(boxes, values, alphas):
+                    box_mask = box.extract_mask(boxes_mask).to_box_attached(box)
+                    box_mask.fill_image(
+                        image=self,
+                        value=value,
+                        alpha=alpha,
+                    )
+
+    def fill_by_boxes(
+        self,
+        boxes: Iterable['Box'],
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        alpha: Union[float, np.ndarray] = 1.0,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+    ):
+        self.fill_by_box_value_tuples(
+            box_value_tuples=((box, value, alpha) for box in boxes),
+            mode=mode,
+            skip_values_uniqueness_check=True,
+        )
+
+    def fill_by_polygon_value_tuples(
+        self,
+        polygon_value_tuples: Iterable[
+            Union[
+                Tuple[
+                    'Polygon',
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                ],
+                Tuple[
+                    'Polygon',
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                    Union[float, np.ndarray],
+                ],
+            ]
+        ],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        skip_values_uniqueness_check: bool = False,
+    ):  # yapf: disable
+        polygons, values, alphas = self.unpack_element_value_tuples(polygon_value_tuples)
+
+        polygons_mask = generate_fill_by_polygons_mask(self.shape, polygons, mode)
+        if polygons_mask is None:
+            for polygon, value, alpha in zip(polygons, values, alphas):
+                polygon.fill_image(
+                    image=self,
+                    value=value,
+                    alpha=alpha,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                unique = self.check_values_uniqueness(values, alphas)
+
+            if unique:
+                polygons_mask.fill_image(
+                    image=self,
+                    value=values[0],
+                    alpha=alphas[0],
+                )
+            else:
+                for polygon, value, alpha in zip(polygons, values, alphas):
+                    bounding_box = polygon.to_bounding_box()
+                    polygon_mask = bounding_box.extract_mask(polygons_mask)
+                    polygon_mask = polygon_mask.to_box_attached(bounding_box)
+                    polygon_mask.fill_image(
+                        image=self,
+                        value=value,
+                        alpha=alpha,
+                    )
+
+    def fill_by_polygons(
+        self,
+        polygons: Iterable['Polygon'],
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        alpha: Union[float, np.ndarray] = 1.0,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+    ):
+        self.fill_by_polygon_value_tuples(
+            polygon_value_tuples=((polygon, value, alpha) for polygon in polygons),
+            mode=mode,
+            skip_values_uniqueness_check=True,
+        )
+
+    def fill_by_mask_value_tuples(
+        self,
+        mask_value_tuples: Iterable[
+            Union[
+                Tuple[
+                    'Mask',
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                ],
+                Tuple[
+                    'Mask',
+                    Union['Image', np.ndarray, Tuple[int, ...], int],
+                    Union[float, np.ndarray],
+                ],
+            ]
+        ],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        skip_values_uniqueness_check: bool = False,
+    ):  # yapf: disable
+        masks, values, alphas = self.unpack_element_value_tuples(mask_value_tuples)
+
+        masks_mask = generate_fill_by_masks_mask(self.shape, masks, mode)
+        if masks_mask is None:
+            for mask, value, alpha in zip(masks, values, alphas):
+                mask.fill_image(
+                    image=self,
+                    value=value,
+                    alpha=alpha,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                unique = self.check_values_uniqueness(values, alphas)
+
+            if unique:
+                masks_mask.fill_image(
+                    image=self,
+                    value=values[0],
+                    alpha=alphas[0],
+                )
+            else:
+                for mask, value, alpha in zip(masks, values, alphas):
+                    if mask.box:
+                        boxed_mask = mask.box.extract_mask(masks_mask)
+                    else:
+                        boxed_mask = masks_mask
+
+                    boxed_mask = boxed_mask.copy()
+                    mask.to_inverted_mask().fill_mask(boxed_mask, value=0)
+                    boxed_mask.fill_image(
+                        image=self,
+                        value=value,
+                        alpha=alpha,
+                    )
+
+    def fill_by_masks(
+        self,
+        masks: Iterable['Mask'],
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        alpha: Union[float, np.ndarray] = 1.0,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+    ):
+        self.fill_by_mask_value_tuples(
+            mask_value_tuples=((mask, value, alpha) for mask in masks),
+            mode=mode,
+            skip_values_uniqueness_check=True,
+        )
+
+    def __setitem__(
+        self,
+        element: Union[
+            'Box',
+            Iterable['Box'],
+            'Polygon',
+            Iterable['Polygon'],
+            'Mask',
+            Iterable['Mask'],
+        ],
+        config: Union[
+            'Image',
+            np.ndarray,
+            Tuple[int, ...],
+            int,
+            Iterable[Union['Image', np.ndarray, Tuple[int, ...], int]],
+            ImageSetItemConfig,
+        ],
+    ):  # yapf: disable
+        pass
+
+    def __getitem__(
+        self,
+        element: Union[
+            'Box',
+            Iterable['Box'],
+            'Polygon',
+            Iterable['Polygon'],
+            'Mask',
+            Iterable['Mask'],
+        ],
+    ):  # yapf: disable
+        pass
 
     def to_box_attached(self, box: 'Box'):
         return attrs.evolve(self, box=box)
@@ -486,4 +814,6 @@ class Image(Shapable):
 
 
 # Cyclic dependency, by design.
-from .box import Box  # noqa: E402
+from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
+from .mask import Mask, generate_fill_by_masks_mask  # noqa: E402
+from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402

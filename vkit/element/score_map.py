@@ -1,4 +1,4 @@
-from typing import cast, Optional, Tuple, Union, Iterable, Callable, List
+from typing import cast, Optional, Tuple, Union, Iterable, Callable, List, TypeVar, Sequence
 from collections import abc
 from itertools import chain
 
@@ -46,6 +46,9 @@ class NpVec:
 
     def __mul__(self, other: 'NpVec') -> np.ndarray:
         return self.x * other.y - self.y * other.x  # type: ignore
+
+
+_E = TypeVar('_E', 'Box', 'Polygon', 'Mask')
 
 
 @attrs.define
@@ -259,6 +262,68 @@ class ScoreMap(Shapable):
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
 
+    @staticmethod
+    def check_value_uniqueness(
+        value0: Union['ScoreMap', np.ndarray, float],
+        value1: Union['ScoreMap', np.ndarray, float],
+    ):
+        if type(value0) is not type(value1):
+            return False
+
+        if isinstance(value0, ScoreMap):
+            value1 = cast(ScoreMap, value1)
+            if value0.shape != value1.shape:
+                return False
+            return (value0.mat == value1.mat).all()
+
+        elif isinstance(value0, np.ndarray):
+            value1 = cast(np.ndarray, value1)
+            if value0.shape != value1.shape:
+                return False
+            return (value0 == value1).all()
+
+        elif isinstance(value0, float):
+            value1 = cast(float, value1)
+            return value0 == value1
+
+        else:
+            raise NotImplementedError()
+
+    @staticmethod
+    def check_values_uniqueness(values: Sequence[Union['ScoreMap', np.ndarray, float]]):
+        unique = True
+        for idx, value in enumerate(values):
+            if idx == 0:
+                continue
+            if not ScoreMap.check_value_uniqueness(values[0], value):
+                unique = False
+                break
+        return unique
+
+    @staticmethod
+    def unpack_element_value_pairs(
+        is_prob: bool,
+        element_value_pairs: Iterable[Tuple[_E, Union['ScoreMap', np.ndarray, float]]],
+    ):
+        elements: List[_E] = []
+
+        values: List[Union[ScoreMap, np.ndarray, float]] = []
+        for box, value in element_value_pairs:
+            elements.append(box)
+
+            if is_prob:
+                if isinstance(value, ScoreMap):
+                    assert (0.0 <= value.mat).all() and (value.mat <= 1.0).all()
+                elif isinstance(value, np.ndarray):
+                    assert (0.0 <= value).all() and (value <= 1.0).all()
+                elif isinstance(value, float):
+                    assert 0.0 <= value <= 1.0
+                else:
+                    raise NotImplementedError()
+            values.append(value)
+
+        return elements, values
+
     def fill_by_box_value_pairs(
         self,
         box_value_pairs: Iterable[Tuple['Box', Union['ScoreMap', np.ndarray, float]]],
@@ -267,14 +332,7 @@ class ScoreMap(Shapable):
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
     ):
-        boxes: List[Box] = []
-        values: List[Union[ScoreMap, np.ndarray, float]] = []
-        for box, value in box_value_pairs:
-            boxes.append(box)
-
-            if self.is_prob and isinstance(value, float):
-                assert 0.0 <= value <= 1.0
-            values.append(value)
+        boxes, values = self.unpack_element_value_pairs(self.is_prob, box_value_pairs)
 
         boxes_mask = generate_fill_by_boxes_mask(self.shape, boxes, mode)
         if boxes_mask is None:
@@ -289,12 +347,7 @@ class ScoreMap(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                for idx, value in enumerate(values):
-                    if idx == 0:
-                        continue
-                    if values[0] != value:
-                        unique = False
-                        break
+                unique = self.check_values_uniqueness(values)
 
             if unique:
                 boxes_mask.fill_score_map(
@@ -337,14 +390,7 @@ class ScoreMap(Shapable):
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
     ):
-        polygons: List[Polygon] = []
-        values: List[Union[ScoreMap, np.ndarray, float]] = []
-        for polygon, value in polygon_value_pairs:
-            polygons.append(polygon)
-
-            if self.is_prob and isinstance(value, float):
-                assert 0.0 <= value <= 1.0
-            values.append(value)
+        polygons, values = self.unpack_element_value_pairs(self.is_prob, polygon_value_pairs)
 
         polygons_mask = generate_fill_by_polygons_mask(self.shape, polygons, mode)
         if polygons_mask is None:
@@ -359,12 +405,7 @@ class ScoreMap(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                for idx, value in enumerate(values):
-                    if idx == 0:
-                        continue
-                    if values[0] != value:
-                        unique = False
-                        break
+                unique = self.check_values_uniqueness(values)
 
             if unique:
                 polygons_mask.fill_score_map(
@@ -409,14 +450,7 @@ class ScoreMap(Shapable):
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
     ):
-        masks: List[Mask] = []
-        values: List[Union[ScoreMap, np.ndarray, float]] = []
-        for mask, value in mask_value_pairs:
-            masks.append(mask)
-
-            if self.is_prob and isinstance(value, float):
-                assert 0.0 <= value <= 1.0
-            values.append(value)
+        masks, values = self.unpack_element_value_pairs(self.is_prob, mask_value_pairs)
 
         masks_mask = generate_fill_by_masks_mask(self.shape, masks, mode)
         if masks_mask is None:
@@ -431,12 +465,7 @@ class ScoreMap(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                for idx, value in enumerate(values):
-                    if idx == 0:
-                        continue
-                    if values[0] != value:
-                        unique = False
-                        break
+                unique = self.check_values_uniqueness(values)
 
             if unique:
                 masks_mask.fill_score_map(

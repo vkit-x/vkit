@@ -1,4 +1,4 @@
-from typing import cast, Optional, Tuple, Union, List, Iterable
+from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar, Sequence
 from collections import abc
 from itertools import chain
 
@@ -16,6 +16,9 @@ class MaskSetItemConfig:
     mode: FillByElementsMode = FillByElementsMode.UNION
     keep_max_value: bool = False
     keep_min_value: bool = False
+
+
+_E = TypeVar('_E', 'Box', 'Polygon')
 
 
 @attrs.define
@@ -70,6 +73,55 @@ class Mask(Shapable):
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
 
+    @staticmethod
+    def check_value_uniqueness(
+        value0: Union['Mask', np.ndarray, int],
+        value1: Union['Mask', np.ndarray, int],
+    ):
+        if type(value0) is not type(value1):
+            return False
+
+        if isinstance(value0, Mask):
+            value1 = cast(Mask, value1)
+            if value0.shape != value1.shape:
+                return False
+            return (value0.mat == value1.mat).all()
+
+        elif isinstance(value0, np.ndarray):
+            value1 = cast(np.ndarray, value1)
+            if value0.shape != value1.shape:
+                return False
+            return (value0 == value1).all()
+
+        elif isinstance(value0, int):
+            value1 = cast(int, value1)
+            return value0 == value1
+
+        else:
+            raise NotImplementedError()
+
+    @staticmethod
+    def check_values_uniqueness(values: Sequence[Union['Mask', np.ndarray, int]]):
+        unique = True
+        for idx, value in enumerate(values):
+            if idx == 0:
+                continue
+            if not Mask.check_value_uniqueness(values[0], value):
+                unique = False
+                break
+        return unique
+
+    @staticmethod
+    def unpack_element_value_pairs(
+        element_value_pairs: Iterable[Tuple[_E, Union['Mask', np.ndarray, int]]],
+    ):
+        elements: List[_E] = []
+        values: List[Union[Mask, np.ndarray, int]] = []
+        for element, value in element_value_pairs:
+            elements.append(element)
+            values.append(value)
+        return elements, values
+
     def fill_by_box_value_pairs(
         self,
         box_value_pairs: Iterable[Tuple['Box', Union['Mask', np.ndarray, int]]],
@@ -78,11 +130,7 @@ class Mask(Shapable):
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
     ):
-        boxes: List[Box] = []
-        values: List[Union[Mask, np.ndarray, int]] = []
-        for box, value in box_value_pairs:
-            boxes.append(box)
-            values.append(value)
+        boxes, values = self.unpack_element_value_pairs(box_value_pairs)
 
         boxes_mask = generate_fill_by_boxes_mask(self.shape, boxes, mode)
         if boxes_mask is None:
@@ -97,12 +145,7 @@ class Mask(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                for idx, value in enumerate(values):
-                    if idx == 0:
-                        continue
-                    if values[0] != value:
-                        unique = False
-                        break
+                unique = self.check_values_uniqueness(values)
 
             if unique:
                 boxes_mask.fill_mask(
@@ -145,11 +188,7 @@ class Mask(Shapable):
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
     ):
-        polygons: List[Polygon] = []
-        values: List[Union[Mask, np.ndarray, int]] = []
-        for polygon, value in polygon_value_pairs:
-            polygons.append(polygon)
-            values.append(value)
+        polygons, values = self.unpack_element_value_pairs(polygon_value_pairs)
 
         polygons_mask = generate_fill_by_polygons_mask(self.shape, polygons, mode)
         if polygons_mask is None:
@@ -164,12 +203,7 @@ class Mask(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                for idx, value in enumerate(values):
-                    if idx == 0:
-                        continue
-                    if values[0] != value:
-                        unique = False
-                        break
+                unique = self.check_values_uniqueness(values)
 
             if unique:
                 polygons_mask.fill_mask(
