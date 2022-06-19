@@ -75,6 +75,8 @@ pip install vkit-nightly
 ## Recent release plans
 
 * 22.2.0
+  - [X] Improve element classes design.
+  - [X] Improve element visualization.
   - [ ] Support dataset pipeline for OCR text detection
   - [X] Support CPython 3.10
 * 22.3.0
