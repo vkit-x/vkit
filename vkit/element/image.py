@@ -745,7 +745,6 @@ class Image(Shapable):
         else:
             raise NotImplementedError()
 
-
     def __getitem__(
         self,
         element: Union[
