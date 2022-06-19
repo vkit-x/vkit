@@ -116,7 +116,7 @@ class PageDistortionStep(
             assert sum(height_points_group_sizes) == np_heights.shape[0]
 
             page_distorted_text_line_heights = []
-            score_map = ScoreMap.from_shapable(result.image, score_as_prob=False)
+            score_map = ScoreMap.from_shapable(result.image, is_prob=False)
             begin = 0
             for polygon, group_size in zip(result.polygons, height_points_group_sizes):
                 end = begin + group_size - 1

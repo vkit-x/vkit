@@ -421,7 +421,7 @@ class Painter:
 
         mat = score_map.mat.copy()
 
-        if score_map.score_as_prob:
+        if score_map.is_prob:
             mat *= 255.0
 
         if enable_boundary_equalization:

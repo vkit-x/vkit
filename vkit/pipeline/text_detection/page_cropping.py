@@ -121,7 +121,7 @@ class PageCroppingStep(
 
             new_page_text_line_height_score_map = ScoreMap.from_shape(
                 cropped_shape,
-                score_as_prob=False,
+                is_prob=False,
             )
             target_box.fill_score_map(
                 new_page_text_line_height_score_map, page_text_line_height_score_map

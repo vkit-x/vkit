@@ -52,7 +52,7 @@ class NpVec:
 class ScoreMap(Shapable):
     mat: np.ndarray
     box: Optional['Box'] = None
-    score_as_prob: bool = True
+    is_prob: bool = True
 
     def __attrs_post_init__(self):
         if self.mat.ndim != 2:
@@ -63,7 +63,7 @@ class ScoreMap(Shapable):
         if self.mat.dtype != np.float32:
             raise RuntimeError('mat.dtype != np.float32')
 
-        if self.score_as_prob:
+        if self.is_prob:
             score_min = self.mat.min()
             score_max = self.mat.max()
             if score_min < 0.0 or score_max > 1.0:
@@ -76,24 +76,24 @@ class ScoreMap(Shapable):
     def from_shape(
         shape: Tuple[int, int],
         value: float = 0.0,
-        score_as_prob: bool = True,
+        is_prob: bool = True,
     ):
         height, width = shape
-        if score_as_prob:
+        if is_prob:
             assert 0.0 <= value <= 1.0
         mat = np.full((height, width), fill_value=value, dtype=np.float32)
-        return ScoreMap(mat=mat, score_as_prob=score_as_prob)
+        return ScoreMap(mat=mat, is_prob=is_prob)
 
     @staticmethod
     def from_shapable(
         shapable: Shapable,
         value: float = 0.0,
-        score_as_prob: bool = True,
+        is_prob: bool = True,
     ):
         return ScoreMap.from_shape(
             shape=shapable.shape,
             value=value,
-            score_as_prob=score_as_prob,
+            is_prob=is_prob,
         )
 
     @staticmethod
@@ -103,7 +103,7 @@ class ScoreMap(Shapable):
         point2: 'Point',
         point3: 'Point',
         func_np_uv_to_mat: Callable[[np.ndarray], np.ndarray],
-        score_as_prob: bool = True,
+        is_prob: bool = True,
     ):
         '''
         Ref: https://www.reedbeta.com/blog/quadrilateral-interpolation-part-2/
@@ -239,7 +239,7 @@ class ScoreMap(Shapable):
         return ScoreMap(
             mat=mat,
             box=bounding_box,
-            score_as_prob=score_as_prob,
+            is_prob=is_prob,
         )
 
     ############
@@ -272,7 +272,7 @@ class ScoreMap(Shapable):
         for box, value in box_value_pairs:
             boxes.append(box)
 
-            if self.score_as_prob and isinstance(value, float):
+            if self.is_prob and isinstance(value, float):
                 assert 0.0 <= value <= 1.0
             values.append(value)
 
@@ -342,7 +342,7 @@ class ScoreMap(Shapable):
         for polygon, value in polygon_value_pairs:
             polygons.append(polygon)
 
-            if self.score_as_prob and isinstance(value, float):
+            if self.is_prob and isinstance(value, float):
                 assert 0.0 <= value <= 1.0
             values.append(value)
 
@@ -414,7 +414,7 @@ class ScoreMap(Shapable):
         for mask, value in mask_value_pairs:
             masks.append(mask)
 
-            if self.score_as_prob and isinstance(value, float):
+            if self.is_prob and isinstance(value, float):
                 assert 0.0 <= value <= 1.0
             values.append(value)
 
@@ -620,7 +620,7 @@ class ScoreMap(Shapable):
             point2=point2,
             point3=point3,
             func_np_uv_to_mat=func_np_uv_to_mat,
-            score_as_prob=self.score_as_prob,
+            is_prob=self.is_prob,
         )
         np_non_zero_mask = (score_map.mat > 0.0)
         assert score_map.box
@@ -675,7 +675,7 @@ class ScoreMap(Shapable):
             (resized_width, resized_height),
             interpolation=cv_resize_interpolation,
         )
-        if self.score_as_prob:
+        if self.is_prob:
             # NOTE: Interpolation like bi-cubic could generate out-of-bound values.
             mat = np.clip(mat, 0.0, 1.0)
         return attrs.evolve(self, mat=mat)
