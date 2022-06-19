@@ -417,6 +417,14 @@ class Mask(Shapable):
             keep_min_value=keep_min_value,
         )
 
+    def extract_score_map(self, score_map: 'ScoreMap'):
+        if self.box:
+            score_map = self.box.extract_score_map(score_map)
+
+        score_map = score_map.copy()
+        self.to_inverted_mask().fill_score_map(score_map, value=0.0)
+        return score_map
+
     def fill_score_map(
         self,
         score_map: 'ScoreMap',
@@ -437,6 +445,37 @@ class Mask(Shapable):
     def to_score_map(self):
         mat = self.np_mask.astype(np.float32)
         return ScoreMap(mat=mat, box=self.box)
+
+
+def generate_fill_by_masks_mask(
+    shape: Tuple[int, int],
+    masks: Iterable[Mask],
+    mode: FillByElementsMode,
+):
+    if mode == FillByElementsMode.UNION:
+        return None
+
+    masks_mask = Mask.from_shape(shape)
+
+    for mask in masks:
+        if mask.box:
+            boxed_mat = mask.box.extract_np_array(masks_mask.mat)
+        else:
+            boxed_mat = masks_mask.mat
+
+        np_non_oob_mask = (boxed_mat < 255)
+        boxed_mat[mask.np_mask & np_non_oob_mask] += 1
+
+    if mode == FillByElementsMode.DISTINCT:
+        masks_mask.mat[masks_mask.mat > 1] = 0
+
+    elif mode == FillByElementsMode.INTERSECTION:
+        masks_mask.mat[masks_mask.mat == 1] = 0
+
+    else:
+        raise NotImplementedError()
+
+    return masks_mask
 
 
 # Cyclic dependency, by design.

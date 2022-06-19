@@ -163,6 +163,7 @@ class Polygon:
         internals = self.to_fill_np_array_internals()
 
         extracted_mask = internals.bounding_box.extract_mask(mask)
+        extracted_mask = extracted_mask.copy()
 
         polygon_mask = Mask.from_shapable(extracted_mask)
         shifted_polygon = internals.get_shifted_polygon()
@@ -175,6 +176,7 @@ class Polygon:
         internals = self.to_fill_np_array_internals()
 
         extracted_score_map = internals.bounding_box.extract_score_map(score_map)
+        extracted_score_map = extracted_score_map.copy()
 
         polygon_mask = Mask.from_shapable(extracted_score_map)
         shifted_polygon = internals.get_shifted_polygon()

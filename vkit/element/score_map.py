@@ -388,7 +388,7 @@ class ScoreMap(Shapable):
     def fill_by_polygons(
         self,
         polygons: Iterable['Polygon'],
-        value: Union['ScoreMap', np.ndarray, float] = 1,
+        value: Union['ScoreMap', np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
@@ -401,9 +401,92 @@ class ScoreMap(Shapable):
             skip_values_uniqueness_check=True,
         )
 
+    def fill_by_mask_value_pairs(
+        self,
+        mask_value_pairs: Iterable[Tuple['Mask', Union['ScoreMap', np.ndarray, float]]],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
+        skip_values_uniqueness_check: bool = False,
+    ):
+        masks: List[Mask] = []
+        values: List[Union[ScoreMap, np.ndarray, float]] = []
+        for mask, value in mask_value_pairs:
+            masks.append(mask)
+
+            if self.score_as_prob and isinstance(value, float):
+                assert 0.0 <= value <= 1.0
+            values.append(value)
+
+        masks_mask = generate_fill_by_masks_mask(self.shape, masks, mode)
+        if masks_mask is None:
+            for mask, value in zip(masks, values):
+                mask.fill_score_map(
+                    score_map=self,
+                    value=value,
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                for idx, value in enumerate(values):
+                    if idx == 0:
+                        continue
+                    if values[0] != value:
+                        unique = False
+                        break
+
+            if unique:
+                masks_mask.fill_score_map(
+                    score_map=self,
+                    value=values[0],
+                    keep_max_value=keep_max_value,
+                    keep_min_value=keep_min_value,
+                )
+            else:
+                for mask, value in zip(masks, values):
+                    if mask.box:
+                        boxed_mask = mask.box.extract_mask(masks_mask)
+                    else:
+                        boxed_mask = masks_mask
+
+                    boxed_mask = boxed_mask.copy()
+                    mask.to_inverted_mask().fill_mask(boxed_mask, value=0)
+                    boxed_mask.fill_score_map(
+                        score_map=self,
+                        value=value,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+
+    def fill_by_masks(
+        self,
+        masks: Iterable['Mask'],
+        value: Union['ScoreMap', np.ndarray, float] = 1.0,
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
+    ):
+        self.fill_by_mask_value_pairs(
+            mask_value_pairs=((mask, value) for mask in masks),
+            mode=mode,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+            skip_values_uniqueness_check=True,
+        )
+
     def __setitem__(
         self,
-        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+        element: Union[
+            'Box',
+            Iterable['Box'],
+            'Polygon',
+            Iterable['Polygon'],
+            'Mask',
+            Iterable['Mask'],
+        ],
         config: Union[
             'ScoreMap',
             np.ndarray,
@@ -425,7 +508,7 @@ class ScoreMap(Shapable):
         else:
             raise NotImplementedError()
 
-        if isinstance(element, (Box, Polygon)):
+        if isinstance(element, (Box, Polygon, Mask)):
             assert not isinstance(value, abc.Iterable)
             element.fill_score_map(score_map=self, value=value)
 
@@ -474,6 +557,26 @@ class ScoreMap(Shapable):
                 else:
                     raise NotImplementedError()
 
+            elif isinstance(first_element, Mask):
+                masks = cast(Iterable[Mask], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    self.fill_by_mask_value_pairs(
+                        mask_value_pairs=zip(masks, value),
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                elif isinstance(value, int):
+                    self.fill_by_masks(
+                        masks=masks,
+                        value=value,
+                        mode=mode,
+                        keep_max_value=keep_max_value,
+                        keep_min_value=keep_min_value,
+                    )
+                else:
+                    raise NotImplementedError()
+
             else:
                 raise NotImplementedError()
 
@@ -482,9 +585,16 @@ class ScoreMap(Shapable):
 
     def __getitem__(
         self,
-        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
-    ):
-        if isinstance(element, (Box, Polygon)):
+        element: Union[
+            'Box',
+            Iterable['Box'],
+            'Polygon',
+            Iterable['Polygon'],
+            'Mask',
+            Iterable['Mask'],
+        ],
+    ):  # yapf: disable
+        if isinstance(element, (Box, Polygon, Mask)):
             return element.extract_score_map(self)
 
         elif isinstance(element, abc.Iterable):
@@ -620,6 +730,6 @@ class ScoreMap(Shapable):
 # Cyclic dependency, by design.
 from .image import Image  # noqa: E402
 from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
-from .mask import Mask  # noqa: E402
+from .mask import Mask, generate_fill_by_masks_mask  # noqa: E402
 from .point import Point  # noqa: E402
 from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402
