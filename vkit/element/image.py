@@ -1,5 +1,7 @@
 from typing import cast, Dict, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
 from enum import Enum, unique
+from collections import abc
+from itertools import chain, cycle
 
 import attrs
 import numpy as np
@@ -215,6 +217,10 @@ class ImageSetItemConfig:
         int,
         Iterable[Union['Image', np.ndarray, Tuple[int, ...], int]],
     ]  # yapf: disable
+    alpha: Union[
+        Union[float, np.ndarray],
+        Iterable[Union[float, np.ndarray]],
+    ] = 1.0  # yapf: disable
     mode: FillByElementsMode = FillByElementsMode.UNION
 
 
@@ -652,7 +658,93 @@ class Image(Shapable):
             ImageSetItemConfig,
         ],
     ):  # yapf: disable
-        pass
+        if isinstance(config, (float, abc.Iterable)):
+            value = config
+            alpha = 1.0
+            mode = FillByElementsMode.UNION
+        elif isinstance(config, ImageSetItemConfig):
+            value = config.value
+            alpha = config.alpha
+            mode = config.mode
+        else:
+            raise NotImplementedError()
+
+        if isinstance(element, (Box, Polygon, Mask)):
+            assert not isinstance(value, abc.Iterable)
+            assert not isinstance(alpha, abc.Iterable)
+            element.fill_image(image=self, value=value, alpha=alpha)
+
+        elif isinstance(element, abc.Iterable):
+            elements_iter = iter(element)
+            first_element = next(elements_iter)
+            original_elements_iter = chain((first_element,), elements_iter)
+
+            if isinstance(first_element, Box):
+                boxes = cast(Iterable[Box], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
+                        alpha = cycle((alpha,))
+                    self.fill_by_box_value_tuples(
+                        box_value_tuples=zip(boxes, value, alpha),
+                        mode=mode,
+                    )
+                elif isinstance(value, int):
+                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
+                    self.fill_by_boxes(
+                        boxes=boxes,
+                        value=value,
+                        alpha=alpha,
+                        mode=mode,
+                    )
+                else:
+                    raise NotImplementedError()
+
+            elif isinstance(first_element, Polygon):
+                polygons = cast(Iterable[Polygon], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
+                        alpha = cycle((alpha,))
+                    self.fill_by_polygon_value_tuples(
+                        polygon_value_tuples=zip(polygons, value, alpha),
+                        mode=mode,
+                    )
+                elif isinstance(value, int):
+                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
+                    self.fill_by_polygons(
+                        polygons=polygons,
+                        value=value,
+                        alpha=alpha,
+                        mode=mode,
+                    )
+                else:
+                    raise NotImplementedError()
+
+            elif isinstance(first_element, Mask):
+                masks = cast(Iterable[Mask], original_elements_iter)
+                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
+                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
+                        alpha = cycle((alpha,))
+                    self.fill_by_mask_value_tuples(
+                        mask_value_tuples=zip(masks, value, alpha),
+                        mode=mode,
+                    )
+                elif isinstance(value, int):
+                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
+                    self.fill_by_masks(
+                        masks=masks,
+                        value=value,
+                        alpha=alpha,
+                        mode=mode,
+                    )
+                else:
+                    raise NotImplementedError()
+
+            else:
+                raise NotImplementedError()
+
+        else:
+            raise NotImplementedError()
+
 
     def __getitem__(
         self,
@@ -665,6 +757,15 @@ class Image(Shapable):
             Iterable['Mask'],
         ],
     ):  # yapf: disable
+        # if isinstance(element, (Box, Polygon, Mask)):
+        #     return element.extract_image(self)
+
+        # elif isinstance(element, abc.Iterable):
+        #     elements = element
+        #     return [element.extract_image(self) for element in elements]
+
+        # else:
+        #     raise NotImplementedError()
         pass
 
     def to_box_attached(self, box: 'Box'):
