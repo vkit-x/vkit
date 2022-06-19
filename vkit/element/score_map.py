@@ -729,7 +729,7 @@ class ScoreMap(Shapable):
 
 # Cyclic dependency, by design.
 from .image import Image  # noqa: E402
+from .point import Point  # noqa: E402
 from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
 from .mask import Mask, generate_fill_by_masks_mask  # noqa: E402
-from .point import Point  # noqa: E402
 from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402

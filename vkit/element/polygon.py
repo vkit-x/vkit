@@ -469,8 +469,8 @@ def generate_fill_by_polygons_mask(
 
 
 # Cyclic dependency, by design.
-from .image import Image  # noqa: E402
 from .point import Point, PointList  # noqa: E402
 from .box import Box  # noqa: E402
 from .mask import Mask  # noqa: E402
 from .score_map import ScoreMap  # noqa: E402
+from .image import Image  # noqa: E402
