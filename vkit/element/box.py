@@ -392,7 +392,7 @@ def generate_fill_by_boxes_mask(
     if mode == FillByElementsMode.DISTINCT:
         boxes_mask.mat[boxes_mask.mat > 1] = 0
 
-    elif mode == FillByElementsMode.INTERSECTION:
+    elif mode == FillByElementsMode.INTERSECT:
         boxes_mask.mat[boxes_mask.mat == 1] = 0
 
     else:

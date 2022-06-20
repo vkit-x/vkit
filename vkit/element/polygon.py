@@ -472,7 +472,7 @@ def generate_fill_by_polygons_mask(
     if mode == FillByElementsMode.DISTINCT:
         polygons_mask.mat[polygons_mask.mat > 1] = 0
 
-    elif mode == FillByElementsMode.INTERSECTION:
+    elif mode == FillByElementsMode.INTERSECT:
         polygons_mask.mat[polygons_mask.mat == 1] = 0
 
     else:

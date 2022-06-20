@@ -21,4 +21,4 @@ class Shapable:
 class FillByElementsMode(Enum):
     UNION = 'union'
     DISTINCT = 'distinct'
-    INTERSECTION = 'intersection'
+    INTERSECT = 'intersect'

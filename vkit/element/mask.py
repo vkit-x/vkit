@@ -511,7 +511,7 @@ def generate_fill_by_masks_mask(
     if mode == FillByElementsMode.DISTINCT:
         masks_mask.mat[masks_mask.mat > 1] = 0
 
-    elif mode == FillByElementsMode.INTERSECTION:
+    elif mode == FillByElementsMode.INTERSECT:
         masks_mask.mat[masks_mask.mat == 1] = 0
 
     else:
