@@ -16,7 +16,7 @@ from shapely.geometry import (
 from shapely.ops import unary_union
 import pyclipper
 
-from .type import Shapable
+from .type import Shapable, FillByElementsMode
 from .opt import fill_np_array
 
 logger = logging.getLogger(__name__)
@@ -155,6 +155,10 @@ class Polygon:
             shifted_np_points=np_points,
         )
 
+    def to_bounding_box(self):
+        internals = self.to_fill_np_array_internals()
+        return internals.bounding_box
+
     def fill_np_array(
         self,
         mat: np.ndarray,
@@ -175,23 +179,48 @@ class Polygon:
             keep_min_value=keep_min_value,
         )
 
-    def fill_image(
-        self,
-        image: 'Image',
-        value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
-    ):
-        if isinstance(value, Image):
-            value = value.mat
+    def extract_mask(self, mask: 'Mask'):
+        internals = self.to_fill_np_array_internals()
 
-        self.fill_np_array(image.mat, value, alpha=alpha)
+        extracted_mask = internals.bounding_box.extract_mask(mask)
+        extracted_mask = extracted_mask.copy()
+
+        polygon_mask = Mask.from_shapable(extracted_mask)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_mask(extracted_mask, value=0)
+
+        return extracted_mask
 
     def fill_mask(
         self,
         mask: 'Mask',
-        value: Union[np.ndarray, float] = 1,
+        value: Union['Mask', np.ndarray, int] = 1,
+        keep_max_value: bool = False,
+        keep_min_value: bool = False,
     ):
-        self.fill_np_array(mask.mat, value)
+        if isinstance(value, Mask):
+            value = value.mat
+
+        self.fill_np_array(
+            mask.mat,
+            value,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
+
+    def extract_score_map(self, score_map: 'ScoreMap'):
+        internals = self.to_fill_np_array_internals()
+
+        extracted_score_map = internals.bounding_box.extract_score_map(score_map)
+        extracted_score_map = extracted_score_map.copy()
+
+        polygon_mask = Mask.from_shapable(extracted_score_map)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_score_map(extracted_score_map, value=0.0)
+
+        return extracted_score_map
 
     def fill_score_map(
         self,
@@ -209,6 +238,30 @@ class Polygon:
             keep_max_value=keep_max_value,
             keep_min_value=keep_min_value,
         )
+
+    def extract_image(self, image: 'Image'):
+        internals = self.to_fill_np_array_internals()
+
+        extracted_image = internals.bounding_box.extract_image(image)
+        extracted_image = extracted_image.copy()
+
+        polygon_mask = Mask.from_shapable(extracted_image)
+        shifted_polygon = internals.get_shifted_polygon()
+        shifted_polygon.fill_mask(polygon_mask)
+        polygon_mask.to_inverted_mask().fill_image(extracted_image, value=0)
+
+        return extracted_image
+
+    def fill_image(
+        self,
+        image: 'Image',
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        alpha: Union[float, np.ndarray] = 1.0,
+    ):
+        if isinstance(value, Image):
+            value = value.mat
+
+        self.fill_np_array(image.mat, value, alpha=alpha)
 
     @staticmethod
     def remove_duplicated_xy_pairs(xy_pairs: Sequence[Tuple[int, int]]):
@@ -399,9 +452,38 @@ class TextPolygon:
         )
 
 
+def generate_fill_by_polygons_mask(
+    shape: Tuple[int, int],
+    polygons: Iterable[Polygon],
+    mode: FillByElementsMode,
+):
+    if mode == FillByElementsMode.UNION:
+        return None
+
+    polygons_mask = Mask.from_shape(shape)
+
+    for polygon in polygons:
+        internals = polygon.to_fill_np_array_internals()
+        boxed_mat = internals.bounding_box.extract_np_array(polygons_mask.mat)
+        np_polygon_mask = internals.get_np_mask()
+        np_non_oob_mask = (boxed_mat < 255)
+        boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
+
+    if mode == FillByElementsMode.DISTINCT:
+        polygons_mask.mat[polygons_mask.mat > 1] = 0
+
+    elif mode == FillByElementsMode.INTERSECT:
+        polygons_mask.mat[polygons_mask.mat == 1] = 0
+
+    else:
+        raise NotImplementedError()
+
+    return polygons_mask
+
+
 # Cyclic dependency, by design.
-from .image import Image  # noqa: E402
 from .point import Point, PointList  # noqa: E402
 from .box import Box  # noqa: E402
 from .mask import Mask  # noqa: E402
 from .score_map import ScoreMap  # noqa: E402
+from .image import Image  # noqa: E402

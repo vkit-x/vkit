@@ -6,13 +6,13 @@ from PIL import ImageColor as PilImageColor
 
 from vkit.utility.type import PathType
 from .type import Shapable
-from .image import Image, ImageKind
 from .point import Point, PointList
 from .line import Line
 from .box import Box, CharBox
 from .polygon import Polygon, TextPolygon
 from .mask import Mask
 from .score_map import ScoreMap
+from .image import Image, ImageKind
 
 
 class Painter:
@@ -421,7 +421,7 @@ class Painter:
 
         mat = score_map.mat.copy()
 
-        if score_map.score_as_prob:
+        if score_map.is_prob:
             mat *= 255.0
 
         if enable_boundary_equalization:

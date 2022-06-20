@@ -149,7 +149,7 @@ class CharGlyph:
                     resized_width=box.width,
                     cv_resize_interpolation=cv_resize_interpolation,
                 )
-            mask.box = box
+            mask = mask.to_box_attached(box)
 
         return mask
 
@@ -962,10 +962,10 @@ def render_text_line_meta(
         assert non_space_count == len(char_boxes)
 
         box = Box.from_shape(image.height, image.width)
-        image.box = box
-        mask.box = box
+        image = image.to_box_attached(box)
+        mask = mask.to_box_attached(box)
         if score_map:
-            score_map.box = box
+            score_map = score_map.to_box_attached(box)
 
         return TextLine(
             image=image,

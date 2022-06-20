@@ -1,4 +1,5 @@
 from typing import Tuple
+from enum import Enum, unique
 
 
 class Shapable:
@@ -14,3 +15,10 @@ class Shapable:
     @property
     def shape(self) -> Tuple[int, int]:
         return self.height, self.width
+
+
+@unique
+class FillByElementsMode(Enum):
+    UNION = 'union'
+    DISTINCT = 'distinct'
+    INTERSECT = 'intersect'
