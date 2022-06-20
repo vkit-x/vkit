@@ -133,7 +133,7 @@ class PipelineStepCollectionFactory:
         self,
         step_configs: Union[Sequence[Dict], PathType],
     ):
-        if is_path_type(step_configs):  # type: ignore
+        if is_path_type(step_configs):
             step_configs = read_json_file(step_configs)  # type: ignore
         step_configs = cast(Sequence[Dict], step_configs)
 

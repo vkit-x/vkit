@@ -23,8 +23,8 @@ from cattrs.errors import ClassValidationError
 from vkit.utility import PathType
 
 
-def is_path_type(path: PathType):
-    return isinstance(path, (str, bytes, PathLike))  # type: ignore
+def is_path_type(path: Any):
+    return isinstance(path, (str, PathLike))  # type: ignore
 
 
 def read_json_file(path: PathType):
