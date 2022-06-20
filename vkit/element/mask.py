@@ -251,18 +251,17 @@ class Mask(Shapable):
             MaskSetItemConfig,
         ],
     ):  # yapf: disable
-        if isinstance(config, (int, abc.Iterable)):
+        if not isinstance(config, MaskSetItemConfig):
             value = config
             mode = FillByElementsMode.UNION
             keep_max_value = False
             keep_min_value = False
-        elif isinstance(config, MaskSetItemConfig):
+        else:
+            assert isinstance(config, MaskSetItemConfig)
             value = config.value
             mode = config.mode
             keep_max_value = config.keep_max_value
             keep_min_value = config.keep_min_value
-        else:
-            raise NotImplementedError()
 
         if isinstance(element, (Box, Polygon)):
             assert not isinstance(value, abc.Iterable)

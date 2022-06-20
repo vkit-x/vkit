@@ -658,16 +658,15 @@ class Image(Shapable):
             ImageSetItemConfig,
         ],
     ):  # yapf: disable
-        if isinstance(config, (float, abc.Iterable)):
+        if not isinstance(config, ImageSetItemConfig):
             value = config
             alpha = 1.0
             mode = FillByElementsMode.UNION
-        elif isinstance(config, ImageSetItemConfig):
+        else:
+            assert isinstance(config, ImageSetItemConfig)
             value = config.value
             alpha = config.alpha
             mode = config.mode
-        else:
-            raise NotImplementedError()
 
         if isinstance(element, (Box, Polygon, Mask)):
             assert not isinstance(value, abc.Iterable)

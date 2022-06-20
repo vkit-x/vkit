@@ -524,18 +524,17 @@ class ScoreMap(Shapable):
             ScoreMapSetItemConfig,
         ],
     ):  # yapf: disable
-        if isinstance(config, (float, abc.Iterable)):
+        if not isinstance(config, ScoreMapSetItemConfig):
             value = config
             mode = FillByElementsMode.UNION
             keep_max_value = False
             keep_min_value = False
-        elif isinstance(config, ScoreMapSetItemConfig):
+        else:
+            assert isinstance(config, ScoreMapSetItemConfig)
             value = config.value
             mode = config.mode
             keep_max_value = config.keep_max_value
             keep_min_value = config.keep_min_value
-        else:
-            raise NotImplementedError()
 
         if isinstance(element, (Box, Polygon, Mask)):
             assert not isinstance(value, abc.Iterable)
