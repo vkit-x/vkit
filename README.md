@@ -7,7 +7,6 @@
 <img alt="logo.svg" width="230" src="https://vkit.vkit-x.com/img/logo.svg" />
 
 [![schedule](https://github.com/vkit-x/vkit/actions/workflows/schedule.yaml/badge.svg)](https://github.com/vkit-x/vkit/actions/workflows/schedule.yaml)
-[![license](https://img.shields.io/github/license/vkit-x/vkit)](https://github.com/vkit-x/vkit/blob/master/LICENSE)
 
 </div>
 

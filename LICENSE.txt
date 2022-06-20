@@ -1,0 +1,11 @@
+This project (vkit-x/vkit) is dual-licensed under commercial and open source licenses.
+
+The commercial license gives you the full rights to create and distribute software
+on your own terms without any open source license obligations. For more information,
+please see the "LICENSE_COMMERCIAL.txt" file.
+
+This project is also available under GNU Affero General Public License Version 3 (AGPL-3.0-only).
+The open source licensing is ideal for use cases such as open source projects with
+open source distribution, student/academic purposes, hobby projects, internal research
+projects without external distribution, or other projects where all AGPL-3.0-only
+obligations can be met. For more information, please see the "LICENSE_OSS.txt" file.
