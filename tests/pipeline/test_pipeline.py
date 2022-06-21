@@ -105,13 +105,13 @@ def test_page_text_line():
                     "weight": 1,
                     "type": "corpus",
                     "config": {
-                        "txt_file": "$VKIT_PRIVATE_DATA/char_sampler/corp-address-debug.txt"
+                        "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/corp-address-debug.txt"]
                     }
                 }, {
                     "weight": 1,
                     "type": "corpus",
                     "config": {
-                        "txt_file": "$VKIT_PRIVATE_DATA/char_sampler/corp-name-debug.txt"
+                        "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/corp-name-debug.txt"]
                     }
                 }],
                 'font_configs': [{

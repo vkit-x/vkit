@@ -35,7 +35,7 @@ class PageResizingStep(
         super().__init__(config)
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_distortion_step_output = self.get_output(state, PageDistortionStep)
+        page_distortion_step_output = state.get_pipeline_step_output(PageDistortionStep)
         page_image = page_distortion_step_output.page_image
         page_text_line_mask = page_distortion_step_output.page_text_line_mask
         assert page_text_line_mask

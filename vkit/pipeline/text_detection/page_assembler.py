@@ -44,19 +44,19 @@ class PageAssemblerStep(
 ):  # yapf: disable
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_layout_step_output = self.get_output(state, PageLayoutStep)
+        page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 
-        page_background_step_output = self.get_output(state, PageBackgroundStep)
+        page_background_step_output = state.get_pipeline_step_output(PageBackgroundStep)
         background_image = page_background_step_output.background_image
 
-        page_image_step_output = self.get_output(state, PageImageStep)
+        page_image_step_output = state.get_pipeline_step_output(PageImageStep)
         page_image_collection = page_image_step_output.page_image_collection
 
-        page_text_line_step_output = self.get_output(state, PageTextLineStep)
+        page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
-        page_text_line_label_step_output = self.get_output(state, PageTextLineLabelStep)
+        page_text_line_label_step_output = state.get_pipeline_step_output(PageTextLineLabelStep)
         page_text_line_polygon_collection = \
             page_text_line_label_step_output.page_text_line_polygon_collection
 

@@ -237,7 +237,7 @@ class PageTextLineLabelStep(
         return boundary_score_map
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_text_line_step_output = self.get_output(state, PageTextLineStep)
+        page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
         page_text_line_polygon_collection = self.generate_page_text_line_polygon_collection(

@@ -116,7 +116,7 @@ class PageTextLineStep(
         self.font_aggregator = font_factory.create(self.config.font_configs)
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_layout_step_output = self.get_output(state, PageLayoutStep)
+        page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 
         text_lines: List[TextLine] = []

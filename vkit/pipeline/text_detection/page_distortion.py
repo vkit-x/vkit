@@ -60,7 +60,7 @@ class PageDistortionStep(
         )
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_assembler_step_output = self.get_output(state, PageAssemblerStep)
+        page_assembler_step_output = state.get_pipeline_step_output(PageAssemblerStep)
         page = page_assembler_step_output.page
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
         polygons = page_text_line_polygon_collection.polygons

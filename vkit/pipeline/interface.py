@@ -24,6 +24,8 @@ from vkit.utility import (
 )
 
 _T_VALUE = TypeVar('_T_VALUE')
+_T_CONFIG = TypeVar('_T_CONFIG')
+_T_OUTPUT = TypeVar('_T_OUTPUT')
 
 
 @attrs.define
@@ -43,15 +45,19 @@ class PipelineState:
             raise KeyError(f'key={key} exists but override is not set.')
         self.key_to_value[key] = value
 
+    def get_pipeline_step_output(
+        self,
+        pipeline_step: 'Type[PipelineStep[Any, _T_OUTPUT]]',
+    ) -> _T_OUTPUT:
+        return self.get_value(
+            pipeline_step.get_name(),
+            pipeline_step.get_output_cls(),
+        )
+
 
 @attrs.define
 class NoneTypePipelineStepConfig:
     pass
-
-
-_T_CONFIG = TypeVar('_T_CONFIG')
-_T_OUTPUT = TypeVar('_T_OUTPUT')
-_T_OTHER_OUTPUT = TypeVar('_T_OTHER_OUTPUT')
 
 
 class PipelineStep(Generic[_T_CONFIG, _T_OUTPUT]):
@@ -74,16 +80,6 @@ class PipelineStep(Generic[_T_CONFIG, _T_OUTPUT]):
 
     def __init__(self, config: _T_CONFIG):
         self.config = config
-
-    def get_output(
-        self,
-        state: PipelineState,
-        other: 'Type[PipelineStep[Any, _T_OTHER_OUTPUT]]',
-    ) -> _T_OTHER_OUTPUT:
-        return state.get_value(
-            other.get_name(),
-            other.get_output_cls(),
-        )
 
     def run(self, state: PipelineState, rnd: RandomState) -> _T_OUTPUT:
         raise NotImplementedError()

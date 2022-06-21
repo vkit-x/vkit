@@ -181,7 +181,7 @@ class PageCroppingStep(
         )
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_resizing_step_output = self.get_output(state, PageResizingStep)
+        page_resizing_step_output = state.get_pipeline_step_output(PageResizingStep)
         page_image = page_resizing_step_output.page_image
         page_text_line_mask = page_resizing_step_output.page_text_line_mask
         page_text_line_height_score_map = page_resizing_step_output.page_text_line_height_score_map

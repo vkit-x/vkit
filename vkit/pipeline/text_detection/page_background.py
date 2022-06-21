@@ -63,7 +63,7 @@ class PageBackgroundStep(
         ])
 
     def run(self, state: PipelineState, rnd: RandomState):
-        page_shape_step_output = self.get_output(state, PageShapeStep)
+        page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
         height = page_shape_step_output.height
         width = page_shape_step_output.width
 
