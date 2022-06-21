@@ -1,4 +1,4 @@
-from typing import Sequence, List, Optional
+from typing import Sequence, List, Optional, Tuple
 
 import attrs
 from numpy.random import RandomState
@@ -29,13 +29,20 @@ class PageCroppingStepConfig:
 
 
 @attrs.define
+class DownsampledLabel:
+    shape: Tuple[int, int]
+    core_box: Box
+    page_text_line_mask: Mask
+    page_text_line_height_score_map: ScoreMap
+
+
+@attrs.define
 class CroppedPage:
     page_image: Image
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
     core_box: Box
-    page_downsampled_text_line_mask: Optional[Mask]
-    page_downsampled_text_line_height_score_map: Optional[ScoreMap]
+    downsampled_label: Optional[DownsampledLabel]
 
 
 @attrs.define
@@ -128,6 +135,8 @@ class PageCroppingStep(
             )
             page_text_line_height_score_map = new_page_text_line_height_score_map
 
+        assert page_image.shape == cropped_shape
+
         core_begin = self.config.pad_size
         core_end = core_begin + self.config.core_size - 1
         core_box = Box(up=core_begin, down=core_end, left=core_begin, right=core_end)
@@ -144,40 +153,61 @@ class PageCroppingStep(
             if not page_text_line_mask.mat.any():
                 return None
 
-        page_downsampled_text_line_mask: Optional[Mask] = None
-        page_downsampled_text_line_height_score_map: Optional[ScoreMap] = None
+        downsampled_label: Optional[DownsampledLabel] = None
         if self.config.enable_downsample_labeling:
-            assert core_box.height % self.config.downsample_labeling_factor == 0
-            assert core_box.width % self.config.downsample_labeling_factor == 0
+            downsample_labeling_factor = self.config.downsample_labeling_factor
 
-            page_downsampled_text_line_mask = page_text_line_mask.copy()
-            page_downsampled_text_line_mask.box = None
-            page_downsampled_text_line_height_score_map = page_text_line_height_score_map.copy()
-            page_downsampled_text_line_height_score_map.box = None
+            assert self.config.crop_size % downsample_labeling_factor == 0
+            downsampled_size = self.config.crop_size // downsample_labeling_factor
+            downsampled_shape = (downsampled_size, downsampled_size)
 
-            resized_height = core_box.height // self.config.downsample_labeling_factor
-            resized_width = core_box.width // self.config.downsample_labeling_factor
+            assert self.config.pad_size % downsample_labeling_factor == 0
+            assert self.config.core_size % downsample_labeling_factor == 0
+            assert core_box.height == core_box.width == self.config.core_size
 
-            page_downsampled_text_line_mask = \
-                page_downsampled_text_line_mask.to_resized_mask(
-                    resized_height=resized_height,
-                    resized_width=resized_width,
+            downsampled_pad_size = self.config.pad_size // downsample_labeling_factor
+            downsampled_core_size = self.config.core_size // downsample_labeling_factor
+
+            downsampled_core_begin = downsampled_pad_size
+            downsampled_core_end = downsampled_core_begin + downsampled_core_size - 1
+            downsampled_core_box = Box(
+                up=downsampled_core_begin,
+                down=downsampled_core_end,
+                left=downsampled_core_begin,
+                right=downsampled_core_end,
+            )
+
+            downsampled_page_text_line_mask = page_text_line_mask.copy()
+            downsampled_page_text_line_mask.box = None
+            downsampled_page_text_line_mask = \
+                downsampled_page_text_line_mask.to_resized_mask(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
-            page_downsampled_text_line_height_score_map = \
-                page_downsampled_text_line_height_score_map.to_resized_score_map(
-                    resized_height=resized_height,
-                    resized_width=resized_width,
+
+            downsampled_page_text_line_height_score_map = page_text_line_height_score_map.copy()
+            downsampled_page_text_line_height_score_map.box = None
+            downsampled_page_text_line_height_score_map = \
+                downsampled_page_text_line_height_score_map.to_resized_score_map(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
+
+            downsampled_label = DownsampledLabel(
+                shape=downsampled_shape,
+                core_box=downsampled_core_box,
+                page_text_line_mask=downsampled_page_text_line_mask,
+                page_text_line_height_score_map=downsampled_page_text_line_height_score_map,
+            )
 
         return CroppedPage(
             page_image=page_image,
             page_text_line_mask=page_text_line_mask,
             page_text_line_height_score_map=page_text_line_height_score_map,
             core_box=core_box,
-            page_downsampled_text_line_mask=page_downsampled_text_line_mask,
-            page_downsampled_text_line_height_score_map=page_downsampled_text_line_height_score_map,
+            downsampled_label=downsampled_label,
         )
 
     def run(self, state: PipelineState, rnd: RandomState):

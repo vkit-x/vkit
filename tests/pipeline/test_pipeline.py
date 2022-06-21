@@ -360,9 +360,12 @@ def test_page():
             painter.paint_score_map(cropped_page.page_text_line_height_score_map)
             write_image(f'page_cropped_{seed}_{idx}_score_map.jpg', painter.image)
 
-            page_downsampled_text_line_mask = cropped_page.page_downsampled_text_line_mask
+            downsampled_label = cropped_page.downsampled_label
+            assert downsampled_label
+
+            page_downsampled_text_line_mask = downsampled_label.page_text_line_mask
             assert page_downsampled_text_line_mask
-            page_downsampled_text_line_height_score_map = cropped_page.page_downsampled_text_line_height_score_map
+            page_downsampled_text_line_height_score_map = downsampled_label.page_text_line_height_score_map
             assert page_downsampled_text_line_height_score_map
 
             painter = Painter.create(page_downsampled_text_line_mask)
