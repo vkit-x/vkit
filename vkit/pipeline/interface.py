@@ -175,7 +175,8 @@ class BypassPipelinePostProcessor(
 class PipelinePostProcessorFactory(Generic[_T_CONFIG, _T_OUTPUT]):
 
     def __init__(
-        self, pipeline_post_processor_cls: Type[PipelinePostProcessor[_T_CONFIG, _T_OUTPUT]]
+        self,
+        pipeline_post_processor_cls: Type[PipelinePostProcessor[_T_CONFIG, _T_OUTPUT]],
     ):
         self.pipeline_post_processor_cls = pipeline_post_processor_cls
 
