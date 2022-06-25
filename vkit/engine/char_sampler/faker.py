@@ -57,18 +57,21 @@ class FakerCharSamplerEngine(
         total = sum(weights)
         self.methods_probs = [weight / total for weight in weights]
 
-    def sample_from_faker(self, rnd: RandomState):
-        faker = Faker(OrderedDict(self.config.local_to_weight))
-        seed = rnd.get_state()[1].tobytes()  # type: ignore
-        for local in self.config.local_to_weight:
-            faker[local].seed(seed)
+        self.faker = Faker(OrderedDict(self.config.local_to_weight))
 
-        method = rnd_choice(rnd, self.methods, probs=self.methods_probs)
+    def sample_from_faker(self, rnd: RandomState):
         while True:
-            text = getattr(faker, method)()
+            method = rnd_choice(rnd, self.methods, probs=self.methods_probs)
+            seed = rnd.get_state()[1].tobytes()  # type: ignore
+            for local in self.config.local_to_weight:
+                self.faker[local].seed(seed)
+
+            text = getattr(self.faker, method)()
             segments: List[str] = []
             for segment in text.split():
-                segment = ''.join(char for char in text if self.lexicon_collection.has_char(char))
+                segment = ''.join(
+                    char for char in segment if self.lexicon_collection.has_char(char)
+                )
                 if segment:
                     segments.append(segment)
             if segments:
