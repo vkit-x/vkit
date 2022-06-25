@@ -57,9 +57,13 @@ class FakerCharSamplerEngine(
         total = sum(weights)
         self.methods_probs = [weight / total for weight in weights]
 
-        self.faker = Faker(OrderedDict(self.config.local_to_weight))
+        self.faker: Optional[Faker] = None
 
     def sample_from_faker(self, rnd: RandomState):
+        # Faker is not picklable, hence need a lazy initialization.
+        if self.faker is None:
+            self.faker = Faker(OrderedDict(self.config.local_to_weight))
+
         while True:
             method = rnd_choice(rnd, self.methods, probs=self.methods_probs)
             seed = rnd.get_state()[1].tobytes()  # type: ignore
