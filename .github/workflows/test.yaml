@@ -47,8 +47,8 @@ jobs:
           lines = text_deps.splitlines()
           new_lines = []
           for line in lines:
-              line = line.replace('>=', '==', 1)
-              new_lines.append(line)
+              new_line = line.replace('>=', '==', 1)
+              new_lines.append(new_line)
           new_text_deps = '\n'.join(new_lines)
 
           new_text = text[:begin] + new_text_deps + text[end:]

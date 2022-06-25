@@ -476,7 +476,7 @@ def place_char_glyphs_in_text_line_hori_default(
                         rnd.normal(loc=word_space_mean, scale=word_space_std),
                         word_space_min,
                         word_space_max,
-                    )
+                    )  # type: ignore
                 )
 
         else:
@@ -486,7 +486,7 @@ def place_char_glyphs_in_text_line_hori_default(
                     rnd.normal(loc=char_space_mean, scale=char_space_std),
                     char_space_min,
                     char_space_max,
-                )
+                )  # type: ignore
             )
 
         hori_offset += space
@@ -576,7 +576,7 @@ def place_char_glyphs_in_text_line_vert_default(
                         rnd.normal(loc=word_space_mean, scale=word_space_std),
                         word_space_min,
                         word_space_max,
-                    )
+                    )  # type: ignore
                 )
 
         else:
@@ -586,7 +586,7 @@ def place_char_glyphs_in_text_line_vert_default(
                     rnd.normal(loc=char_space_mean, scale=char_space_std),
                     char_space_min,
                     char_space_max,
-                )
+                )  # type: ignore
             )
 
         vert_offset += space
@@ -711,6 +711,12 @@ def resize_and_trim_text_line_hori_default(
         last_char_box_idx = len(char_boxes) - 1
         while last_char_box_idx >= 0 and char_boxes[last_char_box_idx].right >= config.width:
             last_char_box_idx -= 1
+
+        if last_char_box_idx == len(char_boxes) - 1:
+            # Corner case: char_boxes[-1].right < config.width but mage.width > config.width.
+            # This is caused by glyph padding. The solution is to drop this char.
+            last_char_box_idx -= 1
+
         if last_char_box_idx < 0 or char_boxes[last_char_box_idx].right >= config.width:
             # Cannot trim.
             return None, None, None, None
@@ -846,6 +852,10 @@ def resize_and_trim_text_line_vert_default(
         last_char_box_idx = len(char_boxes) - 1
         while last_char_box_idx >= 0 and char_boxes[last_char_box_idx].down >= config.height:
             last_char_box_idx -= 1
+
+        if last_char_box_idx == len(char_boxes) - 1:
+            last_char_box_idx -= 1
+
         if last_char_box_idx < 0 or char_boxes[last_char_box_idx].down >= config.height:
             # Cannot trim.
             return None, None, None, None
