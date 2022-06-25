@@ -476,7 +476,7 @@ def place_char_glyphs_in_text_line_hori_default(
                         rnd.normal(loc=word_space_mean, scale=word_space_std),
                         word_space_min,
                         word_space_max,
-                    )
+                    )  # type: ignore
                 )
 
         else:
@@ -486,7 +486,7 @@ def place_char_glyphs_in_text_line_hori_default(
                     rnd.normal(loc=char_space_mean, scale=char_space_std),
                     char_space_min,
                     char_space_max,
-                )
+                )  # type: ignore
             )
 
         hori_offset += space
@@ -576,7 +576,7 @@ def place_char_glyphs_in_text_line_vert_default(
                         rnd.normal(loc=word_space_mean, scale=word_space_std),
                         word_space_min,
                         word_space_max,
-                    )
+                    )  # type: ignore
                 )
 
         else:
@@ -586,7 +586,7 @@ def place_char_glyphs_in_text_line_vert_default(
                     rnd.normal(loc=char_space_mean, scale=char_space_std),
                     char_space_min,
                     char_space_max,
-                )
+                )  # type: ignore
             )
 
         vert_offset += space

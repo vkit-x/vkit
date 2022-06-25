@@ -804,7 +804,7 @@ class Image(Shapable):
         mat = np.round(mat)
         mat = np.clip(mat, 0, 255).astype(np.uint8)
 
-        return Image(mat=mat, kind=kind)
+        return Image(mat=mat, kind=kind)  # type: ignore
 
     def to_target_kind_image(self, target_kind: ImageKind):
         if target_kind == self.kind:
