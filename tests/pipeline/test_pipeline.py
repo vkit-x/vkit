@@ -467,3 +467,82 @@ def test_page():
         #             f'debug_text_lines/{seed}/{idx}_font_variant.json',
         #             font_variant_data,
         #         )
+
+
+@pytest.mark.local
+def debug_adaptive_scaling_pipeline():
+    steps_json = '$VKIT_ARTIFACT_PACK/pipeline/text_detection/adaptive_scaling_until_page.json'
+    pipeline = Pipeline(
+        steps=pipeline_step_collection_factory.create(steps_json),
+        post_processor=bypass_post_processor_factory.create(),
+    )
+
+    for rnd_seed in range(0, 1000):
+        print('rnd_seed =', rnd_seed)
+        pipeline.run(RandomState(rnd_seed))
+
+
+# @pytest.mark.local
+# def debug_font_face_diff_index():
+#     import iolite as io
+
+#     font_file = io.file(
+#         '$VKIT_ARTIFACT_PACK/font_collection/font/WenQuanYiZenHei.ttc',
+#         expandvars=True,
+#         exists=True,
+#     )
+
+#     import freetype
+
+#     face0 = freetype.Face(str(font_file), index=0)
+
+#     face2 = freetype.Face(str(font_file), index=2)
+
+#     codepoints = []
+#     codepoint, index = face2.get_first_char()
+#     assert index
+#     codepoints.append(codepoint)
+#     while index:
+#         codepoint, index = face2.get_next_char(codepoint, index)
+#         codepoints.append(codepoint)
+
+#     chars = [chr(cp) for cp in codepoints]
+#     breakpoint()
+
+#     base_res = 72
+#     font_size = 15
+
+#     face0.set_char_size(
+#         width=font_size << 6,
+#         height=0,
+#         hres=base_res,
+#         vres=base_res,
+#     )
+#     face2.set_char_size(
+#         width=font_size << 6,
+#         height=0,
+#         hres=base_res,
+#         vres=base_res,
+#     )
+
+#     load_char_flags = freetype.FT_LOAD_RENDER  # type: ignore
+
+#     char = '抑'
+
+#     face0.load_char(char, load_char_flags)
+#     glyph = face0.glyph
+#     bitmap = glyph.bitmap
+
+#     height = bitmap.rows
+#     width = bitmap.width
+#     # assert width == bitmap.pitch
+#     print('face0, height =', height, 'width =', width, 'pitch =', bitmap.pitch)
+
+#     face2.load_char(char, load_char_flags)
+#     glyph = face2.glyph
+#     bitmap = glyph.bitmap
+
+#     height = bitmap.rows
+#     width = bitmap.width
+#     # assert width == bitmap.pitch
+#     print('face2, height =', height, 'width =', width, 'pitch =', bitmap.pitch)
