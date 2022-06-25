@@ -477,9 +477,22 @@ def debug_adaptive_scaling_pipeline():
         post_processor=bypass_post_processor_factory.create(),
     )
 
+    from pyinstrument import Profiler
+
+    # p = Profiler(async_mode='disabled')
+    # p.start()
+    # pipeline.run(RandomState(770))
+    # p.stop()
+    # p.print()
+
+    p = Profiler(async_mode='disabled')
+    p.start()
     for rnd_seed in range(0, 1000):
         print('rnd_seed =', rnd_seed)
         pipeline.run(RandomState(rnd_seed))
+    p.stop()
+    p.print()
+    breakpoint()
 
 
 # @pytest.mark.local

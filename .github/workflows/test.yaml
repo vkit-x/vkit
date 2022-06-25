@@ -47,10 +47,7 @@ jobs:
           lines = text_deps.splitlines()
           new_lines = []
           for line in lines:
-              if '<' in line.split(';')[0]:
-                  new_line = line
-              else:
-                  new_line = line.replace('>=', '==', 1)
+              new_line = line.replace('>=', '==', 1)
               new_lines.append(new_line)
           new_text_deps = '\n'.join(new_lines)
 
