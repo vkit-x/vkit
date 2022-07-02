@@ -251,16 +251,17 @@ def test_color_balance():
 def test_channel_permutate():
     image = read_image('Lenna.png').to_rgb_image()
 
-    # [1, 0, 2]
-    rng = default_rng(3)
+    # [2, 0, 1]
+    rng = default_rng(0)
     dst_image = channel_permutation.distort_image(
         ChannelPermutationConfig(),
         image,
         rng=rng,
     )
-    assert (image.mat[:, :, 0] == dst_image.mat[:, :, 1]).all()
-    assert (image.mat[:, :, 1] == dst_image.mat[:, :, 0]).all()
-    assert (image.mat[:, :, 2] == dst_image.mat[:, :, 2]).all()
+
+    assert (dst_image.mat[:, :, 0] == image.mat[:, :, 2]).all()
+    assert (dst_image.mat[:, :, 1] == image.mat[:, :, 0]).all()
+    assert (dst_image.mat[:, :, 2] == image.mat[:, :, 1]).all()
     write_image('102.jpg', dst_image)
 
 

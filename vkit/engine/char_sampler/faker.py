@@ -66,7 +66,7 @@ class FakerCharSamplerEngine(
 
         while True:
             method = rng_choice(rng, self.methods, probs=self.methods_probs)
-            seed = rng.get_state()[1].tobytes()  # type: ignore
+            seed: int = rng.bit_generator.state['state']['state']
             for local in self.config.local_to_weight:
                 self.faker[local].seed(seed)
 

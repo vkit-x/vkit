@@ -38,7 +38,7 @@ abbb cd dd ef
         chars = corpus_sampler.run(CharSamplerEngineRunConfig(5), rng=rng)
         assert ''.join(chars) == 'abbbc'
         chars = corpus_sampler.run(CharSamplerEngineRunConfig(10), rng=rng)
-        assert ''.join(chars) == 'abcef cbab'
+        assert ''.join(chars) == 'ba cba cba'
 
 
 def test_datetime_sampler():
@@ -55,7 +55,7 @@ def test_datetime_sampler():
 
     rng = default_rng(0)
     chars = datetime_sampler.run(CharSamplerEngineRunConfig(40), rng=rng)
-    assert ''.join(chars) == '1998 08 16 12:46:36 EEST+0300 2038.11.01'
+    assert ''.join(chars) == '2042.03.08 01:20:22 EET+0200 2007-11-261'
 
 
 @pytest.mark.local
@@ -68,7 +68,7 @@ def test_faker_sampler():
     )
     rng = default_rng(0)
     chars = faker_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)
-    assert ''.join(chars) == '舒詩涵 843-939-3404 Sar'
+    assert ''.join(chars) == '011 80198344 +1 246青'
 
 
 @pytest.mark.local
@@ -82,7 +82,7 @@ def test_lexicon_sampler():
     )
     rng = default_rng(0)
     chars = lexicon_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)
-    assert ''.join(chars) == '榃镕糁钡ⓨ珑鋶逍 马獅尟掽菖潵宋窎 罶荟'
+    assert ''.join(chars) == '硜柳展 潽鷫 欝唁巫鵝冐䓨鲱戳瘋圇朐 録'
 
 
 def test_create_char_sampler_factor_from_file():
@@ -115,4 +115,4 @@ def test_create_char_sampler_factor_from_file():
         )
         rng = default_rng(0)
         chars = char_sampler_aggregator.run({'num_chars': 40}, rng=rng)
-        assert ''.join(chars) == '2021-04-08 02.54.45 EEST+0300 2040:09:11'
+        assert ''.join(chars) == '2022-02-23 01-23-28 EET+0200 1994-05-260'

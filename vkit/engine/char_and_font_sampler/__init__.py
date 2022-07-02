@@ -109,7 +109,8 @@ class CharAndFontSamplerEngine(
             return None
 
         font_meta = rng_choice(rng, font_metas)
-        font_variant = font_meta.get_font_variant(rng.integers(0, font_meta.num_font_variants))
+        variant_idx = int(rng.integers(0, font_meta.num_font_variants))
+        font_variant = font_meta.get_font_variant(variant_idx)
         logger.debug(f'font_variant={font_variant}')
 
         return CharAndFont(chars=chars, font_variant=font_variant)

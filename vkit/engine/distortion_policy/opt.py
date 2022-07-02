@@ -40,6 +40,10 @@ def sample_int(
     if prob_negative and rng.random() < prob_negative:
         value *= -1
 
+    # NOTE: rng.integers returns numpy.int64 instead of int.
+    # Some opencv function cannot handle numpy type, hence need to cast to int here.
+    value = int(value)
+
     return value
 
 
