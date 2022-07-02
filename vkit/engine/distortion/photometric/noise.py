@@ -20,8 +20,7 @@ class GaussionNoiseConfig(DistortionConfig):
         return True
 
     @property
-    def rng_state(self) -> Mapping[str, Any]:
-        assert self._rng_state is not None
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
         return self._rng_state
 
     @rng_state.setter
@@ -58,8 +57,7 @@ class PoissonNoiseConfig(DistortionConfig):
         return True
 
     @property
-    def rng_state(self) -> Mapping[str, Any]:
-        assert self._rng_state is not None
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
         return self._rng_state
 
     @rng_state.setter
@@ -98,8 +96,7 @@ class ImpulseNoiseConfig(DistortionConfig):
         return True
 
     @property
-    def rng_state(self) -> Mapping[str, Any]:
-        assert self._rng_state is not None
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
         return self._rng_state
 
     @rng_state.setter
@@ -152,8 +149,7 @@ class SpeckleNoiseConfig(DistortionConfig):
         return True
 
     @property
-    def rng_state(self) -> Mapping[str, Any]:
-        assert self._rng_state is not None
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
         return self._rng_state
 
     @rng_state.setter

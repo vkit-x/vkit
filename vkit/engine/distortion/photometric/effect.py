@@ -146,8 +146,7 @@ class FogConfig(DistortionConfig):
         return True
 
     @property
-    def rng_state(self) -> Mapping[str, Any]:
-        assert self._rng_state is not None
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
         return self._rng_state
 
     @rng_state.setter
