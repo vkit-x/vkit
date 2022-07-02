@@ -1,8 +1,8 @@
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Mapping, Any
 
 import attrs
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 
 from vkit.element import Image, ImageKind
@@ -19,7 +19,7 @@ def jpeg_quality_image(
     config: JpegQualityConfig,
     state: Optional[DistortionNopState[JpegQualityConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
@@ -49,7 +49,7 @@ def pixelation_image(
     config: PixelationConfig,
     state: Optional[DistortionNopState[PixelationConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     # Downsample.
     assert 0 < config.ratio < 1
@@ -76,7 +76,7 @@ pixelation = Distortion(
 def generate_diamond_square_mask(
     shape: Tuple[int, int],
     roughness: float,
-    rnd: RandomState,
+    rng: Generator,
 ):
     assert 0.0 <= roughness <= 1.0
 
@@ -85,10 +85,10 @@ def generate_diamond_square_mask(
 
     mask = np.zeros((size, size), dtype=np.float32)
     # Initialize 4 corners.
-    mask[0, 0] = rnd.uniform(0.0, 1.0)
-    mask[0, -1] = rnd.uniform(0.0, 1.0)
-    mask[-1, -1] = rnd.uniform(0.0, 1.0)
-    mask[-1, 0] = rnd.uniform(0.0, 1.0)
+    mask[0, 0] = rng.uniform(0.0, 1.0)
+    mask[0, -1] = rng.uniform(0.0, 1.0)
+    mask[-1, -1] = rng.uniform(0.0, 1.0)
+    mask[-1, 0] = rng.uniform(0.0, 1.0)
 
     step = size - 1
     iteration = 0
@@ -104,7 +104,7 @@ def generate_diamond_square_mask(
         square_sum = square_sum_vert + square_sum_hori
         square_sum = square_sum[:-1, :-1]
         diamonds = ((1 - step_roughness) * square_sum / 4
-                    + step_roughness * rnd.uniform(0, 1, square_sum.shape))
+                    + step_roughness * rng.uniform(0, 1, square_sum.shape))
         mask[step // 2:size:step, step // 2:size:step] = diamonds
 
         # Square step.
@@ -112,22 +112,22 @@ def generate_diamond_square_mask(
         diamond_sum_vert = np.vstack([diamond_sum_vert, diamond_sum_vert[0]])
         square_sum0 = square_sum_hori[:, :-1] + diamond_sum_vert
         squares0 = ((1 - step_roughness) * square_sum0 / 4
-                    + step_roughness * rnd.uniform(0, 1, square_sum0.shape))
+                    + step_roughness * rng.uniform(0, 1, square_sum0.shape))
         mask[0:size:step, step // 2:size:step] = squares0
 
         diamond_sum_hori = diamonds + np.roll(diamonds, shift=1, axis=1)
         diamond_sum_hori = np.hstack([diamond_sum_hori, diamond_sum_hori[0].reshape(-1, 1)])
         square_sum1 = square_sum_vert[:-1] + diamond_sum_hori
         squares1 = ((1 - step_roughness) * square_sum1 / 4
-                    + step_roughness * rnd.uniform(0, 1, square_sum1.shape))
+                    + step_roughness * rng.uniform(0, 1, square_sum1.shape))
         mask[step // 2:size:step, 0:size:step] = squares1
 
         iteration += 1
         step = step // 2
 
-    up = rnd.randint(0, size - height + 1)
+    up = rng.integers(0, size - height + 1)
     down = up + height - 1
-    left = rnd.randint(0, size - width + 1)
+    left = rng.integers(0, size - width + 1)
     right = left + width - 1
     return mask[up:down + 1, left:right + 1]
 
@@ -139,35 +139,36 @@ class FogConfig(DistortionConfig):
     ratio_max: float = 1.0
     ratio_min: float = 0.0
 
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Mapping[str, Any]:
+        assert self._rng_state is not None
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def fog_image(
     config: FogConfig,
     state: Optional[DistortionNopState[FogConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
 
-    assert rnd is not None
+    assert rng is not None
     mask = generate_diamond_square_mask(
         image.shape,
         config.roughness,
-        rnd,
+        rng,
     )
     # Equalize mask.
     mask -= mask.min()

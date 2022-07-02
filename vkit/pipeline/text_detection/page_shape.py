@@ -2,9 +2,9 @@ from typing import Sequence
 import math
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
-from vkit.utility import rnd_choice
+from vkit.utility import rng_choice
 from ..interface import (
     PipelineStep,
     PipelineStepFactory,
@@ -31,8 +31,8 @@ class PageShapeStep(
     ]
 ):  # yapf: disable
 
-    def run(self, state: PipelineState, rnd: RandomState):
-        aspect_ratio = rnd_choice(rnd, self.config.aspect_ratios)
+    def run(self, state: PipelineState, rng: Generator):
+        aspect_ratio = rng_choice(rng, self.config.aspect_ratios)
         height = round(math.sqrt(self.config.area / aspect_ratio))
         width = round(aspect_ratio * height)
         assert height > 0 and width > 0

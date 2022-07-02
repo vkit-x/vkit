@@ -3,9 +3,9 @@ import math
 import logging
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import default_rng, Generator
 
-from vkit.utility import rnd_choice
+from vkit.utility import rng_choice
 from vkit.element import LexiconCollection
 from vkit.engine.interface import (
     NoneTypeEngineConfig,
@@ -92,13 +92,13 @@ class CharAndFontSamplerEngine(
     def run(
         self,
         config: CharAndFontSamplerEngineRunConfig,
-        rnd: RandomState,
+        rng: Generator,
     ) -> Optional[CharAndFont]:
         # Sample chars.
         num_chars = CharAndFontSamplerEngine.estimate_num_chars(config)
         chars = self.char_sampler_aggregator.run(
             CharSamplerEngineRunConfig(num_chars=num_chars),
-            rnd,
+            rng,
         )
         logger.debug(f'chars={chars}')
 
@@ -108,8 +108,8 @@ class CharAndFontSamplerEngine(
             logger.warning(f'Cannot sample font_metas for chars={chars}')
             return None
 
-        font_meta = rnd_choice(rnd, font_metas)
-        font_variant = font_meta.get_font_variant(rnd.randint(0, font_meta.num_font_variants))
+        font_meta = rng_choice(rng, font_metas)
+        font_variant = font_meta.get_font_variant(rng.integers(0, font_meta.num_font_variants))
         logger.debug(f'font_variant={font_variant}')
 
         return CharAndFont(chars=chars, font_variant=font_variant)

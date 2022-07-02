@@ -2,12 +2,12 @@ from typing import Sequence, Dict, Any, List, Union
 from enum import Enum, unique
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.element import LexiconCollection
 from vkit.utility import (
     normalize_to_keys_and_probs,
-    rnd_choice,
+    rng_choice,
     PathType,
 )
 from vkit.engine.font import (
@@ -115,7 +115,7 @@ class PageTextLineStep(
         ])
         self.font_aggregator = font_factory.create(self.config.font_configs)
 
-    def run(self, state: PipelineState, rnd: RandomState):
+    def run(self, state: PipelineState, rng: Generator):
         page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 
@@ -128,21 +128,21 @@ class PageTextLineStep(
                         'height': layout_text_line.box.height,
                         'width': layout_text_line.box.width,
                     },
-                    rnd=rnd,
+                    rng=rng,
                 )
                 if char_and_font:
                     break
 
-            key = rnd_choice(rnd, self.keys, probs=self.probs)
+            key = rng_choice(rng, self.keys, probs=self.probs)
             if key == PageTextLineStepKey.FONT_STYLE_GLYPH_COLOR_GRAYSCALE:
-                grayscale_value = rnd.randint(
+                grayscale_value = rng.integers(
                     self.config.font_style_glyph_color_grayscale_min,
                     self.config.font_style_glyph_color_grayscale_max + 1,
                 )
                 glyph_color = (grayscale_value,) * 3
 
             else:
-                rgb_value = rnd.randint(
+                rgb_value = rng.integers(
                     self.config.font_style_glyph_color_rgb_min,
                     self.config.font_style_glyph_color_rgb_max + 1,
                 )
@@ -170,7 +170,7 @@ class PageTextLineStep(
                     'style': font_style,
                     'return_font_variant': self.config.return_font_variant,
                 },
-                rnd=rnd,
+                rng=rng,
             )
             if text_line:
                 text_line = text_line.to_shifted_text_line(

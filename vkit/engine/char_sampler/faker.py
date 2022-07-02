@@ -2,10 +2,10 @@ from typing import Sequence, List, Dict, Optional
 from collections import OrderedDict
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 from faker import Faker
 
-from vkit.utility import rnd_choice
+from vkit.utility import rng_choice
 from vkit.engine.interface import Engine
 from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
 
@@ -59,14 +59,14 @@ class FakerCharSamplerEngine(
 
         self.faker: Optional[Faker] = None
 
-    def sample_from_faker(self, rnd: RandomState):
+    def sample_from_faker(self, rng: Generator):
         # Faker is not picklable, hence need a lazy initialization.
         if self.faker is None:
             self.faker = Faker(OrderedDict(self.config.local_to_weight))
 
         while True:
-            method = rnd_choice(rnd, self.methods, probs=self.methods_probs)
-            seed = rnd.get_state()[1].tobytes()  # type: ignore
+            method = rng_choice(rng, self.methods, probs=self.methods_probs)
+            seed = rng.get_state()[1].tobytes()  # type: ignore
             for local in self.config.local_to_weight:
                 self.faker[local].seed(seed)
 
@@ -81,13 +81,13 @@ class FakerCharSamplerEngine(
             if segments:
                 return ' '.join(segments)
 
-    def run(self, config: CharSamplerEngineRunConfig, rnd: RandomState) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
         num_chars = config.num_chars
 
         texts: List[str] = []
         num_chars_in_texts = 0
         while num_chars_in_texts + len(texts) - 1 < num_chars:
-            text = self.sample_from_faker(rnd)
+            text = self.sample_from_faker(rng)
             texts.append(text)
             num_chars_in_texts += len(text)
 

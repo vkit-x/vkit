@@ -1,8 +1,8 @@
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Mapping, Any
 
 import attrs
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 
 from vkit.element import Image
@@ -42,7 +42,7 @@ def gaussian_blur_image(
     config: GaussianBlurConfig,
     state: Optional[DistortionNopState[GaussianBlurConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
@@ -73,7 +73,7 @@ def defocus_blur_image(
     config: DefocusBlurConfig,
     state: Optional[DistortionNopState[DefocusBlurConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     # Generate blurring kernel.
     assert 0 < config.radius
@@ -127,7 +127,7 @@ def motion_blur_image(
     config: MotionBlurConfig,
     state: Optional[DistortionNopState[MotionBlurConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     # Generate blurring kernel.
     kernel_size = 2 * config.radius + 1
@@ -185,26 +185,27 @@ class GlassBlurConfig(DistortionConfig):
     delta: int = 1
     loop: int = 5
 
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Mapping[str, Any]:
+        assert self._rng_state is not None
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def glass_blur_image(
     config: GlassBlurConfig,
     state: Optional[DistortionNopState[GlassBlurConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
@@ -215,26 +216,26 @@ def glass_blur_image(
     mat = cv.GaussianBlur(image.mat, ksize, config.sigma)
 
     # Random pixel swap.
-    assert rnd is not None
+    assert rng is not None
 
     coords_y = np.arange(image.height)
     coords_x = np.arange(image.width)
     pos_x, pos_y = np.meshgrid(coords_x, coords_y)
 
     for _ in range(config.loop):
-        offset_y = rnd.randint(0, 2 * config.delta + 1)
+        offset_y = rng.integers(0, 2 * config.delta + 1)
         center_y = np.arange(offset_y, image.height - config.delta, 2 * config.delta + 1)
         num_center_y = center_y.shape[0]
         center_y = center_y.reshape(-1, 1)
 
-        offset_x = rnd.randint(0, 2 * config.delta + 1)
+        offset_x = rng.integers(0, 2 * config.delta + 1)
         center_x = np.arange(offset_x, image.width - config.delta, 2 * config.delta + 1)
         num_center_x = center_x.shape[0]
         center_x = center_x.reshape(1, -1)
 
         delta_shape = (num_center_y, num_center_x)
-        delta_y = rnd.randint(-config.delta, config.delta + 1, delta_shape)
-        delta_x = rnd.randint(-config.delta, config.delta + 1, delta_shape)
+        delta_y = rng.integers(-config.delta, config.delta + 1, delta_shape)
+        delta_x = rng.integers(-config.delta, config.delta + 1, delta_shape)
 
         deformed_y: np.ndarray = pos_y[center_y, center_x] + delta_y
         deformed_y = np.clip(deformed_y, 0, image.height - 1)
@@ -273,7 +274,7 @@ def zoom_in_blur_image(
     config: ZoomInBlurConfig,
     state: Optional[DistortionNopState[ZoomInBlurConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)

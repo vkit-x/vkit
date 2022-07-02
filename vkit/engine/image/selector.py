@@ -2,10 +2,10 @@ from typing import List, Optional
 from os import PathLike
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 import iolite as io
 
-from vkit.utility import rnd_choice
+from vkit.utility import rng_choice
 from vkit.element import Image, Box
 from vkit.engine.interface import Engine, NoneTypeEngineResource
 from .type import ImageEngineRunConfig
@@ -42,16 +42,16 @@ class SelectorImageEngine(
             for new_ext in [ext, ext.upper()]:
                 self.image_files.extend(image_fd.glob(f'**/*.{new_ext}'))
 
-    def run(self, config: ImageEngineRunConfig, rnd: RandomState) -> Image:
-        image_file = rnd_choice(rnd, self.image_files)
+    def run(self, config: ImageEngineRunConfig, rng: Generator) -> Image:
+        image_file = rng_choice(rng, self.image_files)
         image = Image.from_file(image_file).to_rgb_image()
 
         height = config.height
         width = config.width
         if height <= image.height and width <= image.width:
             # Select a part of image.
-            up = rnd.randint(0, image.height - height + 1)
-            left = rnd.randint(0, image.width - width + 1)
+            up = rng.integers(0, image.height - height + 1)
+            left = rng.integers(0, image.width - width + 1)
             box = Box(
                 up=up,
                 down=up + height - 1,

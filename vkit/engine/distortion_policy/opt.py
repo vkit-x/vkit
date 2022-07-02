@@ -1,19 +1,19 @@
 from typing import Optional, Tuple
 from enum import Enum, auto
 
-from numpy.random import RandomState
+from numpy.random import Generator
 
-from vkit.utility import rnd_choice_with_size
+from vkit.utility import rng_choice_with_size
 
 LEVEL_MAX = 10
 CHANNELS = [0, 1, 2]
 
 
-def sample_channels(rnd: RandomState):
-    num_channels = rnd.randint(1, 4)
+def sample_channels(rng: Generator):
+    num_channels = rng.integers(1, 4)
     channels = None
     if num_channels < 3:
-        channels = sorted(rnd_choice_with_size(rnd, CHANNELS, num_channels))
+        channels = sorted(rng_choice_with_size(rng, CHANNELS, num_channels))
     return channels
 
 
@@ -22,7 +22,7 @@ def sample_int(
     value_min: int,
     value_max: int,
     prob_negative: Optional[float],
-    rnd: RandomState,
+    rng: Generator,
     inverse_level: bool = False,
 ):
     if inverse_level:
@@ -36,8 +36,8 @@ def sample_int(
         # Make sure value_max could be sampled.
         level_value_max += 1
 
-    value = rnd.randint(level_value_min, max(level_value_min + 1, level_value_max))
-    if prob_negative and rnd.random() < prob_negative:
+    value = rng.integers(level_value_min, max(level_value_min + 1, level_value_max))
+    if prob_negative and rng.random() < prob_negative:
         value *= -1
 
     return value
@@ -57,7 +57,7 @@ def sample_float(
     value_min: float,
     value_max: float,
     prob_reciprocal: Optional[float],
-    rnd: RandomState,
+    rng: Generator,
     mode: SampleFloatMode = SampleFloatMode.LINEAR,
     inverse_level: bool = False,
 ):
@@ -79,9 +79,9 @@ def sample_float(
 
     level_value_min = value_min + level_ratio_min * value_range
     level_value_max = value_min + level_ratio_max * value_range
-    value = rnd.uniform(level_value_min, level_value_max)
+    value = rng.uniform(level_value_min, level_value_max)
 
-    if prob_reciprocal and rnd.random() < prob_reciprocal:
+    if prob_reciprocal and rng.random() < prob_reciprocal:
         value = 1 / value
 
     return value

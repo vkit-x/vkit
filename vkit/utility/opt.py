@@ -15,7 +15,7 @@ from os import PathLike
 from collections import abc
 import re
 
-from numpy.random import RandomState
+from numpy.random import Generator
 import iolite as io
 import cattrs
 from cattrs.errors import ClassValidationError
@@ -51,22 +51,22 @@ def get_data_folder(file: PathType):
 _T_ITEM = TypeVar('_T_ITEM')
 
 
-def rnd_choice(
-    rnd: RandomState,
+def rng_choice(
+    rng: Generator,
     items: Sequence[_T_ITEM],
     probs: Optional[Sequence[float]] = None,
 ) -> _T_ITEM:
-    idx = rnd.choice(len(items), p=probs)
+    idx = rng.choice(len(items), p=probs)
     return items[idx]
 
 
-def rnd_choice_with_size(
-    rnd: RandomState,
+def rng_choice_with_size(
+    rng: Generator,
     items: Sequence[_T_ITEM],
     size: int,
     probs: Optional[Sequence[float]] = None,
 ) -> Sequence[_T_ITEM]:
-    indices = rnd.choice(len(items), p=probs, size=size)
+    indices = rng.choice(len(items), p=probs, size=size)
     return [items[idx] for idx in indices]
 
 

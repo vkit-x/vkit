@@ -1,7 +1,7 @@
 import tempfile
 import string
 
-from numpy.random import RandomState
+from numpy.random import default_rng
 import pytest
 
 from vkit.element import LexiconCollection, Lexicon
@@ -34,10 +34,10 @@ abbb cd dd ef
             {'lexicon_collection': lexicon_collection},
         )
 
-        rnd = RandomState(0)
-        chars = corpus_sampler.run(CharSamplerEngineRunConfig(5), rnd=rnd)
+        rng = default_rng(0)
+        chars = corpus_sampler.run(CharSamplerEngineRunConfig(5), rng=rng)
         assert ''.join(chars) == 'abbbc'
-        chars = corpus_sampler.run(CharSamplerEngineRunConfig(10), rnd=rnd)
+        chars = corpus_sampler.run(CharSamplerEngineRunConfig(10), rng=rng)
         assert ''.join(chars) == 'abcef cbab'
 
 
@@ -53,8 +53,8 @@ def test_datetime_sampler():
         {'lexicon_collection': lexicon_collection},
     )
 
-    rnd = RandomState(0)
-    chars = datetime_sampler.run(CharSamplerEngineRunConfig(40), rnd=rnd)
+    rng = default_rng(0)
+    chars = datetime_sampler.run(CharSamplerEngineRunConfig(40), rng=rng)
     assert ''.join(chars) == '1998 08 16 12:46:36 EEST+0300 2038.11.01'
 
 
@@ -66,8 +66,8 @@ def test_faker_sampler():
     faker_sampler = faker_char_sampler_factory.create(
         resource={'lexicon_collection': lexicon_collection}
     )
-    rnd = RandomState(0)
-    chars = faker_sampler.run(CharSamplerEngineRunConfig(20), rnd=rnd)
+    rng = default_rng(0)
+    chars = faker_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)
     assert ''.join(chars) == '舒詩涵 843-939-3404 Sar'
 
 
@@ -80,8 +80,8 @@ def test_lexicon_sampler():
         {'space_prob': 0.1},
         {'lexicon_collection': lexicon_collection},
     )
-    rnd = RandomState(0)
-    chars = lexicon_sampler.run(CharSamplerEngineRunConfig(20), rnd=rnd)
+    rng = default_rng(0)
+    chars = lexicon_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)
     assert ''.join(chars) == '榃镕糁钡ⓨ珑鋶逍 马獅尟掽菖潵宋窎 罶荟'
 
 
@@ -113,6 +113,6 @@ def test_create_char_sampler_factor_from_file():
             temp_file.name,
             {'lexicon_collection': lexicon_collection},
         )
-        rnd = RandomState(0)
-        chars = char_sampler_aggregator.run({'num_chars': 40}, rnd=rnd)
+        rng = default_rng(0)
+        chars = char_sampler_aggregator.run({'num_chars': 40}, rng=rng)
         assert ''.join(chars) == '2021-04-08 02.54.45 EEST+0300 2040:09:11'

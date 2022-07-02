@@ -12,7 +12,7 @@ from typing import (
 )
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.utility import (
     is_path_type,
@@ -81,7 +81,7 @@ class PipelineStep(Generic[_T_CONFIG, _T_OUTPUT]):
     def __init__(self, config: _T_CONFIG):
         self.config = config
 
-    def run(self, state: PipelineState, rnd: RandomState) -> _T_OUTPUT:
+    def run(self, state: PipelineState, rng: Generator) -> _T_OUTPUT:
         raise NotImplementedError()
 
 
@@ -156,7 +156,7 @@ class PipelinePostProcessor(Generic[_T_CONFIG, _T_OUTPUT]):
     def generate_output(
         self,
         state: PipelineState,
-        rnd: RandomState,
+        rng: Generator,
     ) -> _T_OUTPUT:
         raise NotImplementedError()
 
@@ -168,7 +168,7 @@ class BypassPipelinePostProcessor(
     ]
 ):  # yapf: disable
 
-    def generate_output(self, state: PipelineState, rnd: RandomState) -> PipelineState:
+    def generate_output(self, state: PipelineState, rng: Generator) -> PipelineState:
         return state
 
 
@@ -211,12 +211,12 @@ class Pipeline(Generic[_T_OUTPUT]):
 
     def run(
         self,
-        rnd: RandomState,
+        rng: Generator,
         state: Optional[PipelineState] = None,
     ) -> _T_OUTPUT:
         if state is None:
             state = PipelineState()
         for step in self.steps:
-            output = step.run(state, rnd)
+            output = step.run(state, rng)
             state.set_value(step.get_name(), output)
-        return self.post_processor.generate_output(state, rnd)
+        return self.post_processor.generate_output(state, rng)

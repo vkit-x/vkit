@@ -1,3 +1,4 @@
+from numpy.random import default_rng
 from vkit.engine.distortion_policy.photometric.color import *
 from vkit.engine.distortion_policy.photometric.blur import *
 from vkit.engine.distortion_policy.photometric.noise import *
@@ -30,10 +31,10 @@ def run_distortion_policy_test(
 
     for idx, (level, name) in enumerate(generate_level_idx(save_png=save_png)):
         if not index_as_seed:
-            rnd = RandomState(0)
+            rng = default_rng(0)
         else:
-            rnd = RandomState(idx)
-        result = distortion_policy.distort(level=level, image=image, rnd=rnd)
+            rng = default_rng(idx)
+        result = distortion_policy.distort(level=level, image=image, rng=rng)
         assert result.image
         write_image(name, result.image, frames_offset=1)
 
@@ -186,10 +187,10 @@ def test_random_distortion():
     random_distortion = random_distortion_factory.create()
 
     image = read_image('Lenna.png').to_rgb_image()
-    rnd = RandomState(0)
+    rng = default_rng(0)
 
     for idx in range(50):
-        result = random_distortion.distort(image=image, rnd=rnd)
+        result = random_distortion.distort(image=image, rng=rng)
         assert result.image
         assert result.meta
         level = result.meta['level']

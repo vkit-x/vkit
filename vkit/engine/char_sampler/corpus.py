@@ -2,9 +2,9 @@ from typing import Sequence, List, Optional
 
 import attrs
 import iolite as io
-from numpy.random import RandomState
+from numpy.random import Generator
 
-from vkit.utility import rnd_choice
+from vkit.utility import rng_choice
 from vkit.engine.interface import Engine
 from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
 
@@ -47,9 +47,9 @@ class CorpusCharSamplerEngine(
             ):
                 self.texts.append(line)
 
-    def sample_and_prep_text(self, rnd: RandomState):
+    def sample_and_prep_text(self, rng: Generator):
         while True:
-            text = rnd_choice(rnd, self.texts)
+            text = rng_choice(rng, self.texts)
             segments: List[str] = []
             for segment in text.split():
                 segment = ''.join(
@@ -60,7 +60,7 @@ class CorpusCharSamplerEngine(
             if segments:
                 return ' '.join(segments)
 
-    def run(self, config: CharSamplerEngineRunConfig, rnd: RandomState) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
         num_chars = config.num_chars
         if num_chars <= 0:
             return []
@@ -69,7 +69,7 @@ class CorpusCharSamplerEngine(
         texts: List[str] = []
         num_chars_in_texts = 0
         while num_chars_in_texts + len(texts) - 1 < num_chars:
-            text = self.sample_and_prep_text(rnd)
+            text = self.sample_and_prep_text(rng)
             texts.append(text)
             num_chars_in_texts += len(text)
 
