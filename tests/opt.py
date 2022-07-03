@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Mapping, Any
 
 import os
 import inspect
@@ -35,7 +35,7 @@ def write_image(rel_path: str, image: Image, frames_offset: int = 0):
         image.to_file(test_output_path)
 
 
-def write_json(rel_path: str, data: Dict[str, Any], frames_offset: int = 0):
+def write_json(rel_path: str, data: Mapping[str, Any], frames_offset: int = 0):
     test_output_path = get_test_output_path(rel_path, frames_offset=frames_offset)
     if test_output_path:
         io.write_json(test_output_path, data, indent=2, ensure_ascii=False)

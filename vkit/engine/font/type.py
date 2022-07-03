@@ -1,4 +1,4 @@
-from typing import Sequence, List, Optional, Dict, DefaultDict, Iterable, Set, Tuple
+from typing import Sequence, List, Optional, Mapping, Dict, DefaultDict, Iterable, Set, Tuple
 from enum import Enum, unique
 from collections import defaultdict
 
@@ -146,8 +146,8 @@ class FontCollectionFolderTree(Enum):
 class FontCollection:
     font_metas: Sequence[FontMeta]
 
-    _name_to_font_meta: Dict[str, FontMeta] = attrs.field(init=False)
-    _char_to_font_meta_names: Dict[str, Set[str]] = attrs.field(init=False)
+    _name_to_font_meta: Mapping[str, FontMeta] = attrs.field(init=False)
+    _char_to_font_meta_names: Mapping[str, Set[str]] = attrs.field(init=False)
 
     def __attrs_post_init__(self):
         name_to_font_meta: Dict[str, FontMeta] = {}

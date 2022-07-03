@@ -1,4 +1,4 @@
-from typing import Sequence, List, Dict, Optional
+from typing import Sequence, List, Mapping, Optional
 from collections import OrderedDict
 
 import attrs
@@ -12,12 +12,12 @@ from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
 
 @attrs.define
 class FakerCharSamplerEngineConfig:
-    local_to_weight: Dict[str, float] = {
+    local_to_weight: Mapping[str, float] = {
         'zh_CN': 3,
         'zh_TW': 2,
         'en_US': 1,
     }
-    method_to_weight: Dict[str, float] = {
+    method_to_weight: Mapping[str, float] = {
         'address': 1,
         'ascii_email': 1,
         'dga': 1,

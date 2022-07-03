@@ -1,4 +1,4 @@
-from typing import Dict, Sequence, Optional, DefaultDict, List
+from typing import Mapping, Sequence, Optional, DefaultDict, List
 from collections import defaultdict
 import hashlib
 
@@ -14,7 +14,7 @@ class Lexicon:
     char: str
     aliases: Sequence[str] = attrs.field(factory=tuple)
     tags: Sequence[str] = attrs.field(factory=tuple)
-    meta: Optional[Dict[str, str]] = None
+    meta: Optional[Mapping[str, str]] = None
 
     def __attrs_post_init__(self):
         object.__setattr__(self, "aliases", tuple(self.aliases))
@@ -36,8 +36,8 @@ KEY_NO_TAG = '__no_tag'
 class LexiconCollection:
     lexicons: Sequence[Lexicon]
 
-    char_to_lexicon: Dict[str, Lexicon] = attrs.field(init=False)
-    tag_to_lexicons: Dict[str, Sequence[Lexicon]] = attrs.field(init=False)
+    char_to_lexicon: Mapping[str, Lexicon] = attrs.field(init=False)
+    tag_to_lexicons: Mapping[str, Sequence[Lexicon]] = attrs.field(init=False)
     tags: Sequence[str] = attrs.field(init=False)
 
     def __attrs_post_init__(self):
