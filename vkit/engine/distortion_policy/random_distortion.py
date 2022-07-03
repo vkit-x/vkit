@@ -1,5 +1,5 @@
 from typing import (
-    Dict,
+    Mapping,
     Any,
     Iterable,
     Union,
@@ -232,7 +232,7 @@ class RandomDistortionFactoryConfig:
         ]
     )
     disabled_policy_names: Sequence[str] = attrs.field(factory=list)
-    name_to_policy_config: Dict[str, Any] = attrs.field(factory=dict)
+    name_to_policy_config: Mapping[str, Any] = attrs.field(factory=dict)
 
 
 class RandomDistortionFactory:
@@ -284,7 +284,7 @@ class RandomDistortionFactory:
 
     def create(
         self,
-        config: Optional[Union[Dict[str, Any], PathType, RandomDistortionFactoryConfig]] = None,
+        config: Optional[Union[Mapping[str, Any], PathType, RandomDistortionFactoryConfig]] = None,
     ):
         config = dyn_structure(
             config,

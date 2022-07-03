@@ -1,4 +1,4 @@
-from typing import cast, Dict, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
+from typing import cast, Mapping, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
 from enum import Enum, unique
 from collections import abc
 from itertools import chain, cycle
@@ -176,7 +176,7 @@ def _image_kind_to_non_gcn_mode(image_kind: ImageKind):
     return _IMAGE_KIND_GCN_TO_NON_GCN[image_kind]
 
 
-_IMAGE_SRC_KIND_TO_PRE_SLICE: Dict[ImageKind, Sequence[int]] = {
+_IMAGE_SRC_KIND_TO_PRE_SLICE: Mapping[ImageKind, Sequence[int]] = {
     # HSL -> HLS.
     ImageKind.HSL: [0, 2, 1],
 }
@@ -197,12 +197,12 @@ _IMAGE_INV_DST_KIND_TO_RGB_CV_CODE = {
     ImageKind.HSL: cv.COLOR_RGB2HLS_FULL,
 }
 
-_IMAGE_DST_KIND_TO_POST_SLICE: Dict[ImageKind, Sequence[int]] = {
+_IMAGE_DST_KIND_TO_POST_SLICE: Mapping[ImageKind, Sequence[int]] = {
     # HLS -> HSL.
     ImageKind.HSL: [0, 2, 1],
 }
 
-_IMAGE_SRC_DST_KIND_TO_CV_CODE: Dict[Tuple[ImageKind, ImageKind], int] = {
+_IMAGE_SRC_DST_KIND_TO_CV_CODE: Mapping[Tuple[ImageKind, ImageKind], int] = {
     (ImageKind.GRAYSCALE, ImageKind.RGBA): cv.COLOR_GRAY2RGBA,
     (ImageKind.RGBA, ImageKind.GRAYSCALE): cv.COLOR_RGBA2GRAY,
 }
