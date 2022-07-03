@@ -1,7 +1,7 @@
 from typing import Sequence, Dict, Optional, List
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
 from vkit.engine.interface import Engine
@@ -60,7 +60,7 @@ class LexiconCharSamplerEngine(
             total += space_weight
         self.probs = [val / total for val in weights]
 
-    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
         num_chars = config.num_chars
 
         chars: List[str] = []

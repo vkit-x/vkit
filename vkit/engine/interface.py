@@ -14,7 +14,7 @@ from typing import (
 from enum import Enum, unique
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import (
     rng_choice,
@@ -55,7 +55,7 @@ class Engine(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
         self.config = config
         self.resource = resource
 
-    def run(self, config: _T_RUN_CONFIG, rng: Generator) -> _T_OUTPUT:
+    def run(self, config: _T_RUN_CONFIG, rng: RandomGenerator) -> _T_OUTPUT:
         raise NotImplementedError()
 
 
@@ -67,7 +67,7 @@ class EngineRunner(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
     def get_run_config_cls(self) -> Type[_T_RUN_CONFIG]:
         return get_generic_classes(type(self.engine))[2]  # type: ignore
 
-    def run(self, config: Union[Dict[str, Any], _T_RUN_CONFIG], rng: Generator) -> _T_OUTPUT:
+    def run(self, config: Union[Dict[str, Any], _T_RUN_CONFIG], rng: RandomGenerator) -> _T_OUTPUT:
         config = dyn_structure(config, self.get_run_config_cls())
         return self.engine.run(config, rng)
 
@@ -125,7 +125,7 @@ class EngineRunnerAggregator(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
         total = sum(weights)
         self.probs = [weight / total for weight in weights]
 
-    def run(self, config: Union[Dict[str, Any], _T_RUN_CONFIG], rng: Generator) -> _T_OUTPUT:
+    def run(self, config: Union[Dict[str, Any], _T_RUN_CONFIG], rng: RandomGenerator) -> _T_OUTPUT:
         engine_runner = rng_choice(rng, self.engine_runners, probs=self.probs)
         return engine_runner.run(config, rng)
 

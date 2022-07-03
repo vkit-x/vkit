@@ -16,7 +16,7 @@ from typing import (
 )
 
 import attrs
-from numpy.random import default_rng, Generator
+from numpy.random import default_rng, Generator as RandomGenerator
 
 from vkit.element import (
     Shapable,
@@ -66,13 +66,13 @@ _T_CONFIG = TypeVar('_T_CONFIG', bound=DistortionConfig)
 
 class DistortionState(Generic[_T_CONFIG]):
 
-    def __init__(self, config: _T_CONFIG, shape: Tuple[int, int], rng: Optional[Generator]):
+    def __init__(self, config: _T_CONFIG, shape: Tuple[int, int], rng: Optional[RandomGenerator]):
         raise NotImplementedError()
 
 
 class DistortionNopState(DistortionState[_T_CONFIG]):
 
-    def __init__(self, config: _T_CONFIG, shape: Tuple[int, int], rng: Optional[Generator]):
+    def __init__(self, config: _T_CONFIG, shape: Tuple[int, int], rng: Optional[RandomGenerator]):
         raise NotImplementedError()
 
 
@@ -102,7 +102,7 @@ class DistortionInternals(Generic[_T_CONFIG, _T_STATE]):
     config: _T_CONFIG
     state: Optional[_T_STATE]
     shape: Tuple[int, int]
-    rng: Optional[Generator]
+    rng: Optional[RandomGenerator]
 
 
 class Distortion(Generic[_T_CONFIG, _T_STATE]):
@@ -117,7 +117,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 _T_CONFIG,
                 Optional[_T_STATE],
                 Image,
-                Optional[Generator],
+                Optional[RandomGenerator],
             ],
             Image,
         ],
@@ -127,7 +127,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     _T_CONFIG,
                     Optional[_T_STATE],
                     Mask,
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 Mask,
             ]
@@ -138,7 +138,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     _T_CONFIG,
                     Optional[_T_STATE],
                     ScoreMap,
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 ScoreMap,
             ]
@@ -149,7 +149,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     _T_CONFIG,
                     Optional[_T_STATE],
                     Tuple[int, int],
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 Mask,
             ]
@@ -161,7 +161,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     Optional[_T_STATE],
                     Tuple[int, int],
                     Point,
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 Point,
             ]
@@ -173,7 +173,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     Optional[_T_STATE],
                     Tuple[int, int],
                     Union[PointList, Iterable[Point]],
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 PointList,
             ]
@@ -185,7 +185,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     Optional[_T_STATE],
                     Tuple[int, int],
                     Polygon,
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 Polygon,
             ]
@@ -197,7 +197,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     Optional[_T_STATE],
                     Tuple[int, int],
                     Iterable[Polygon],
-                    Optional[Generator],
+                    Optional[RandomGenerator],
                 ],
                 Sequence[Polygon],
             ]
@@ -223,17 +223,17 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shape: Tuple[int, int],
-        rng: Optional[Generator],
-    ) -> Tuple[_T_CONFIG, Optional[Generator]]:
+        rng: Optional[RandomGenerator],
+    ) -> Tuple[_T_CONFIG, Optional[RandomGenerator]]:
         # yapf: enable
         if callable(config_or_config_generator):
             config_generator = cast(
-                Callable[[Tuple[int, int], Generator], Union[_T_CONFIG, Dict[str, Any]]],
+                Callable[[Tuple[int, int], RandomGenerator], Union[_T_CONFIG, Dict[str, Any]]],
                 config_or_config_generator,
             )
             if not rng:
@@ -281,13 +281,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         state: Optional[_T_STATE],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
         disable_state_initialization: bool = False,
     ):
         # yapf: enable
@@ -313,13 +313,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         state: Optional[_T_STATE],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -336,12 +336,12 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -359,12 +359,12 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -381,13 +381,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         image: Image,
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -409,13 +409,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         score_map: ScoreMap,
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         if self.func_score_map:
@@ -442,13 +442,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         mask: Mask,
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         if self.func_mask:
@@ -475,13 +475,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         if self.func_active_mask:
@@ -515,14 +515,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
         point: Point,
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -560,14 +560,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
         points: Union[PointList, Iterable[Point]],
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         points = PointList(points)
@@ -607,14 +607,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
         polygon: Polygon,
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -658,14 +658,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
         polygons: Iterable[Polygon],
         state: Optional[_T_STATE] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         internals = self.prepare_internals(
@@ -718,7 +718,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config_or_config_generator: Union[
             Union[_T_CONFIG, Dict[str, Any]],
             Callable[
-                [Tuple[int, int], Generator],
+                [Tuple[int, int], RandomGenerator],
                 Union[_T_CONFIG, Dict[str, Any]],
             ],
         ],
@@ -735,7 +735,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         get_active_mask: bool = False,
         get_config: bool = False,
         get_state: bool = False,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
         result = Distortion.initialize_distortion_result(

@@ -1,7 +1,7 @@
 from typing import Optional, Union, Dict, Any, List, Sequence
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import numpy as np
 
 from vkit.utility import PathType
@@ -59,7 +59,7 @@ class PageDistortionStep(
             self.config.random_distortion_factory_config
         )
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_assembler_step_output = state.get_pipeline_step_output(PageAssemblerStep)
         page = page_assembler_step_output.page
         page_text_line_polygon_collection = page.page_text_line_polygon_collection

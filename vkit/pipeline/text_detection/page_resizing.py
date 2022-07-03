@@ -1,5 +1,5 @@
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
 from vkit.element import Mask, ScoreMap, Image
@@ -34,7 +34,7 @@ class PageResizingStep(
     def __init__(self, config: PageResizingStepConfig):
         super().__init__(config)
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_distortion_step_output = state.get_pipeline_step_output(PageDistortionStep)
         page_image = page_distortion_step_output.page_image
         page_text_line_mask = page_distortion_step_output.page_text_line_mask

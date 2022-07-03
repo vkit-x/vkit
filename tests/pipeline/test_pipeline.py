@@ -1,6 +1,6 @@
 # flake8: noqa
 # TODO: improve
-from numpy.random import default_rng, Generator
+from numpy.random import default_rng
 import numpy as np
 import cattrs
 import pytest

@@ -3,7 +3,7 @@ import math
 import heapq
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice, normalize_to_probs
 from vkit.element import Box
@@ -104,7 +104,7 @@ class PageLayoutStep(
     def __init__(self, config: PageLayoutStepConfig):
         super().__init__(config)
 
-    def sample_large_text_line_height(self, reference_height: int, rng: Generator):
+    def sample_large_text_line_height(self, reference_height: int, rng: RandomGenerator):
         if rng.random() < self.config.prob_add_large_text_line:
             large_text_line_height_ratio = rng.uniform(
                 self.config.large_text_line_height_ratio_min,
@@ -115,7 +115,7 @@ class PageLayoutStep(
         else:
             return None
 
-    def sample_normal_text_line_heights(self, reference_height: int, rng: Generator):
+    def sample_normal_text_line_heights(self, reference_height: int, rng: RandomGenerator):
         normal_text_line_heights: List[int] = []
 
         if self.config.force_add_normal_text_line_height_ratio_min:
@@ -147,7 +147,7 @@ class PageLayoutStep(
         grid_gap: int,
         grid_gap_min: Optional[int],
         length: int,
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         grid_pad = min(length - grid_step, length * grid_pad_ratio)
         assert grid_pad > 0
@@ -186,7 +186,7 @@ class PageLayoutStep(
         height: int,
         width: int,
         normal_text_line_heights_max: int,
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         grid_pad_ratio = rng.uniform(
             self.config.grid_pad_ratio_min,
@@ -260,7 +260,7 @@ class PageLayoutStep(
         vert_ends: Sequence[int],
         hori_begins: Sequence[int],
         hori_ends: Sequence[int],
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         num_vert_ends = len(vert_ends)
         assert num_vert_ends == len(vert_begins)
@@ -379,7 +379,7 @@ class PageLayoutStep(
         normal_text_line_heights_expected_probs: Sequence[float],
         normal_text_line_heights_acc_lengths: List[int],
         normal_grid: Box,
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         normal_text_line_heights_indices = list(range(len(normal_text_line_heights)))
         normal_text_line_heights_max = normal_text_line_heights[-1]
@@ -447,7 +447,7 @@ class PageLayoutStep(
     def fill_large_text_line_to_grid(
         self,
         large_text_line_gird: Box,
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         length_ratio = rng.uniform(
             self.config.large_text_line_length_ratio_min,
@@ -467,7 +467,7 @@ class PageLayoutStep(
             glyph_sequence=FontEngineRunConfigGlyphSequence.HORI_DEFAULT,
         )
 
-    def sample_layout_images(self, height: int, width: int, rng: Generator):
+    def sample_layout_images(self, height: int, width: int, rng: RandomGenerator):
         layout_images: List[LayoutImage] = []
 
         num_layout_images = rng.integers(
@@ -496,7 +496,7 @@ class PageLayoutStep(
 
         return layout_images
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
         height = page_shape_step_output.height
         width = page_shape_step_output.width

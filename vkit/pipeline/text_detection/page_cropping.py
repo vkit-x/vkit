@@ -1,7 +1,7 @@
 from typing import Sequence, List, Optional, Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
 from vkit.element import Box, Mask, ScoreMap, Image
@@ -60,7 +60,7 @@ class PageCroppingStep(
     def __init__(self, config: PageCroppingStepConfig):
         super().__init__(config)
 
-    def sample_cropped_positions(self, length: int, rng: Generator):
+    def sample_cropped_positions(self, length: int, rng: RandomGenerator):
         if self.config.core_size <= length:
             core_begin = rng.integers(0, length - self.config.core_size + 1)
             begin = core_begin - self.config.pad_size
@@ -82,7 +82,7 @@ class PageCroppingStep(
         page_image: Image,
         page_text_line_mask: Mask,
         page_text_line_height_score_map: ScoreMap,
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         height, width = page_image.shape
         assert page_text_line_mask.shape == (height, width)
@@ -210,7 +210,7 @@ class PageCroppingStep(
             downsampled_label=downsampled_label,
         )
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_resizing_step_output = state.get_pipeline_step_output(PageResizingStep)
         page_image = page_resizing_step_output.page_image
         page_text_line_mask = page_resizing_step_output.page_text_line_mask

@@ -2,7 +2,7 @@ from typing import Any, Optional, Mapping
 
 import attrs
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.element import Image
 from ..interface import DistortionConfig, DistortionNopState, Distortion
@@ -32,7 +32,7 @@ def gaussion_noise_image(
     config: GaussionNoiseConfig,
     state: Optional[DistortionNopState[GaussionNoiseConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     assert rng
     mat = extract_mat_from_image(image, np.int16)
@@ -69,7 +69,7 @@ def poisson_noise_image(
     config: PoissonNoiseConfig,
     state: Optional[DistortionNopState[PoissonNoiseConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     assert rng
     mat = rng.poisson(extract_mat_from_image(image, np.float32))
@@ -108,7 +108,7 @@ def impulse_noise_image(
     config: ImpulseNoiseConfig,
     state: Optional[DistortionNopState[ImpulseNoiseConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     assert rng
 
@@ -161,7 +161,7 @@ def speckle_noise_image(
     config: SpeckleNoiseConfig,
     state: Optional[DistortionNopState[SpeckleNoiseConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     assert rng
     mat = extract_mat_from_image(image, np.float32)

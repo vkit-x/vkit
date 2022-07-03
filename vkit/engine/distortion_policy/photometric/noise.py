@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -21,7 +21,7 @@ class GaussionNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         std = sample_float(
             level=self.level,
             value_min=self.config.std_min,
@@ -51,7 +51,7 @@ class PoissonNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         return distortion.PoissonNoiseConfig()
 
 
@@ -74,7 +74,7 @@ class ImpulseNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         prob_presv = sample_float(
             level=self.level,
             value_min=self.config.prob_presv_min,
@@ -114,7 +114,7 @@ class SpeckleNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         std = sample_float(
             level=self.level,
             value_min=self.config.std_min,

@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -26,7 +26,7 @@ class LineStreakConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         long_side_length = max(shape)
         gap_ratio = sample_float(
             level=self.level,
@@ -83,7 +83,7 @@ def sample_params_for_rectangle_and_ellipse_streak(
     alpha_min: float,
     alpha_max: float,
     shape: Tuple[int, int],
-    rng: Generator,
+    rng: RandomGenerator,
 ):
     long_side_length = max(shape)
     short_side_min_ratio = sample_float(
@@ -140,7 +140,7 @@ class RectangleStreakConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         (
             thickness,
             aspect_ratio,
@@ -201,7 +201,7 @@ class EllipseStreakConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         (
             thickness,
             aspect_ratio,

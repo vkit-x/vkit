@@ -4,7 +4,7 @@ import bisect
 import heapq
 
 import attrs
-from numpy.random import default_rng, Generator
+from numpy.random import default_rng, Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
 import iolite as io
@@ -103,7 +103,7 @@ class CombinerImageEngine(
     def sample_image_metas_based_on_random_anchor(
         self,
         config: ImageEngineRunConfig,
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         # Get candidates based on anchor.
         anchor_image_meta = rng_choice(rng, self.image_metas)
@@ -155,7 +155,7 @@ class CombinerImageEngine(
         self,
         config: ImageEngineRunConfig,
         image_metas: Sequence[ImageMeta],
-        rng: Generator,
+        rng: RandomGenerator,
     ):
         height = config.height
         width = config.width
@@ -289,7 +289,7 @@ class CombinerImageEngine(
 
         return Image(mat=mat)
 
-    def run(self, config: ImageEngineRunConfig, rng: Generator) -> Image:
+    def run(self, config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
         image_metas = self.sample_image_metas_based_on_random_anchor(config, rng)
         return self.synthesize_image(config, image_metas, rng)
 

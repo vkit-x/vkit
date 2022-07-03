@@ -10,7 +10,7 @@ from typing import (
     Optional,
 )
 
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import (
     dyn_structure,
@@ -49,7 +49,7 @@ class DistortionConfigGenerator(Generic[_T_GENERATOR_CONFIG, _T_CONFIG]):
         assert 1 <= level <= 10
         self.level = level
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator) -> _T_CONFIG:
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator) -> _T_CONFIG:
         raise NotImplementedError()
 
 
@@ -78,7 +78,7 @@ class DistortionPolicy(Generic[_T_GENERATOR_CONFIG, _T_CONFIG, _T_STATE]):
         polygons: Optional[Iterable[Polygon]] = None,
         text_polygon: Optional[TextPolygon] = None,
         text_polygons: Optional[Iterable[TextPolygon]] = None,
-        rng: Optional[Generator] = None,
+        rng: Optional[RandomGenerator] = None,
         debug: bool = False,
     ):
         config_generator = self.config_generator_cls(

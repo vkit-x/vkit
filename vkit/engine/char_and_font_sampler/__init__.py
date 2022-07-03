@@ -3,7 +3,7 @@ import math
 import logging
 
 import attrs
-from numpy.random import default_rng, Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
 from vkit.element import LexiconCollection
@@ -92,7 +92,7 @@ class CharAndFontSamplerEngine(
     def run(
         self,
         config: CharAndFontSamplerEngineRunConfig,
-        rng: Generator,
+        rng: RandomGenerator,
     ) -> Optional[CharAndFont]:
         # Sample chars.
         num_chars = CharAndFontSamplerEngine.estimate_num_chars(config)

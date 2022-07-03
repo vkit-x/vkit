@@ -2,7 +2,7 @@ from typing import Sequence, Dict, Any, List, Union
 from enum import Enum, unique
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.element import LexiconCollection
 from vkit.utility import (
@@ -115,7 +115,7 @@ class PageTextLineStep(
         ])
         self.font_aggregator = font_factory.create(self.config.font_configs)
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 

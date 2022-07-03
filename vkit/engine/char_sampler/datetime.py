@@ -3,7 +3,7 @@ from datetime import date, datetime
 import time
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import pytz
 
 from vkit.utility import rng_choice
@@ -48,7 +48,7 @@ class DatetimeCharSamplerEngine(
         self.ticks_begin = int(time.mktime(date(*config.datetime_begin).timetuple()))
         self.ticks_end = int(time.mktime(date(*config.datetime_end).timetuple()))
 
-    def sample_datetime_text(self, rng: Generator):
+    def sample_datetime_text(self, rng: RandomGenerator):
         # Datetime.
         ticks = rng.integers(self.ticks_begin, self.ticks_end + 1)
         # I don't know why, but it works.
@@ -74,7 +74,7 @@ class DatetimeCharSamplerEngine(
             char for char in text if char.isspace() or self.lexicon_collection.has_char(char)
         ).strip()
 
-    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
         num_chars = config.num_chars
 
         texts: List[str] = []

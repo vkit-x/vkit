@@ -2,7 +2,7 @@ from typing import Optional, Any, Callable, List, Sequence
 
 import attrs
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 import freetype
 
@@ -430,7 +430,7 @@ def place_char_glyphs_in_text_line_hori_default(
     char_glyphs: Sequence[CharGlyph],
     prev_num_spaces_for_char_glyphs: Sequence[int],
     kerning_limits: Sequence[int],
-    rng: Generator,
+    rng: RandomGenerator,
 ):
     style = config.style
 
@@ -537,7 +537,7 @@ def place_char_glyphs_in_text_line_vert_default(
     config: FontEngineRunConfig,
     char_glyphs: Sequence[CharGlyph],
     prev_num_spaces_for_char_glyphs: Sequence[int],
-    rng: Generator,
+    rng: RandomGenerator,
 ):
     style = config.style
 
@@ -875,7 +875,7 @@ def render_text_line_meta(
     config: FontEngineRunConfig,
     font_face: freetype.Face,
     func_render_char_glyph: Callable[[FontEngineRunConfig, freetype.Face, str], CharGlyph],
-    rng: Generator,
+    rng: RandomGenerator,
     cv_resize_interpolation_enlarge: int = cv.INTER_CUBIC,
     cv_resize_interpolation_shrink: int = cv.INTER_AREA,
 ):
@@ -1028,7 +1028,7 @@ class FreetypeDefaultFontEngine(
 
         return build_char_glyph(config.style, char, glyph, np_image)
 
-    def run(self, config: FontEngineRunConfig, rng: Generator) -> Optional[TextLine]:
+    def run(self, config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
         font_face = load_freetype_font_face(config)
         return render_text_line_meta(
             config=config,
@@ -1087,7 +1087,7 @@ class FreetypeLcdFontEngine(
             char,
         )
 
-    def run(self, config: FontEngineRunConfig, rng: Generator) -> Optional[TextLine]:
+    def run(self, config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
         lcd_compression_factor = 10
         font_face = load_freetype_font_face(
             config,
@@ -1153,7 +1153,7 @@ class FreetypeMonochromeFontEngine(
 
         return build_char_glyph(config.style, char, glyph, np_image)
 
-    def run(self, config: FontEngineRunConfig, rng: Generator) -> Optional[TextLine]:
+    def run(self, config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
         font_face = load_freetype_font_face(config)
         return render_text_line_meta(
             config=config,

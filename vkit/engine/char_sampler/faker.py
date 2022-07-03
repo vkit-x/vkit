@@ -2,7 +2,7 @@ from typing import Sequence, List, Mapping, Optional
 from collections import OrderedDict
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 from faker import Faker
 
 from vkit.utility import rng_choice
@@ -59,7 +59,7 @@ class FakerCharSamplerEngine(
 
         self.faker: Optional[Faker] = None
 
-    def sample_from_faker(self, rng: Generator):
+    def sample_from_faker(self, rng: RandomGenerator):
         # Faker is not picklable, hence need a lazy initialization.
         if self.faker is None:
             self.faker = Faker(OrderedDict(self.config.local_to_weight))
@@ -81,7 +81,7 @@ class FakerCharSamplerEngine(
             if segments:
                 return ' '.join(segments)
 
-    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
         num_chars = config.num_chars
 
         texts: List[str] = []

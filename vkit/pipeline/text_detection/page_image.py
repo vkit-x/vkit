@@ -1,7 +1,7 @@
 from typing import Sequence, Dict, Any, List, Union
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import PathType
 from vkit.element import Image, Box
@@ -49,7 +49,7 @@ class PageImageStep(
 
         self.image_aggregator = image_factory.create(self.config.image_configs)
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 

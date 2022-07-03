@@ -1,5 +1,5 @@
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.element import Image, Shapable
 from ..interface import (
@@ -43,7 +43,7 @@ class PageAssemblerStep(
     ]
 ):  # yapf: disable
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 

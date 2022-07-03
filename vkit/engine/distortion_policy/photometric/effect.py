@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -21,7 +21,7 @@ class JpegQualityConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         quality = sample_int(
             level=self.level,
             value_min=self.config.quality_min,
@@ -53,7 +53,7 @@ class PixelationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
@@ -87,7 +87,7 @@ class FogConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         roughness = sample_float(
             level=self.level,
             value_min=self.config.roughness_min,

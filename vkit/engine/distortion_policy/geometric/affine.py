@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -22,7 +22,7 @@ class ShearHoriConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         angle = sample_int(
             level=self.level,
             value_min=self.config.angle_min,
@@ -54,7 +54,7 @@ class ShearVertConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         angle = sample_int(
             level=self.level,
             value_min=self.config.angle_min,
@@ -95,7 +95,7 @@ class RotateConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         if self.level <= self.config.level_1_max:
             angle = sample_int(
                 level=self.level,
@@ -146,7 +146,7 @@ class SkewHoriConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
@@ -180,7 +180,7 @@ class SkewVertConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,

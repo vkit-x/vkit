@@ -2,7 +2,7 @@ from typing import Sequence
 import math
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
 from ..interface import (
@@ -31,7 +31,7 @@ class PageShapeStep(
     ]
 ):  # yapf: disable
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         aspect_ratio = rng_choice(rng, self.config.aspect_ratios)
         height = round(math.sqrt(self.config.area / aspect_ratio))
         width = round(aspect_ratio * height)

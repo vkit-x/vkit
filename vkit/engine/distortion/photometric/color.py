@@ -2,7 +2,7 @@ from typing import cast, Any, Optional, Mapping, Sequence
 
 import attrs
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
 from vkit.element import Image, ImageKind
@@ -54,7 +54,7 @@ def mean_shift_image(
     config: MeanShiftConfig,
     state: Optional[DistortionNopState[MeanShiftConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     return _mean_shift(
         image=image,
@@ -81,7 +81,7 @@ def color_shift_image(
     config: ColorShiftConfig,
     state: Optional[DistortionNopState[ColorShiftConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     if kind not in (ImageKind.HSV, ImageKind.HSL):
@@ -120,7 +120,7 @@ def brightness_shift_image(
     config: BrightnessShiftConfig,
     state: Optional[DistortionNopState[BrightnessShiftConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     if kind not in (ImageKind.HSV, ImageKind.HSL):
@@ -180,7 +180,7 @@ def std_shift_image(
     config: StdShiftConfig,
     state: Optional[DistortionNopState[StdShiftConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     return _std_shift(
         image,
@@ -206,7 +206,7 @@ def boundary_equalization_image(
     config: BoundaryEqualizationConfig,
     state: Optional[DistortionNopState[BoundaryEqualizationConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     mat = extract_mat_from_image(image, np.float32, config.channels)
 
@@ -257,7 +257,7 @@ def histogram_equalization_image(
     config: HistogramEqualizationConfig,
     state: Optional[DistortionNopState[HistogramEqualizationConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     mat = extract_mat_from_image(image, np.uint8, config.channels)
 
@@ -296,7 +296,7 @@ def complement_image(
     config: ComplementConfig,
     state: Optional[DistortionNopState[ComplementConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     mat = extract_mat_from_image(image, np.uint8, config.channels)
 
@@ -330,7 +330,7 @@ def posterization_image(
     config: PosterizationConfig,
     state: Optional[DistortionNopState[PosterizationConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     assert 0 <= config.num_bits < 8
 
@@ -359,7 +359,7 @@ def color_balance_image(
     config: ColorBalanceConfig,
     state: Optional[DistortionNopState[ColorBalanceConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     if image.kind == ImageKind.GRAYSCALE:
         return image
@@ -411,7 +411,7 @@ def channel_permutation_image(
     config: ChannelPermutationConfig,
     state: Optional[DistortionNopState[ChannelPermutationConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     assert rng
     indices = rng.permutation(image.num_channels)

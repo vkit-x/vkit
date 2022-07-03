@@ -1,7 +1,7 @@
 from typing import Tuple, Optional, List
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
 from vkit.element import Image, Mask, Box
@@ -22,7 +22,7 @@ def line_streak_image(
     config: LineStreakConfig,
     state: Optional[DistortionNopState[LineStreakConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     mask = Mask.from_shapable(image)
 
@@ -99,7 +99,7 @@ def rectangle_streak_image(
     config: RectangleStreakConfig,
     state: Optional[DistortionNopState[RectangleStreakConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     mask = Mask.from_shapable(image)
 
@@ -178,7 +178,7 @@ def ellipse_streak_image(
     config: EllipseStreakConfig,
     state: Optional[DistortionNopState[EllipseStreakConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     mask = Mask.from_shapable(image)
 

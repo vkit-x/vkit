@@ -2,7 +2,7 @@ from typing import Sequence, List, Optional
 
 import attrs
 import iolite as io
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
 from vkit.engine.interface import Engine
@@ -47,7 +47,7 @@ class CorpusCharSamplerEngine(
             ):
                 self.texts.append(line)
 
-    def sample_and_prep_text(self, rng: Generator):
+    def sample_and_prep_text(self, rng: RandomGenerator):
         while True:
             text = rng_choice(rng, self.texts)
             segments: List[str] = []
@@ -60,7 +60,7 @@ class CorpusCharSamplerEngine(
             if segments:
                 return ' '.join(segments)
 
-    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
         num_chars = config.num_chars
         if num_chars <= 0:
             return []

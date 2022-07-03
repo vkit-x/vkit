@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import numpy as np
 
 from vkit.engine import distortion
@@ -13,7 +13,7 @@ def sample_camera_model_config(
     level: int,
     level_1_max: int,
     rotation_theta_max: int,
-    rng: Generator,
+    rng: RandomGenerator,
 ):
     rotation_theta = sample_int(
         level=level,
@@ -55,7 +55,7 @@ class CameraPlaneOnlyConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         camera_model_config = sample_camera_model_config(
             level=self.level,
             level_1_max=self.config.level_1_max,
@@ -97,7 +97,7 @@ class CameraCubicCurveConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         curve_slope_range = sample_float(
             level=self.level,
             value_min=self.config.curve_slope_range_min,
@@ -164,7 +164,7 @@ class CameraPlaneLineFoldConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         height, width = shape
         fold_point = (rng.integers(0, width), rng.integers(0, height))
 
@@ -228,7 +228,7 @@ class CameraPlaneLineCurveConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         height, width = shape
         curve_point = (rng.integers(0, width), rng.integers(0, height))
 

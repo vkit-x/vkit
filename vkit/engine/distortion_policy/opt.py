@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 from enum import Enum, auto
 
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice_with_size
 
@@ -9,7 +9,7 @@ LEVEL_MAX = 10
 CHANNELS = [0, 1, 2]
 
 
-def sample_channels(rng: Generator):
+def sample_channels(rng: RandomGenerator):
     num_channels = rng.integers(1, 4)
     channels = None
     if num_channels < 3:
@@ -22,7 +22,7 @@ def sample_int(
     value_min: int,
     value_max: int,
     prob_negative: Optional[float],
-    rng: Generator,
+    rng: RandomGenerator,
     inverse_level: bool = False,
 ):
     if inverse_level:
@@ -61,7 +61,7 @@ def sample_float(
     value_min: float,
     value_max: float,
     prob_reciprocal: Optional[float],
-    rng: Generator,
+    rng: RandomGenerator,
     mode: SampleFloatMode = SampleFloatMode.LINEAR,
     inverse_level: bool = False,
 ):

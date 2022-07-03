@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -24,7 +24,7 @@ class MeanShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         delta = sample_int(
             level=self.level,
             value_min=0,
@@ -72,7 +72,7 @@ class ColorShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         delta = sample_int(
             level=self.level,
             value_min=0,
@@ -103,7 +103,7 @@ class BrightnessShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         delta = sample_int(
             level=self.level,
             value_min=0,
@@ -135,7 +135,7 @@ class StdShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         scale = sample_float(
             level=self.level,
             value_min=self.config.scale_min,
@@ -169,7 +169,7 @@ class BoundaryEqualizationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         channels = sample_channels(rng)
 
         return distortion.BoundaryEqualizationConfig(channels=channels)
@@ -193,7 +193,7 @@ class HistogramEqualizationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         channels = sample_channels(rng)
 
         return distortion.HistogramEqualizationConfig(channels=channels)
@@ -219,7 +219,7 @@ class ComplementConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         channels = sample_channels(rng)
 
         threshold = None
@@ -254,7 +254,7 @@ class PosterizationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         # To [1, 7].
         num_bits = round(self.level / LEVEL_MAX * 7)
         channels = sample_channels(rng)
@@ -284,7 +284,7 @@ class ColorBalanceConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
@@ -315,7 +315,7 @@ class ChannelPermutationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         return distortion.ChannelPermutationConfig()
 
 

@@ -2,7 +2,7 @@ from typing import Optional, Tuple, Mapping, Any
 
 import attrs
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
 from vkit.element import Image
@@ -42,7 +42,7 @@ def gaussian_blur_image(
     config: GaussianBlurConfig,
     state: Optional[DistortionNopState[GaussianBlurConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
@@ -73,7 +73,7 @@ def defocus_blur_image(
     config: DefocusBlurConfig,
     state: Optional[DistortionNopState[DefocusBlurConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     # Generate blurring kernel.
     assert 0 < config.radius
@@ -127,7 +127,7 @@ def motion_blur_image(
     config: MotionBlurConfig,
     state: Optional[DistortionNopState[MotionBlurConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     # Generate blurring kernel.
     kernel_size = 2 * config.radius + 1
@@ -204,7 +204,7 @@ def glass_blur_image(
     config: GlassBlurConfig,
     state: Optional[DistortionNopState[GlassBlurConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
@@ -273,7 +273,7 @@ def zoom_in_blur_image(
     config: ZoomInBlurConfig,
     state: Optional[DistortionNopState[ZoomInBlurConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)

@@ -1,7 +1,7 @@
 from typing import Sequence, Tuple, Optional
 
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import attrs
 
 from vkit.element import Point
@@ -133,7 +133,7 @@ class SimilarityMlsState(DistortionStateImageGridBased[SimilarityMlsConfig]):
         self,
         config: SimilarityMlsConfig,
         shape: Tuple[int, int],
-        rng: Optional[Generator],
+        rng: Optional[RandomGenerator],
     ):
         height, width = shape
         self.initialize_image_grid_based(

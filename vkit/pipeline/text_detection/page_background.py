@@ -2,7 +2,7 @@ from typing import Sequence, Dict, Any, Union
 from enum import Enum, unique
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import (
     normalize_to_keys_and_probs,
@@ -62,7 +62,7 @@ class PageBackgroundStep(
             ),
         ])
 
-    def run(self, state: PipelineState, rng: Generator):
+    def run(self, state: PipelineState, rng: RandomGenerator):
         page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
         height = page_shape_step_output.height
         width = page_shape_step_output.width

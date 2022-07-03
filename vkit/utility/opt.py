@@ -15,7 +15,7 @@ from os import PathLike
 from collections import abc
 import re
 
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import iolite as io
 import cattrs
 from cattrs.errors import ClassValidationError
@@ -52,7 +52,7 @@ _T_ITEM = TypeVar('_T_ITEM')
 
 
 def rng_choice(
-    rng: Generator,
+    rng: RandomGenerator,
     items: Sequence[_T_ITEM],
     probs: Optional[Sequence[float]] = None,
 ) -> _T_ITEM:
@@ -61,7 +61,7 @@ def rng_choice(
 
 
 def rng_choice_with_size(
-    rng: Generator,
+    rng: RandomGenerator,
     items: Sequence[_T_ITEM],
     size: int,
     probs: Optional[Sequence[float]] = None,

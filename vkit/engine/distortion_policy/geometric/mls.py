@@ -1,7 +1,7 @@
 from typing import Tuple, List
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.element import Point
 from vkit.engine import distortion
@@ -28,7 +28,7 @@ class SimilarityMlsConfigGenerator(
 ):  # yapf: disable
 
     @staticmethod
-    def generate_coord(length: int, step: int, rng: Generator):
+    def generate_coord(length: int, step: int, rng: RandomGenerator):
         end = length - 1
         if end % step == 0:
             steps = [step] * (end // step)
@@ -44,7 +44,7 @@ class SimilarityMlsConfigGenerator(
             coord.append(pos)
         return coord
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         # Generate control points.
         short_side_length = min(shape)
         num_segments = rng.integers(self.config.num_segments_min, self.config.num_segments_max + 1)

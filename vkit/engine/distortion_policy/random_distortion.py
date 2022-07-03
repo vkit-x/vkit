@@ -11,7 +11,7 @@ from typing import (
 )
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import (
     dyn_structure,
@@ -70,7 +70,7 @@ class RandomDistortion:
         self.level_min = level_min
         self.level_max = level_max
 
-    def sample_photometric_policies(self, rng: Generator) -> Sequence[DistortionPolicy]:
+    def sample_photometric_policies(self, rng: RandomGenerator) -> Sequence[DistortionPolicy]:
         num_photometric = rng.integers(self.num_photometric_min, self.num_photometric_max + 1)
         if num_photometric <= 0:
             return []
@@ -106,7 +106,7 @@ class RandomDistortion:
 
     def distort(
         self,
-        rng: Generator,
+        rng: RandomGenerator,
         shapable_or_shape: Optional[Union[Shapable, Tuple[int, int]]] = None,
         image: Optional[Image] = None,
         mask: Optional[Mask] = None,

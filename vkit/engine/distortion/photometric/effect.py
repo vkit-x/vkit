@@ -2,7 +2,7 @@ from typing import Optional, Tuple, Mapping, Any
 
 import attrs
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
 from vkit.element import Image, ImageKind
@@ -19,7 +19,7 @@ def jpeg_quality_image(
     config: JpegQualityConfig,
     state: Optional[DistortionNopState[JpegQualityConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)
@@ -49,7 +49,7 @@ def pixelation_image(
     config: PixelationConfig,
     state: Optional[DistortionNopState[PixelationConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     # Downsample.
     assert 0 < config.ratio < 1
@@ -76,7 +76,7 @@ pixelation = Distortion(
 def generate_diamond_square_mask(
     shape: Tuple[int, int],
     roughness: float,
-    rng: Generator,
+    rng: RandomGenerator,
 ):
     assert 0.0 <= roughness <= 1.0
 
@@ -158,7 +158,7 @@ def fog_image(
     config: FogConfig,
     state: Optional[DistortionNopState[FogConfig]],
     image: Image,
-    rng: Optional[Generator],
+    rng: Optional[RandomGenerator],
 ):
     kind = image.kind
     image = to_rgb_image(image, kind)

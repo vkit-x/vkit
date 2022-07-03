@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import Generator
+from numpy.random import Generator as RandomGenerator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -21,7 +21,7 @@ class GaussianBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         sigma = sample_float(
             level=self.level,
             value_min=self.config.sigma_min,
@@ -52,7 +52,7 @@ class DefocusBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         radius = sample_int(
             level=self.level,
             value_min=self.config.radius_min,
@@ -83,7 +83,7 @@ class MotionBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         radius = sample_int(
             level=self.level,
             value_min=self.config.radius_min,
@@ -122,7 +122,7 @@ class GlassBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         sigma = sample_float(
             level=self.level,
             value_min=self.config.sigma_min,
@@ -175,7 +175,7 @@ class ZoomInBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rng: Generator):
+    def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
