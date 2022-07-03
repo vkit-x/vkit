@@ -7,7 +7,7 @@ from typing import (
 )
 
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.element import (
     Image,
@@ -117,7 +117,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         image: Image,
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         assert state
         return blend_src_to_dst_image(
@@ -131,7 +131,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         score_map: ScoreMap,
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         assert state
         return blend_src_to_dst_score_map(
@@ -145,7 +145,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         mask: Mask,
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         assert state
         return blend_src_to_dst_mask(
@@ -159,7 +159,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         shape: Tuple[int, int],
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         assert state
         border_polygon = state.dst_image_grid.generate_border_polygon()
@@ -176,7 +176,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         state: Optional[_T_STATE],
         shape: Tuple[int, int],
         point: Point,
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         assert state
         src_image_grid = state.src_image_grid

@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -22,13 +22,13 @@ class ShearHoriConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         angle = sample_int(
             level=self.level,
             value_min=self.config.angle_min,
             value_max=self.config.angle_max,
             prob_negative=self.config.prob_negative,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.ShearHoriConfig(angle=angle)
@@ -54,13 +54,13 @@ class ShearVertConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         angle = sample_int(
             level=self.level,
             value_min=self.config.angle_min,
             value_max=self.config.angle_max,
             prob_negative=self.config.prob_negative,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.ShearVertConfig(angle=angle)
@@ -95,14 +95,14 @@ class RotateConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         if self.level <= self.config.level_1_max:
             angle = sample_int(
                 level=self.level,
                 value_min=self.config.level_1_angle_min,
                 value_max=self.config.level_1_angle_max,
                 prob_negative=self.config.prob_negative,
-                rnd=rnd,
+                rng=rng,
             )
 
         elif self.level <= self.config.level_2_max:
@@ -111,7 +111,7 @@ class RotateConfigGenerator(
                 value_min=self.config.level_2_angle_min,
                 value_max=self.config.level_2_angle_max,
                 prob_negative=self.config.prob_negative,
-                rnd=rnd,
+                rng=rng,
             )
 
         else:
@@ -120,7 +120,7 @@ class RotateConfigGenerator(
                 value_min=self.config.level_3_angle_min,
                 value_max=self.config.level_3_angle_max,
                 prob_negative=self.config.prob_negative,
-                rnd=rnd,
+                rng=rng,
             )
 
         return distortion.RotateConfig(angle=angle)
@@ -146,15 +146,15 @@ class SkewHoriConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
             value_max=self.config.ratio_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
-        if rnd.random() < self.config.prob_negative:
+        if rng.random() < self.config.prob_negative:
             ratio *= -1
 
         return distortion.SkewHoriConfig(ratio=ratio)
@@ -180,15 +180,15 @@ class SkewVertConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
             value_max=self.config.ratio_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
-        if rnd.random() < self.config.prob_negative:
+        if rng.random() < self.config.prob_negative:
             ratio *= -1
 
         return distortion.SkewVertConfig(ratio=ratio)

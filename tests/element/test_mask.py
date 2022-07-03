@@ -1,4 +1,4 @@
-import numpy as np
+from numpy.random import default_rng
 
 from vkit.element import FillByElementsMode, Box, Polygon, Mask, MaskSetItemConfig, Painter
 from tests.opt import write_image
@@ -50,8 +50,8 @@ def test_mask_setitem_box():
 
     mask = Mask.from_shape((400, 400))
     boxed_mask = Mask.from_shape(box0.shape)
-    rnd = np.random.RandomState(0)
-    boxed_mask.mat[rnd.random(size=boxed_mask.shape) > 0.5] = 1
+    rng = default_rng(0)
+    boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
     mask[box0] = boxed_mask
 
     painter = Painter.create(mask)

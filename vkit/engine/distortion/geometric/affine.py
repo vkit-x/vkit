@@ -3,7 +3,7 @@ import math
 
 import attrs
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 
 from vkit.element import (
@@ -82,7 +82,7 @@ class ShearHoriConfig(DistortionConfig):
 
 class ShearHoriState(DistortionState[ShearHoriConfig]):
 
-    def __init__(self, config: ShearHoriConfig, shape: Tuple[int, int], rnd: Optional[RandomState]):
+    def __init__(self, config: ShearHoriConfig, shape: Tuple[int, int], rng: Optional[Generator]):
         tan_phi = math.tan(math.radians(config.angle))
 
         height, width = shape
@@ -121,7 +121,7 @@ class ShearVertConfig(DistortionConfig):
 
 class ShearVertState(DistortionState[ShearVertConfig]):
 
-    def __init__(self, config: ShearVertConfig, shape: Tuple[int, int], rnd: Optional[RandomState]):
+    def __init__(self, config: ShearVertConfig, shape: Tuple[int, int], rng: Optional[Generator]):
         tan_abs_phi = math.tan(math.radians(abs(config.angle)))
 
         height, width = shape
@@ -164,7 +164,7 @@ class RotateConfig(DistortionConfig):
 
 class RotateState(DistortionState[RotateConfig]):
 
-    def __init__(self, config: RotateConfig, shape: Tuple[int, int], rnd: Optional[RandomState]):
+    def __init__(self, config: RotateConfig, shape: Tuple[int, int], rng: Optional[Generator]):
         height, width = shape
 
         angle = config.angle % 360
@@ -237,7 +237,7 @@ class SkewHoriConfig(DistortionConfig):
 
 class SkewHoriState(DistortionState[SkewHoriConfig]):
 
-    def __init__(self, config: SkewHoriConfig, shape: Tuple[int, int], rnd: Optional[RandomState]):
+    def __init__(self, config: SkewHoriConfig, shape: Tuple[int, int], rng: Optional[Generator]):
         height, width = shape
 
         src_xy_pairs = [
@@ -288,7 +288,7 @@ class SkewVertConfig(DistortionConfig):
 
 class SkewVertState(DistortionState[SkewVertConfig]):
 
-    def __init__(self, config: SkewVertConfig, shape: Tuple[int, int], rnd: Optional[RandomState]):
+    def __init__(self, config: SkewVertConfig, shape: Tuple[int, int], rng: Optional[Generator]):
         height, width = shape
 
         src_xy_pairs = [
@@ -361,7 +361,7 @@ def affine_trait_func_image(
     config: _T_AFFINE_CONFIG,
     state: Optional[_T_AFFINE_STATE],
     image: Image,
-    rnd: Optional[np.random.RandomState],
+    rng: Optional[Generator],
 ):
     return Image(mat=affine_trait_func_mat(config, state, image.mat))
 
@@ -370,7 +370,7 @@ def affine_trait_func_score_map(
     config: _T_AFFINE_CONFIG,
     state: Optional[_T_AFFINE_STATE],
     score_map: ScoreMap,
-    rnd: Optional[np.random.RandomState],
+    rng: Optional[Generator],
 ):
     assert state
     return ScoreMap(mat=affine_trait_func_mat(config, state, score_map.mat))
@@ -380,7 +380,7 @@ def affine_trait_func_mask(
     config: _T_AFFINE_CONFIG,
     state: Optional[_T_AFFINE_STATE],
     mask: Mask,
-    rnd: Optional[np.random.RandomState],
+    rng: Optional[Generator],
 ):
     assert state
     return Mask(mat=affine_trait_func_mat(config, state, mask.mat))
@@ -391,7 +391,7 @@ def affine_trait_func_points(
     state: Optional[_T_AFFINE_STATE],
     shape: Tuple[int, int],
     points: Union[PointList, Iterable[Point]],
-    rnd: Optional[np.random.RandomState],
+    rng: Optional[Generator],
 ):
     assert state
     points = PointList(points)
@@ -407,7 +407,7 @@ def affine_trait_func_polygons(
     state: Optional[_T_AFFINE_STATE],
     shape: Tuple[int, int],
     polygons: Iterable[Polygon],
-    rnd: Optional[np.random.RandomState],
+    rng: Optional[Generator],
 ):
     assert state
     polygons = tuple(polygons)

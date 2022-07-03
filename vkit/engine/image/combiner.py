@@ -4,12 +4,12 @@ import bisect
 import heapq
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import default_rng, Generator
 import numpy as np
 import cv2 as cv
 import iolite as io
 
-from vkit.utility import rnd_choice, read_json_file
+from vkit.utility import rng_choice, read_json_file
 from vkit.element import Image, Mask
 from vkit.engine.interface import Engine, NoneTypeEngineResource
 from .type import ImageEngineRunConfig
@@ -103,10 +103,10 @@ class CombinerImageEngine(
     def sample_image_metas_based_on_random_anchor(
         self,
         config: ImageEngineRunConfig,
-        rnd: RandomState,
+        rng: Generator,
     ):
         # Get candidates based on anchor.
-        anchor_image_meta = rnd_choice(rnd, self.image_metas)
+        anchor_image_meta = rng_choice(rng, self.image_metas)
         grayscale_std = anchor_image_meta.grayscale_std
         grayscale_mean = anchor_image_meta.grayscale_mean
 
@@ -155,7 +155,7 @@ class CombinerImageEngine(
         self,
         config: ImageEngineRunConfig,
         image_metas: Sequence[ImageMeta],
-        rnd: RandomState,
+        rng: Generator,
     ):
         height = config.height
         width = config.width
@@ -175,7 +175,7 @@ class CombinerImageEngine(
         )
         left = 0
         while left + segment_width_min - 1 < width:
-            right = rnd.randint(
+            right = rng.integers(
                 left + segment_width_min - 1,
                 width,
             )
@@ -232,7 +232,7 @@ class CombinerImageEngine(
                     heapq.heappush(priority_queue, segment)
 
             # Load image.
-            image_meta = rnd_choice(rnd, image_metas)
+            image_meta = rng_choice(rng, image_metas)
             if self.enable_cache and image_meta.image_file in self.image_file_to_cache_image:
                 segment_image = self.image_file_to_cache_image[image_meta.image_file]
             else:
@@ -289,9 +289,9 @@ class CombinerImageEngine(
 
         return Image(mat=mat)
 
-    def run(self, config: ImageEngineRunConfig, rnd: RandomState) -> Image:
-        image_metas = self.sample_image_metas_based_on_random_anchor(config, rnd)
-        return self.synthesize_image(config, image_metas, rnd)
+    def run(self, config: ImageEngineRunConfig, rng: Generator) -> Image:
+        image_metas = self.sample_image_metas_based_on_random_anchor(config, rng)
+        return self.synthesize_image(config, image_metas, rng)
 
 
 def debug():
@@ -309,6 +309,6 @@ def debug():
                 height=891,
                 width=630,
             ),
-            rnd=RandomState(seed),
+            rng=default_rng(seed),
         )
         image.to_file(f'{folder}/debug/{seed}.png')

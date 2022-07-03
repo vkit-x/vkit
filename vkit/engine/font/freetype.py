@@ -2,7 +2,7 @@ from typing import Optional, Any, Callable, List, Sequence
 
 import attrs
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 import freetype
 
@@ -430,7 +430,7 @@ def place_char_glyphs_in_text_line_hori_default(
     char_glyphs: Sequence[CharGlyph],
     prev_num_spaces_for_char_glyphs: Sequence[int],
     kerning_limits: Sequence[int],
-    rnd: RandomState,
+    rng: Generator,
 ):
     style = config.style
 
@@ -473,7 +473,7 @@ def place_char_glyphs_in_text_line_hori_default(
             for _ in range(prev_num_spaces):
                 space += round(
                     np.clip(
-                        rnd.normal(loc=word_space_mean, scale=word_space_std),
+                        rng.normal(loc=word_space_mean, scale=word_space_std),
                         word_space_min,
                         word_space_max,
                     )  # type: ignore
@@ -483,7 +483,7 @@ def place_char_glyphs_in_text_line_hori_default(
             # Random char space.
             space = round(
                 np.clip(
-                    rnd.normal(loc=char_space_mean, scale=char_space_std),
+                    rng.normal(loc=char_space_mean, scale=char_space_std),
                     char_space_min,
                     char_space_max,
                 )  # type: ignore
@@ -537,7 +537,7 @@ def place_char_glyphs_in_text_line_vert_default(
     config: FontEngineRunConfig,
     char_glyphs: Sequence[CharGlyph],
     prev_num_spaces_for_char_glyphs: Sequence[int],
-    rnd: RandomState,
+    rng: Generator,
 ):
     style = config.style
 
@@ -573,7 +573,7 @@ def place_char_glyphs_in_text_line_vert_default(
             for _ in range(prev_num_spaces):
                 space += round(
                     np.clip(
-                        rnd.normal(loc=word_space_mean, scale=word_space_std),
+                        rng.normal(loc=word_space_mean, scale=word_space_std),
                         word_space_min,
                         word_space_max,
                     )  # type: ignore
@@ -583,7 +583,7 @@ def place_char_glyphs_in_text_line_vert_default(
             # Random char space.
             space = round(
                 np.clip(
-                    rnd.normal(loc=char_space_mean, scale=char_space_std),
+                    rng.normal(loc=char_space_mean, scale=char_space_std),
                     char_space_min,
                     char_space_max,
                 )  # type: ignore
@@ -875,7 +875,7 @@ def render_text_line_meta(
     config: FontEngineRunConfig,
     font_face: freetype.Face,
     func_render_char_glyph: Callable[[FontEngineRunConfig, freetype.Face, str], CharGlyph],
-    rnd: RandomState,
+    rng: Generator,
     cv_resize_interpolation_enlarge: int = cv.INTER_CUBIC,
     cv_resize_interpolation_shrink: int = cv.INTER_AREA,
 ):
@@ -906,7 +906,7 @@ def render_text_line_meta(
             char_glyphs=char_glyphs,
             prev_num_spaces_for_char_glyphs=prev_num_spaces_for_char_glyphs,
             kerning_limits=kerning_limits,
-            rnd=rnd,
+            rng=rng,
         )
         (
             image,
@@ -936,7 +936,7 @@ def render_text_line_meta(
             config=config,
             char_glyphs=char_glyphs,
             prev_num_spaces_for_char_glyphs=prev_num_spaces_for_char_glyphs,
-            rnd=rnd,
+            rng=rng,
         )
         (
             image,
@@ -1028,13 +1028,13 @@ class FreetypeDefaultFontEngine(
 
         return build_char_glyph(config.style, char, glyph, np_image)
 
-    def run(self, config: FontEngineRunConfig, rnd: RandomState) -> Optional[TextLine]:
+    def run(self, config: FontEngineRunConfig, rng: Generator) -> Optional[TextLine]:
         font_face = load_freetype_font_face(config)
         return render_text_line_meta(
             config=config,
             font_face=font_face,
             func_render_char_glyph=FreetypeDefaultFontEngine.render_char_glyph,
-            rnd=rnd,
+            rng=rng,
         )
 
 
@@ -1087,7 +1087,7 @@ class FreetypeLcdFontEngine(
             char,
         )
 
-    def run(self, config: FontEngineRunConfig, rnd: RandomState) -> Optional[TextLine]:
+    def run(self, config: FontEngineRunConfig, rng: Generator) -> Optional[TextLine]:
         lcd_compression_factor = 10
         font_face = load_freetype_font_face(
             config,
@@ -1098,7 +1098,7 @@ class FreetypeLcdFontEngine(
             config=config,
             font_face=font_face,
             func_render_char_glyph=FreetypeLcdFontEngine.bind_render_char_glyph(lcd_hc_matrix),
-            rnd=rnd,
+            rng=rng,
         )
 
 
@@ -1153,19 +1153,20 @@ class FreetypeMonochromeFontEngine(
 
         return build_char_glyph(config.style, char, glyph, np_image)
 
-    def run(self, config: FontEngineRunConfig, rnd: RandomState) -> Optional[TextLine]:
+    def run(self, config: FontEngineRunConfig, rng: Generator) -> Optional[TextLine]:
         font_face = load_freetype_font_face(config)
         return render_text_line_meta(
             config=config,
             font_face=font_face,
             func_render_char_glyph=FreetypeMonochromeFontEngine.render_char_glyph,
-            rnd=rnd,
+            rng=rng,
             cv_resize_interpolation_enlarge=cv.INTER_NEAREST_EXACT,
             cv_resize_interpolation_shrink=cv.INTER_NEAREST_EXACT,
         )
 
 
 def debug():
+    from numpy.random import default_rng
     from vkit.utility import get_data_folder
     import iolite as io
     fd = io.folder(get_data_folder(__file__), touch=True)
@@ -1195,9 +1196,9 @@ def debug():
         #     glyph_sequence=FontEngineRenderTextLineStyleGlyphSequence.VERT_DEFAULT
         # ),
     )
-    rnd = RandomState(42)
-    # result = EngineFactory(FreetypeDefaultFontEngine).create().run(config, rnd)
-    result = EngineFactory(FreetypeMonochromeFontEngine).create().run(config, rnd)
+    rng = default_rng(42)
+    # result = EngineFactory(FreetypeDefaultFontEngine).create().run(config, rng)
+    result = EngineFactory(FreetypeMonochromeFontEngine).create().run(config, rng)
     assert result is not None
     result.image.to_file(fd / 'image.png')
 
@@ -1213,6 +1214,7 @@ def debug():
 
 
 def debug_ratio():
+    from numpy.random import default_rng
     from .type import FontCollection
     import os.path
     font_collection = FontCollection.from_folder(
@@ -1226,7 +1228,7 @@ def debug_ratio():
     font_variant = font_meta.get_font_variant(0)
     shapes = []
     engine = EngineFactory(FreetypeDefaultFontEngine).create()
-    rnd = RandomState(0)
+    rng = default_rng(0)
     from tqdm import tqdm
     for char in tqdm(font_meta.chars):
         config = FontEngineRunConfig(
@@ -1235,7 +1237,7 @@ def debug_ratio():
             chars=[char],
             font_variant=font_variant,
         )
-        result = engine.run(config, rnd)
+        result = engine.run(config, rng)
         assert result
         assert len(result.char_boxes) == 1
         char_box = result.char_boxes[0]

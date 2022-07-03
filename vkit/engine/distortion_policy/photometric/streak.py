@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -26,22 +26,22 @@ class LineStreakConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         long_side_length = max(shape)
         gap_ratio = sample_float(
             level=self.level,
             value_min=self.config.gap_ratio_min,
             value_max=self.config.gap_ratio_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
             inverse_level=True,
         )
         gap = max(self.config.gap_min, round(gap_ratio * long_side_length))
 
-        thickness = rnd.randint(self.config.thickness_min, self.config.thickness_max + 1)
-        alpha = rnd.uniform(self.config.alpha_min, self.config.alpha_max)
+        thickness = rng.integers(self.config.thickness_min, self.config.thickness_max + 1)
+        alpha = rng.uniform(self.config.alpha_min, self.config.alpha_max)
 
-        mode = rnd.randint(0, 3)
+        mode = rng.integers(0, 3)
         if mode == 0:
             enable_vert = True
             enable_hori = False
@@ -83,7 +83,7 @@ def sample_params_for_rectangle_and_ellipse_streak(
     alpha_min: float,
     alpha_max: float,
     shape: Tuple[int, int],
-    rnd: RandomState,
+    rng: Generator,
 ):
     long_side_length = max(shape)
     short_side_min_ratio = sample_float(
@@ -91,7 +91,7 @@ def sample_params_for_rectangle_and_ellipse_streak(
         value_min=short_side_min_ratio_min,
         value_max=short_side_min_ratio_max,
         prob_reciprocal=None,
-        rnd=rnd,
+        rng=rng,
         inverse_level=True,
     )
     short_side_min = max(
@@ -99,15 +99,15 @@ def sample_params_for_rectangle_and_ellipse_streak(
         round(short_side_min_ratio * long_side_length),
     )
 
-    short_side_step_ratio = rnd.uniform(
+    short_side_step_ratio = rng.uniform(
         short_side_step_ratio_min,
         short_side_step_ratio_max,
     )
     short_side_step = round(short_side_step_ratio * short_side_min)
 
-    thickness = rnd.randint(thickness_min, thickness_max + 1)
-    aspect_ratio = rnd.uniform(aspect_ratio_min, aspect_ratio_max)
-    alpha = rnd.uniform(alpha_min, alpha_max)
+    thickness = rng.integers(thickness_min, thickness_max + 1)
+    aspect_ratio = rng.uniform(aspect_ratio_min, aspect_ratio_max)
+    alpha = rng.uniform(alpha_min, alpha_max)
 
     return (
         thickness,
@@ -140,7 +140,7 @@ class RectangleStreakConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         (
             thickness,
             aspect_ratio,
@@ -161,7 +161,7 @@ class RectangleStreakConfigGenerator(
             alpha_min=self.config.alpha_min,
             alpha_max=self.config.alpha_max,
             shape=shape,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.RectangleStreakConfig(
@@ -201,7 +201,7 @@ class EllipseStreakConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         (
             thickness,
             aspect_ratio,
@@ -222,7 +222,7 @@ class EllipseStreakConfigGenerator(
             alpha_min=self.config.alpha_min,
             alpha_max=self.config.alpha_max,
             shape=shape,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.EllipseStreakConfig(

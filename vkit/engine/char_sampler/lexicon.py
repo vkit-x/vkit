@@ -1,9 +1,9 @@
 from typing import Sequence, Dict, Optional, List
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
-from vkit.utility import rnd_choice
+from vkit.utility import rng_choice
 from vkit.engine.interface import Engine
 from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
 
@@ -60,20 +60,20 @@ class LexiconCharSamplerEngine(
             total += space_weight
         self.probs = [val / total for val in weights]
 
-    def run(self, config: CharSamplerEngineRunConfig, rnd: RandomState) -> Sequence[str]:
+    def run(self, config: CharSamplerEngineRunConfig, rng: Generator) -> Sequence[str]:
         num_chars = config.num_chars
 
         chars: List[str] = []
         for char_idx in range(num_chars):
-            tag = rnd_choice(rnd, self.tags, probs=self.probs)
+            tag = rng_choice(rng, self.tags, probs=self.probs)
             if tag == self.KEY_SPACE and (char_idx == 0 or char_idx == num_chars - 1):
-                tag = rnd_choice(rnd, self.tags_no_space, probs=self.probs_no_space)
+                tag = rng_choice(rng, self.tags_no_space, probs=self.probs_no_space)
 
             if tag == self.KEY_SPACE:
                 chars.append(' ')
             else:
-                lexicon = rnd_choice(rnd, self.lexicon_collection.tag_to_lexicons[tag])
-                char = rnd_choice(rnd, lexicon.char_and_aliases)
+                lexicon = rng_choice(rng, self.lexicon_collection.tag_to_lexicons[tag])
+                char = rng_choice(rng, lexicon.char_and_aliases)
                 chars.append(char)
 
         return chars

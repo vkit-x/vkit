@@ -1,8 +1,8 @@
-from typing import cast, Any, Optional, Dict, Sequence
+from typing import cast, Any, Optional, Mapping, Sequence
 
 import attrs
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 
 from vkit.element import Image, ImageKind
@@ -54,7 +54,7 @@ def mean_shift_image(
     config: MeanShiftConfig,
     state: Optional[DistortionNopState[MeanShiftConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     return _mean_shift(
         image=image,
@@ -81,7 +81,7 @@ def color_shift_image(
     config: ColorShiftConfig,
     state: Optional[DistortionNopState[ColorShiftConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     if kind not in (ImageKind.HSV, ImageKind.HSL):
@@ -120,7 +120,7 @@ def brightness_shift_image(
     config: BrightnessShiftConfig,
     state: Optional[DistortionNopState[BrightnessShiftConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     kind = image.kind
     if kind not in (ImageKind.HSV, ImageKind.HSL):
@@ -180,7 +180,7 @@ def std_shift_image(
     config: StdShiftConfig,
     state: Optional[DistortionNopState[StdShiftConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     return _std_shift(
         image,
@@ -206,7 +206,7 @@ def boundary_equalization_image(
     config: BoundaryEqualizationConfig,
     state: Optional[DistortionNopState[BoundaryEqualizationConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     mat = extract_mat_from_image(image, np.float32, config.channels)
 
@@ -257,7 +257,7 @@ def histogram_equalization_image(
     config: HistogramEqualizationConfig,
     state: Optional[DistortionNopState[HistogramEqualizationConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     mat = extract_mat_from_image(image, np.uint8, config.channels)
 
@@ -296,7 +296,7 @@ def complement_image(
     config: ComplementConfig,
     state: Optional[DistortionNopState[ComplementConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     mat = extract_mat_from_image(image, np.uint8, config.channels)
 
@@ -330,7 +330,7 @@ def posterization_image(
     config: PosterizationConfig,
     state: Optional[DistortionNopState[PosterizationConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     assert 0 <= config.num_bits < 8
 
@@ -359,7 +359,7 @@ def color_balance_image(
     config: ColorBalanceConfig,
     state: Optional[DistortionNopState[ColorBalanceConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
     if image.kind == ImageKind.GRAYSCALE:
         return image
@@ -392,29 +392,29 @@ color_balance = Distortion(
 
 @attrs.define
 class ChannelPermutationConfig(DistortionConfig):
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def channel_permutation_image(
     config: ChannelPermutationConfig,
     state: Optional[DistortionNopState[ChannelPermutationConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
-    assert rnd
-    indices = rnd.permutation(image.num_channels)
+    assert rng
+    indices = rng.permutation(image.num_channels)
     mat = image.mat[:, :, indices]
     return attrs.evolve(image, mat=mat)
 

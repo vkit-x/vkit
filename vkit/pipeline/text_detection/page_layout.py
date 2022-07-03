@@ -3,9 +3,9 @@ import math
 import heapq
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
-from vkit.utility import rnd_choice, normalize_to_probs
+from vkit.utility import rng_choice, normalize_to_probs
 from vkit.element import Box
 from vkit.engine.font.type import FontEngineRunConfigGlyphSequence
 from .page_shape import PageShapeStep
@@ -104,9 +104,9 @@ class PageLayoutStep(
     def __init__(self, config: PageLayoutStepConfig):
         super().__init__(config)
 
-    def sample_large_text_line_height(self, reference_height: int, rnd: RandomState):
-        if rnd.random() < self.config.prob_add_large_text_line:
-            large_text_line_height_ratio = rnd.uniform(
+    def sample_large_text_line_height(self, reference_height: int, rng: Generator):
+        if rng.random() < self.config.prob_add_large_text_line:
+            large_text_line_height_ratio = rng.uniform(
                 self.config.large_text_line_height_ratio_min,
                 self.config.large_text_line_height_ratio_max,
             )
@@ -115,7 +115,7 @@ class PageLayoutStep(
         else:
             return None
 
-    def sample_normal_text_line_heights(self, reference_height: int, rnd: RandomState):
+    def sample_normal_text_line_heights(self, reference_height: int, rng: Generator):
         normal_text_line_heights: List[int] = []
 
         if self.config.force_add_normal_text_line_height_ratio_min:
@@ -123,7 +123,7 @@ class PageLayoutStep(
                 round(self.config.normal_text_line_height_ratio_min * reference_height)
             )
 
-        num_normal_text_line_heights = rnd.randint(
+        num_normal_text_line_heights = rng.integers(
             self.config.num_normal_text_line_heights_min,
             self.config.num_normal_text_line_heights_max + 1,
         )
@@ -134,7 +134,7 @@ class PageLayoutStep(
         for step_idx in range(num_normal_text_line_heights):
             ratio_min = self.config.normal_text_line_height_ratio_min + step_idx * ratio_step
             ratio_max = ratio_min + ratio_step
-            ratio = rnd.uniform(ratio_min, ratio_max)
+            ratio = rng.uniform(ratio_min, ratio_max)
             normal_text_line_heights.append(round(ratio * reference_height))
 
         assert normal_text_line_heights
@@ -147,7 +147,7 @@ class PageLayoutStep(
         grid_gap: int,
         grid_gap_min: Optional[int],
         length: int,
-        rnd: RandomState,
+        rng: Generator,
     ):
         grid_pad = min(length - grid_step, length * grid_pad_ratio)
         assert grid_pad > 0
@@ -174,7 +174,7 @@ class PageLayoutStep(
 
             cur_gap = grid_gap
             if grid_gap_min is not None:
-                cur_gap = rnd.randint(grid_gap_min, grid_gap + 1)
+                cur_gap = rng.integers(grid_gap_min, grid_gap + 1)
 
             begin = end + cur_gap
             end = begin + grid_step - 1
@@ -186,14 +186,14 @@ class PageLayoutStep(
         height: int,
         width: int,
         normal_text_line_heights_max: int,
-        rnd: RandomState,
+        rng: Generator,
     ):
-        grid_pad_ratio = rnd.uniform(
+        grid_pad_ratio = rng.uniform(
             self.config.grid_pad_ratio_min,
             self.config.grid_pad_ratio_max,
         )
 
-        grid_step_ratio = rnd.uniform(
+        grid_step_ratio = rng.uniform(
             self.config.grid_step_ratio_min,
             self.config.grid_step_ratio_max,
         )
@@ -211,10 +211,10 @@ class PageLayoutStep(
             grid_gap=grid_vert_gap_max,
             grid_gap_min=grid_vert_gap_min,
             length=height,
-            rnd=rnd,
+            rng=rng,
         )
 
-        grid_hori_gap_ratio = rnd.uniform(
+        grid_hori_gap_ratio = rng.uniform(
             self.config.grid_hori_gap_ratio_min,
             self.config.grid_hori_gap_ratio_max,
         )
@@ -226,7 +226,7 @@ class PageLayoutStep(
             grid_gap=grid_hori_gap,
             grid_gap_min=None,
             length=width,
-            rnd=rnd,
+            rng=rng,
         )
         return (vert_begins, vert_ends), (hori_begins, hori_ends)
 
@@ -260,7 +260,7 @@ class PageLayoutStep(
         vert_ends: Sequence[int],
         hori_begins: Sequence[int],
         hori_ends: Sequence[int],
-        rnd: RandomState,
+        rng: Generator,
     ):
         num_vert_ends = len(vert_ends)
         assert num_vert_ends == len(vert_begins)
@@ -322,13 +322,13 @@ class PageLayoutStep(
             hori_end_idx = cur_segment.hori_end_idx
             while hori_begin_idx <= hori_end_idx:
                 # Randomly generate grid.
-                cur_vert_end_idx = rnd.randint(vert_begin_idx, num_vert_ends)
+                cur_vert_end_idx = rng.integers(vert_begin_idx, num_vert_ends)
 
                 # Try to sample segment with length >= 2.
                 if hori_end_idx + 1 - hori_begin_idx <= 3:
                     cur_hori_end_idx = hori_end_idx
                 else:
-                    cur_hori_end_idx = rnd.randint(hori_begin_idx + 1, hori_end_idx + 1)
+                    cur_hori_end_idx = rng.integers(hori_begin_idx + 1, hori_end_idx + 1)
 
                 grids.append(
                     Box(
@@ -379,7 +379,7 @@ class PageLayoutStep(
         normal_text_line_heights_expected_probs: Sequence[float],
         normal_text_line_heights_acc_lengths: List[int],
         normal_grid: Box,
-        rnd: RandomState,
+        rng: Generator,
     ):
         normal_text_line_heights_indices = list(range(len(normal_text_line_heights)))
         normal_text_line_heights_max = normal_text_line_heights[-1]
@@ -393,8 +393,8 @@ class PageLayoutStep(
                 normal_text_line_heights_expected_probs=normal_text_line_heights_expected_probs,
                 normal_text_line_heights_acc_lengths=normal_text_line_heights_acc_lengths,
             )
-            normal_text_line_height_idx = rnd_choice(
-                rnd=rnd,
+            normal_text_line_height_idx = rng_choice(
+                rng=rng,
                 items=normal_text_line_heights_indices,
                 probs=normal_text_line_heights_probs,
             )
@@ -403,11 +403,11 @@ class PageLayoutStep(
             add_gap = False
             if prev_text_line_height:
                 if prev_text_line_height != normal_text_line_height:
-                    add_gap = (rnd.random() < self.config.prob_normal_text_line_diff_heights_gap)
+                    add_gap = (rng.random() < self.config.prob_normal_text_line_diff_heights_gap)
                 else:
-                    add_gap = (rnd.random() < self.config.prob_normal_text_line_gap)
+                    add_gap = (rng.random() < self.config.prob_normal_text_line_gap)
             if add_gap:
-                gap_ratio = rnd.uniform(
+                gap_ratio = rng.uniform(
                     self.config.normal_text_line_gap_ratio_min,
                     self.config.normal_text_line_gap_ratio_max,
                 )
@@ -417,7 +417,7 @@ class PageLayoutStep(
             down = up + normal_text_line_height - 1
             assert down <= normal_grid.down
 
-            length_ratio = rnd.uniform(
+            length_ratio = rng.uniform(
                 self.config.normal_text_line_length_ratio_min,
                 self.config.normal_text_line_length_ratio_max,
             )
@@ -425,7 +425,7 @@ class PageLayoutStep(
             normal_text_line_length = max(normal_text_line_height, normal_text_line_length)
 
             pad_max = normal_grid.width - normal_text_line_length
-            pad = rnd.randint(0, pad_max + 1)
+            pad = rng.integers(0, pad_max + 1)
             left = normal_grid.left + pad
             right = left + normal_text_line_length - 1
             assert right <= normal_grid.right
@@ -447,9 +447,9 @@ class PageLayoutStep(
     def fill_large_text_line_to_grid(
         self,
         large_text_line_gird: Box,
-        rnd: RandomState,
+        rng: Generator,
     ):
-        length_ratio = rnd.uniform(
+        length_ratio = rng.uniform(
             self.config.large_text_line_length_ratio_min,
             self.config.large_text_line_length_ratio_max,
         )
@@ -457,7 +457,7 @@ class PageLayoutStep(
         large_text_line_length = max(large_text_line_gird.height, large_text_line_length)
 
         pad_max = large_text_line_gird.width - large_text_line_length
-        pad = rnd.randint(0, pad_max + 1)
+        pad = rng.integers(0, pad_max + 1)
         left = large_text_line_gird.left + pad
         right = left + large_text_line_length - 1
         assert right <= large_text_line_gird.right
@@ -467,36 +467,36 @@ class PageLayoutStep(
             glyph_sequence=FontEngineRunConfigGlyphSequence.HORI_DEFAULT,
         )
 
-    def sample_layout_images(self, height: int, width: int, rnd: RandomState):
+    def sample_layout_images(self, height: int, width: int, rng: Generator):
         layout_images: List[LayoutImage] = []
 
-        num_layout_images = rnd.randint(
+        num_layout_images = rng.integers(
             self.config.num_images_min,
             self.config.num_images_max + 1,
         )
         for _ in range(num_layout_images):
             # NOTE: It's ok to have overlapping images.
-            image_height_ratio = rnd.uniform(
+            image_height_ratio = rng.uniform(
                 self.config.image_height_ratio_min,
                 self.config.image_height_ratio_max,
             )
             image_height = round(height * image_height_ratio)
 
-            image_width_ratio = rnd.uniform(
+            image_width_ratio = rng.uniform(
                 self.config.image_width_ratio_min,
                 self.config.image_width_ratio_max,
             )
             image_width = round(width * image_width_ratio)
 
-            up = rnd.randint(0, height - image_height + 1)
+            up = rng.integers(0, height - image_height + 1)
             down = up + image_height - 1
-            left = rnd.randint(0, width - image_width + 1)
+            left = rng.integers(0, width - image_width + 1)
             right = left + image_width - 1
             layout_images.append(LayoutImage(box=Box(up=up, down=down, left=left, right=right)))
 
         return layout_images
 
-    def run(self, state: PipelineState, rnd: RandomState):
+    def run(self, state: PipelineState, rng: Generator):
         page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
         height = page_shape_step_output.height
         width = page_shape_step_output.width
@@ -504,15 +504,15 @@ class PageLayoutStep(
         area = height * width
         reference_height = round(math.sqrt(area / self.config.reference_aspect_ratio))
 
-        normal_text_line_heights = self.sample_normal_text_line_heights(reference_height, rnd)
+        normal_text_line_heights = self.sample_normal_text_line_heights(reference_height, rng)
         (vert_begins, vert_ends), (hori_begins, hori_ends) = self.sample_grid_points(
             height=height,
             width=width,
             normal_text_line_heights_max=normal_text_line_heights[-1],
-            rnd=rnd,
+            rng=rng,
         )
 
-        large_text_line_height = self.sample_large_text_line_height(reference_height, rnd)
+        large_text_line_height = self.sample_large_text_line_height(reference_height, rng)
         large_text_line_gird: Optional[Box] = None
         if large_text_line_height is not None:
             large_text_line_gird, vert_trim_idx = self.trim_grid_points_for_large_text_line(
@@ -531,7 +531,7 @@ class PageLayoutStep(
             vert_ends=vert_ends,
             hori_begins=hori_begins,
             hori_ends=hori_ends,
-            rnd=rnd,
+            rng=rng,
         )
         normal_text_line_heights_expected_probs = normalize_to_probs([
             1 / normal_text_line_height for normal_text_line_height in normal_text_line_heights
@@ -545,14 +545,14 @@ class PageLayoutStep(
                     normal_text_line_heights_expected_probs=normal_text_line_heights_expected_probs,
                     normal_text_line_heights_acc_lengths=normal_text_line_heights_acc_lengths,
                     normal_grid=normal_grid,
-                    rnd=rnd,
+                    rng=rng,
                 )
             )
 
         if large_text_line_gird:
-            layout_text_lines.append(self.fill_large_text_line_to_grid(large_text_line_gird, rnd))
+            layout_text_lines.append(self.fill_large_text_line_to_grid(large_text_line_gird, rng))
 
-        layout_images = self.sample_layout_images(height=height, width=width, rnd=rnd)
+        layout_images = self.sample_layout_images(height=height, width=width, rng=rng)
 
         return PageLayoutStepOutput(
             page_layout=PageLayout(

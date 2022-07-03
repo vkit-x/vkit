@@ -1,7 +1,7 @@
 from typing import List, Sequence, Optional
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.element import Point, PointList, Box, Mask, ScoreMap, Polygon
 from ..interface import (
@@ -236,7 +236,7 @@ class PageTextLineLabelStep(
         page_text_line_boundary_mask.to_inverted_mask().fill_score_map(boundary_score_map, 0.0)
         return boundary_score_map
 
-    def run(self, state: PipelineState, rnd: RandomState):
+    def run(self, state: PipelineState, rng: Generator):
         page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 

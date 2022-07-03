@@ -1,8 +1,8 @@
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Mapping
 
 import attrs
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.element import Image
 from ..interface import DistortionConfig, DistortionNopState, Distortion
@@ -13,30 +13,30 @@ from .opt import extract_mat_from_image, clip_mat_back_to_uint8
 class GaussionNoiseConfig(DistortionConfig):
     std: float
 
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def gaussion_noise_image(
     config: GaussionNoiseConfig,
     state: Optional[DistortionNopState[GaussionNoiseConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
-    assert rnd
+    assert rng
     mat = extract_mat_from_image(image, np.int16)
-    noise = np.round(rnd.normal(0, config.std, mat.shape)).astype(np.int16)
+    noise = np.round(rng.normal(0, config.std, mat.shape)).astype(np.int16)
     mat = clip_mat_back_to_uint8(mat + noise)
     return Image(mat=mat)
 
@@ -50,29 +50,29 @@ gaussion_noise = Distortion(
 
 @attrs.define
 class PoissonNoiseConfig(DistortionConfig):
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def poisson_noise_image(
     config: PoissonNoiseConfig,
     state: Optional[DistortionNopState[PoissonNoiseConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
-    assert rnd
-    mat = rnd.poisson(extract_mat_from_image(image, np.float32))
+    assert rng
+    mat = rng.poisson(extract_mat_from_image(image, np.float32))
     mat = clip_mat_back_to_uint8(mat)
     return Image(mat=mat)
 
@@ -89,34 +89,34 @@ class ImpulseNoiseConfig(DistortionConfig):
     prob_salt: float
     prob_pepper: float
 
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def impulse_noise_image(
     config: ImpulseNoiseConfig,
     state: Optional[DistortionNopState[ImpulseNoiseConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
-    assert rnd
+    assert rng
 
     # https://www.programmersought.com/article/3363136769/
     prob_presv = 1 - config.prob_salt - config.prob_pepper
     assert prob_presv >= 0.0
 
-    mask = rnd.choice(
+    mask = rng.choice(
         (0, 1, 2),
         size=image.shape,
         p=[prob_presv, config.prob_salt, config.prob_pepper],
@@ -142,30 +142,30 @@ impulse_noise = Distortion(
 class SpeckleNoiseConfig(DistortionConfig):
     std: float
 
-    _rnd_state: Optional[Dict[str, Any]] = None
+    _rng_state: Optional[Mapping[str, Any]] = None
 
     @property
-    def supports_rnd_state(self) -> bool:
+    def supports_rng_state(self) -> bool:
         return True
 
     @property
-    def rnd_state(self) -> Optional[Dict[str, Any]]:
-        return self._rnd_state
+    def rng_state(self) -> Optional[Mapping[str, Any]]:
+        return self._rng_state
 
-    @rnd_state.setter
-    def rnd_state(self, val: Dict[str, Any]):
-        self._rnd_state = val
+    @rng_state.setter
+    def rng_state(self, val: Mapping[str, Any]):
+        self._rng_state = val
 
 
 def speckle_noise_image(
     config: SpeckleNoiseConfig,
     state: Optional[DistortionNopState[SpeckleNoiseConfig]],
     image: Image,
-    rnd: Optional[RandomState],
+    rng: Optional[Generator],
 ):
-    assert rnd
+    assert rng
     mat = extract_mat_from_image(image, np.float32)
-    noise = rnd.normal(0, config.std, mat.shape)
+    noise = rng.normal(0, config.std, mat.shape)
     mat = clip_mat_back_to_uint8(mat + mat * noise)
     return Image(mat=mat)
 

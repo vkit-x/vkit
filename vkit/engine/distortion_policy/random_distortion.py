@@ -11,12 +11,12 @@ from typing import (
 )
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.utility import (
     dyn_structure,
-    rnd_choice,
-    rnd_choice_with_size,
+    rng_choice,
+    rng_choice_with_size,
     PathType,
 )
 from vkit.element import (
@@ -70,16 +70,16 @@ class RandomDistortion:
         self.level_min = level_min
         self.level_max = level_max
 
-    def sample_photometric_policies(self, rnd: RandomState) -> Sequence[DistortionPolicy]:
-        num_photometric = rnd.randint(self.num_photometric_min, self.num_photometric_max + 1)
+    def sample_photometric_policies(self, rng: Generator) -> Sequence[DistortionPolicy]:
+        num_photometric = rng.integers(self.num_photometric_min, self.num_photometric_max + 1)
         if num_photometric <= 0:
             return []
 
         photometric_policies: List[DistortionPolicy] = []
         conflicted_indices: Set[int] = set()
 
-        for photometric_policy in rnd_choice_with_size(
-            rnd,
+        for photometric_policy in rng_choice_with_size(
+            rng,
             self.photometric_policies,
             size=num_photometric,
         ):
@@ -106,7 +106,7 @@ class RandomDistortion:
 
     def distort(
         self,
-        rnd: RandomState,
+        rng: Generator,
         shapable_or_shape: Optional[Union[Shapable, Tuple[int, int]]] = None,
         image: Optional[Image] = None,
         mask: Optional[Mask] = None,
@@ -142,9 +142,9 @@ class RandomDistortion:
         distortion_configs: List[Any] = []
         distortion_states: List[Any] = []
 
-        level = rnd.randint(self.level_min, self.level_max + 1)
+        level = rng.integers(self.level_min, self.level_max + 1)
 
-        for photometric_policy in self.sample_photometric_policies(rnd):
+        for photometric_policy in self.sample_photometric_policies(rng):
             result = photometric_policy.distort(
                 level=level,
                 shapable_or_shape=result.shape,
@@ -157,7 +157,7 @@ class RandomDistortion:
                 polygons=result.polygons,
                 text_polygon=result.text_polygon,
                 text_polygons=result.text_polygons,
-                rnd=rnd,
+                rng=rng,
                 debug=debug,
             )
 
@@ -170,8 +170,8 @@ class RandomDistortion:
             result.config = None
             result.state = None
 
-        if rnd.random() < self.prob_geometric:
-            geometric_policy = rnd_choice(rnd, self.geometric_policies)
+        if rng.random() < self.prob_geometric:
+            geometric_policy = rng_choice(rng, self.geometric_policies)
             result = geometric_policy.distort(
                 level=level,
                 shapable_or_shape=result.shape,
@@ -184,7 +184,7 @@ class RandomDistortion:
                 polygons=result.polygons,
                 text_polygon=result.text_polygon,
                 text_polygons=result.text_polygons,
-                rnd=rnd,
+                rng=rng,
                 debug=debug
             )
 

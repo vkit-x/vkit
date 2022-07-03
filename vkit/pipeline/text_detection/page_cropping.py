@@ -1,7 +1,7 @@
 from typing import Sequence, List, Optional, Tuple
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 
 from vkit.element import Box, Mask, ScoreMap, Image
@@ -60,9 +60,9 @@ class PageCroppingStep(
     def __init__(self, config: PageCroppingStepConfig):
         super().__init__(config)
 
-    def sample_cropped_positions(self, length: int, rnd: RandomState):
+    def sample_cropped_positions(self, length: int, rng: Generator):
         if self.config.core_size <= length:
-            core_begin = rnd.randint(0, length - self.config.core_size + 1)
+            core_begin = rng.integers(0, length - self.config.core_size + 1)
             begin = core_begin - self.config.pad_size
             offset = 0
             if begin < 0:
@@ -72,7 +72,7 @@ class PageCroppingStep(
         else:
             begin = 0
             offset = self.config.pad_size
-            offset += rnd.randint(0, self.config.core_size - length + 1)
+            offset += rng.integers(0, self.config.core_size - length + 1)
 
         end = min(length - 1, begin + (self.config.crop_size - offset) - 1)
         return offset, begin, end, end + 1 - begin
@@ -82,14 +82,14 @@ class PageCroppingStep(
         page_image: Image,
         page_text_line_mask: Mask,
         page_text_line_height_score_map: ScoreMap,
-        rnd: RandomState,
+        rng: Generator,
     ):
         height, width = page_image.shape
         assert page_text_line_mask.shape == (height, width)
         assert page_text_line_height_score_map.shape == (height, width)
 
-        vert_offset, up, down, origin_height = self.sample_cropped_positions(height, rnd)
-        hori_offset, left, right, origin_width = self.sample_cropped_positions(width, rnd)
+        vert_offset, up, down, origin_height = self.sample_cropped_positions(height, rng)
+        hori_offset, left, right, origin_width = self.sample_cropped_positions(width, rng)
 
         cropped_shape = (self.config.crop_size, self.config.crop_size)
         origin_box = Box(up=up, down=down, left=left, right=right)
@@ -210,7 +210,7 @@ class PageCroppingStep(
             downsampled_label=downsampled_label,
         )
 
-    def run(self, state: PipelineState, rnd: RandomState):
+    def run(self, state: PipelineState, rng: Generator):
         page_resizing_step_output = state.get_pipeline_step_output(PageResizingStep)
         page_image = page_resizing_step_output.page_image
         page_text_line_mask = page_resizing_step_output.page_text_line_mask
@@ -229,7 +229,7 @@ class PageCroppingStep(
                 page_image=page_image,
                 page_text_line_mask=page_text_line_mask,
                 page_text_line_height_score_map=page_text_line_height_score_map,
-                rnd=rnd,
+                rng=rng,
             )
             if cropped_page:
                 cropped_pages.append(cropped_page)

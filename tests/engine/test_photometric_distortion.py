@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.random import default_rng
 
 from vkit.engine.distortion import *
 from tests.opt import read_image, write_image
@@ -250,16 +251,17 @@ def test_color_balance():
 def test_channel_permutate():
     image = read_image('Lenna.png').to_rgb_image()
 
-    # [1, 0, 2]
-    rnd = np.random.RandomState(3)
+    # [2, 0, 1]
+    rng = default_rng(0)
     dst_image = channel_permutation.distort_image(
         ChannelPermutationConfig(),
         image,
-        rnd=rnd,
+        rng=rng,
     )
-    assert (image.mat[:, :, 0] == dst_image.mat[:, :, 1]).all()
-    assert (image.mat[:, :, 1] == dst_image.mat[:, :, 0]).all()
-    assert (image.mat[:, :, 2] == dst_image.mat[:, :, 2]).all()
+
+    assert (dst_image.mat[:, :, 0] == image.mat[:, :, 2]).all()
+    assert (dst_image.mat[:, :, 1] == image.mat[:, :, 0]).all()
+    assert (dst_image.mat[:, :, 2] == image.mat[:, :, 1]).all()
     write_image('102.jpg', dst_image)
 
 
@@ -308,14 +310,14 @@ def test_motion_blur():
 
 def test_glass_blur():
     image = read_image('Lenna.png').to_rgb_image()
-    rnd = np.random.RandomState(3)
+    rng = default_rng(3)
 
     for sigma in [0.5, 1, 2]:
         for loop in [3, 5, 10, 20]:
             dst_image = glass_blur.distort_image(
                 GlassBlurConfig(sigma=sigma, loop=loop),
                 image,
-                rnd=rnd,
+                rng=rng,
             )
             write_image(f's{sigma}_l{loop}.jpg', dst_image)
 
@@ -352,8 +354,8 @@ def test_generate_diamond_square_mask():
     from vkit.engine.distortion.photometric.effect import generate_diamond_square_mask
 
     for roughness in [1.0, 0.9, 0.8, 0.5, 0.2, 0.0]:
-        rnd = np.random.RandomState(3)
-        mask = generate_diamond_square_mask((400, 400), roughness, rnd)
+        rng = default_rng(3)
+        mask = generate_diamond_square_mask((400, 400), roughness, rng)
         mask = np.round(mask * 255).astype(np.uint8)
         write_image(f'{roughness}.jpg', Image(mat=mask))
 
@@ -362,13 +364,13 @@ def test_fog():
     image = read_image('Lenna.png').to_rgb_image()
 
     for roughness in [0.8, 0.7, 0.6, 0.5, 0.2]:
-        rnd = np.random.RandomState(3)
-        dst_image = fog.distort_image(FogConfig(roughness=roughness), image, rnd=rnd)
+        rng = default_rng(3)
+        dst_image = fog.distort_image(FogConfig(roughness=roughness), image, rng=rng)
         write_image(f'{roughness}.jpg', dst_image)
 
     image = read_image('Lenna.png').to_grayscale_image()
-    rnd = np.random.RandomState(3)
-    dst_image = fog.distort_image(FogConfig(roughness=0.5), image, rnd=rnd)
+    rng = default_rng(3)
+    dst_image = fog.distort_image(FogConfig(roughness=0.5), image, rng=rng)
     write_image('grayscalae.jpg', dst_image)
 
 

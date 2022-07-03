@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -21,13 +21,13 @@ class GaussianBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         sigma = sample_float(
             level=self.level,
             value_min=self.config.sigma_min,
             value_max=self.config.sigma_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.GaussianBlurConfig(sigma=sigma)
@@ -52,13 +52,13 @@ class DefocusBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         radius = sample_int(
             level=self.level,
             value_min=self.config.radius_min,
             value_max=self.config.radius_max,
             prob_negative=None,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.DefocusBlurConfig(radius=radius)
@@ -83,15 +83,15 @@ class MotionBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         radius = sample_int(
             level=self.level,
             value_min=self.config.radius_min,
             value_max=self.config.radius_max,
             prob_negative=None,
-            rnd=rnd,
+            rng=rng,
         )
-        angle = rnd.randint(0, 360)
+        angle = rng.integers(0, 360)
 
         return distortion.MotionBlurConfig(
             radius=radius,
@@ -122,27 +122,27 @@ class GlassBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         sigma = sample_float(
             level=self.level,
             value_min=self.config.sigma_min,
             value_max=self.config.sigma_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
         delta = sample_int(
             level=self.level,
             value_min=self.config.delta_min,
             value_max=self.config.delta_max,
             prob_negative=None,
-            rnd=rnd,
+            rng=rng,
         )
         loop = sample_int(
             level=self.level,
             value_min=self.config.loop_min,
             value_max=self.config.loop_max,
             prob_negative=None,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.GlassBlurConfig(
@@ -175,22 +175,22 @@ class ZoomInBlurConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
             value_max=self.config.ratio_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
         step = sample_float(
             level=self.level,
             value_min=self.config.step_min,
             value_max=self.config.step_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
-        alpha = rnd.uniform(self.config.alpha_min, self.config.alpha_max)
+        alpha = rng.uniform(self.config.alpha_min, self.config.alpha_max)
 
         return distortion.ZoomInBlurConfig(
             ratio=ratio,

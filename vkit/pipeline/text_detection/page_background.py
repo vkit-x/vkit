@@ -2,11 +2,11 @@ from typing import Sequence, Dict, Any, Union
 from enum import Enum, unique
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.utility import (
     normalize_to_keys_and_probs,
-    rnd_choice,
+    rng_choice,
     PathType,
 )
 from vkit.element import Image
@@ -62,23 +62,23 @@ class PageBackgroundStep(
             ),
         ])
 
-    def run(self, state: PipelineState, rnd: RandomState):
+    def run(self, state: PipelineState, rng: Generator):
         page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
         height = page_shape_step_output.height
         width = page_shape_step_output.width
 
-        key = rnd_choice(rnd, self.keys, probs=self.probs)
+        key = rng_choice(rng, self.keys, probs=self.probs)
         if key == PageBackgroundStepKey.IMAGE:
             background_image = self.image_aggregator.run(
                 {
                     'height': height,
                     'width': width,
                 },
-                rnd,
+                rng,
             )
 
         elif key == PageBackgroundStepKey.RANDOM_GRAYSCALE:
-            grayscale_value = rnd.randint(self.config.grayscale_min, self.config.grayscale_max + 1)
+            grayscale_value = rng.integers(self.config.grayscale_min, self.config.grayscale_max + 1)
             background_image = Image.from_shape(
                 (height, width),
                 num_channels=3,

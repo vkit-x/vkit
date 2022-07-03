@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -21,13 +21,13 @@ class GaussionNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         std = sample_float(
             level=self.level,
             value_min=self.config.std_min,
             value_max=self.config.std_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.GaussionNoiseConfig(std=std)
@@ -51,7 +51,7 @@ class PoissonNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         return distortion.PoissonNoiseConfig()
 
 
@@ -74,18 +74,18 @@ class ImpulseNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         prob_presv = sample_float(
             level=self.level,
             value_min=self.config.prob_presv_min,
             value_max=self.config.prob_presv_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
             inverse_level=True,
         )
         prob_not_presv = 1 - prob_presv
 
-        salt_ratio = rnd.uniform()
+        salt_ratio = rng.uniform()
         prob_salt = prob_not_presv * salt_ratio
         prob_pepper = prob_not_presv - prob_salt
 
@@ -114,13 +114,13 @@ class SpeckleNoiseConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         std = sample_float(
             level=self.level,
             value_min=self.config.std_min,
             value_max=self.config.std_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.SpeckleNoiseConfig(std=std)

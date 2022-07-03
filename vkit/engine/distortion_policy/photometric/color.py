@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
@@ -24,20 +24,20 @@ class MeanShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         delta = sample_int(
             level=self.level,
             value_min=0,
             value_max=self.config.delta_max,
             prob_negative=self.config.prob_negative,
-            rnd=rnd,
+            rng=rng,
         )
 
-        channels = sample_channels(rnd)
+        channels = sample_channels(rng)
 
         threshold = None
-        if rnd.random() < self.config.prob_enable_threshold:
-            ratio = rnd.uniform(
+        if rng.random() < self.config.prob_enable_threshold:
+            ratio = rng.uniform(
                 self.config.threshold_ratio_min,
                 self.config.threshold_ratio_max,
             )
@@ -72,13 +72,13 @@ class ColorShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         delta = sample_int(
             level=self.level,
             value_min=0,
             value_max=self.config.delta_max,
             prob_negative=self.config.prob_negative,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.ColorShiftConfig(delta=delta)
@@ -103,13 +103,13 @@ class BrightnessShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         delta = sample_int(
             level=self.level,
             value_min=0,
             value_max=self.config.delta_max,
             prob_negative=self.config.prob_negative,
-            rnd=rnd,
+            rng=rng,
         )
 
         return distortion.BrightnessShiftConfig(delta=delta)
@@ -135,15 +135,15 @@ class StdShiftConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         scale = sample_float(
             level=self.level,
             value_min=self.config.scale_min,
             value_max=self.config.scale_max,
             prob_reciprocal=self.config.prob_reciprocal,
-            rnd=rnd,
+            rng=rng,
         )
-        channels = sample_channels(rnd)
+        channels = sample_channels(rng)
 
         return distortion.StdShiftConfig(
             scale=scale,
@@ -169,8 +169,8 @@ class BoundaryEqualizationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
-        channels = sample_channels(rnd)
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
+        channels = sample_channels(rng)
 
         return distortion.BoundaryEqualizationConfig(channels=channels)
 
@@ -193,8 +193,8 @@ class HistogramEqualizationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
-        channels = sample_channels(rnd)
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
+        channels = sample_channels(rng)
 
         return distortion.HistogramEqualizationConfig(channels=channels)
 
@@ -219,13 +219,13 @@ class ComplementConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
-        channels = sample_channels(rnd)
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
+        channels = sample_channels(rng)
 
         threshold = None
-        enable_threshold_lte = (rnd.random() < 0.5)
+        enable_threshold_lte = (rng.random() < 0.5)
         if self.level >= self.config.enable_threshold_level:
-            threshold = rnd.randint(self.config.threshold_min, self.config.threshold_max + 1)
+            threshold = rng.integers(self.config.threshold_min, self.config.threshold_max + 1)
 
         return distortion.ComplementConfig(
             threshold=threshold,
@@ -254,10 +254,10 @@ class PosterizationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         # To [1, 7].
         num_bits = round(self.level / LEVEL_MAX * 7)
-        channels = sample_channels(rnd)
+        channels = sample_channels(rng)
 
         return distortion.PosterizationConfig(
             num_bits=num_bits,
@@ -284,13 +284,13 @@ class ColorBalanceConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         ratio = sample_float(
             level=self.level,
             value_min=self.config.ratio_min,
             value_max=self.config.ratio_max,
             prob_reciprocal=None,
-            rnd=rnd,
+            rng=rng,
             inverse_level=True,
         )
 
@@ -315,7 +315,7 @@ class ChannelPermutationConfigGenerator(
     ]
 ):  # yapf: disable
 
-    def __call__(self, shape: Tuple[int, int], rnd: RandomState):
+    def __call__(self, shape: Tuple[int, int], rng: Generator):
         return distortion.ChannelPermutationConfig()
 
 

@@ -1,6 +1,6 @@
 # flake8: noqa
 # TODO: improve
-from numpy.random import RandomState
+from numpy.random import default_rng, Generator
 import numpy as np
 import cattrs
 import pytest
@@ -47,8 +47,8 @@ def test_background():
         ],
         post_processor=bypass_post_processor_factory.create(),
     )
-    rnd = RandomState(0)
-    result = pipeline.run(rnd)
+    rng = default_rng(0)
+    result = pipeline.run(rng)
     assert result
 
 
@@ -64,8 +64,8 @@ def test_page_layout():
         post_processor=bypass_post_processor_factory.create(),
     )
     for seed in range(10):
-        rnd = RandomState(seed)
-        result = pipeline.run(rnd)
+        rng = default_rng(seed)
+        result = pipeline.run(rng)
         page_layout_output: PageLayoutStepOutput = result.key_to_value['page_layout_step']
         page_layout = page_layout_output.page_layout
         boxes = list(page_layout_output.debug_normal_grids)
@@ -130,8 +130,8 @@ def test_page_text_line():
     )
 
     for seed in range(3):
-        rnd = RandomState(seed)
-        result = pipeline.run(rnd)
+        rng = default_rng(seed)
+        result = pipeline.run(rng)
         page_text_line_collection: PageTextLineCollection = result.key_to_value[
             'page_text_line_step'].page_text_line_collection
 
@@ -184,8 +184,8 @@ def test_page_image():
     )
 
     for seed in range(3):
-        rnd = RandomState(seed)
-        result = pipeline.run(rnd)
+        rng = default_rng(seed)
+        result = pipeline.run(rng)
         page_image_collection: PageImageCollection = result.key_to_value['page_image_step'
                                                                          ].page_image_collection
 
@@ -287,8 +287,8 @@ def test_page():
     for seed in range(10):
         # for seed in [1]:
         print(seed)
-        rnd = RandomState(seed)
-        result = pipeline.run(rnd)
+        rng = default_rng(seed)
+        result = pipeline.run(rng)
 
         output: PageDistortionStepOutput = result.key_to_value['page_distortion_step']
         image = output.page_image
@@ -481,15 +481,15 @@ def debug_adaptive_scaling_pipeline():
 
     # p = Profiler(async_mode='disabled')
     # p.start()
-    # pipeline.run(RandomState(770))
+    # pipeline.run(default_rng(770))
     # p.stop()
     # p.print()
 
     p = Profiler(async_mode='disabled')
     p.start()
-    for rnd_seed in range(0, 1000):
-        print('rnd_seed =', rnd_seed)
-        pipeline.run(RandomState(rnd_seed))
+    for rng_seed in range(0, 1000):
+        print('rng_seed =', rng_seed)
+        pipeline.run(default_rng(rng_seed))
     p.stop()
     p.print()
     breakpoint()

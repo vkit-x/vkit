@@ -13,7 +13,7 @@ import math
 import attrs
 import cv2 as cv
 import numpy as np
-from numpy.random import RandomState
+from numpy.random import Generator
 
 from vkit.element import Point, PointList
 from ..interface import DistortionConfig
@@ -272,7 +272,7 @@ class CameraPlaneOnlyState(DistortionStateCameraOperation[CameraPlaneOnlyConfig]
         self,
         config: CameraPlaneOnlyConfig,
         shape: Tuple[int, int],
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         height, width = shape
         self.initialize_camera_operation(
@@ -384,7 +384,7 @@ class CameraCubicCurveState(DistortionStateCameraOperation[CameraCubicCurveConfi
         self,
         config: CameraCubicCurveConfig,
         shape: Tuple[int, int],
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         height, width = shape
         self.initialize_camera_operation(
@@ -481,7 +481,7 @@ class CameraPlaneLineFoldState(DistortionStateCameraOperation[CameraPlaneLineFol
         self,
         config: CameraPlaneLineFoldConfig,
         shape: Tuple[int, int],
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         height, width = shape
         self.initialize_camera_operation(
@@ -528,7 +528,7 @@ class CameraPlaneLineCurveState(DistortionStateCameraOperation[CameraPlaneLineCu
         self,
         config: CameraPlaneLineCurveConfig,
         shape: Tuple[int, int],
-        rnd: Optional[RandomState],
+        rng: Optional[Generator],
     ):
         height, width = shape
         self.initialize_camera_operation(

@@ -1,5 +1,5 @@
 import attrs
-from numpy.random import RandomState
+from numpy.random import Generator
 import cv2 as cv
 
 from vkit.element import Mask, ScoreMap, Image
@@ -34,7 +34,7 @@ class PageResizingStep(
     def __init__(self, config: PageResizingStepConfig):
         super().__init__(config)
 
-    def run(self, state: PipelineState, rnd: RandomState):
+    def run(self, state: PipelineState, rng: Generator):
         page_distortion_step_output = state.get_pipeline_step_output(PageDistortionStep)
         page_image = page_distortion_step_output.page_image
         page_text_line_mask = page_distortion_step_output.page_text_line_mask
@@ -48,7 +48,7 @@ class PageResizingStep(
         # Resizing.
         height, width = page_image.shape
         text_line_heights_min = min(page_distorted_text_line_heights)
-        resized_text_line_height = rnd.uniform(
+        resized_text_line_height = rng.uniform(
             self.config.resized_text_line_height_min,
             self.config.resized_text_line_height_max,
         )
