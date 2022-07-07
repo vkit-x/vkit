@@ -1,4 +1,4 @@
-from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar, Sequence
+from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar
 from collections import abc
 from itertools import chain
 
@@ -74,44 +74,6 @@ class Mask(Shapable):
         return attrs.evolve(self, mat=self.mat.copy())
 
     @staticmethod
-    def check_value_uniqueness(
-        value0: Union['Mask', np.ndarray, int],
-        value1: Union['Mask', np.ndarray, int],
-    ):
-        if type(value0) is not type(value1):
-            return False
-
-        if isinstance(value0, Mask):
-            value1 = cast(Mask, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0.mat == value1.mat).all()
-
-        elif isinstance(value0, np.ndarray):
-            value1 = cast(np.ndarray, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0 == value1).all()
-
-        elif isinstance(value0, int):
-            value1 = cast(int, value1)
-            return value0 == value1
-
-        else:
-            raise NotImplementedError()
-
-    @staticmethod
-    def check_values_uniqueness(values: Sequence[Union['Mask', np.ndarray, int]]):
-        unique = True
-        for idx, value in enumerate(values):
-            if idx == 0:
-                continue
-            if not Mask.check_value_uniqueness(values[0], value):
-                unique = False
-                break
-        return unique
-
-    @staticmethod
     def unpack_element_value_pairs(
         element_value_pairs: Iterable[Tuple[_E, Union['Mask', np.ndarray, int]]],
     ):
@@ -145,7 +107,7 @@ class Mask(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 boxes_mask.fill_mask(
@@ -203,7 +165,7 @@ class Mask(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 polygons_mask.fill_mask(
@@ -480,10 +442,13 @@ class Mask(Shapable):
         self,
         image: 'Image',
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
         if isinstance(value, Image):
             value = value.mat
+        if isinstance(alpha, ScoreMap):
+            assert alpha.is_prob
+            alpha = alpha.mat
 
         self.fill_np_array(image.mat, value, alpha=alpha)
 
@@ -520,6 +485,7 @@ def generate_fill_by_masks_mask(
 
 
 # Cyclic dependency, by design.
+from .uniqueness import check_elements_uniqueness  # noqa: E402
 from .image import Image  # noqa: E402
 from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
 from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402

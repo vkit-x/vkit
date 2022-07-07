@@ -11,6 +11,7 @@ from ..interface import (
 from .page_layout import PageLayoutStep
 from .page_background import PageBackgroundStep
 from .page_image import PageImageStep, PageImageCollection
+from .page_qrcode import PageQrcodeStep
 from .page_text_line import PageTextLineStep, PageTextLineCollection
 from .page_text_line_label import PageTextLineLabelStep, PageTextLinePolygonCollection
 
@@ -53,6 +54,8 @@ class PageAssemblerStep(
         page_image_step_output = state.get_pipeline_step_output(PageImageStep)
         page_image_collection = page_image_step_output.page_image_collection
 
+        page_qrcode_step_output = state.get_pipeline_step_output(PageQrcodeStep)
+
         page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
@@ -67,6 +70,10 @@ class PageAssemblerStep(
         # Page images.
         for page_image in page_image_collection.page_images:
             page_image.box.fill_image(assembled_image, page_image.image)
+
+        # Page QR codes.
+        for qrcode_score_map in page_qrcode_step_output.qrcode_score_maps:
+            assembled_image[qrcode_score_map] = (0, 0, 0)
 
         # Page text lines.
         for text_line in page_text_line_collection.text_lines:

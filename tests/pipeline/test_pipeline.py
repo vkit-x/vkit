@@ -233,6 +233,9 @@ def test_page():
                 },
             },
             {
+                'name': 'text_detection.page_qrcode_step',
+            },
+            {
                 'name': 'text_detection.page_text_line_step',
                 'config': {
                     'lexicon_collection_json':
