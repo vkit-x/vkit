@@ -717,6 +717,7 @@ class Image(Shapable):
             first_element = next(elements_iter)
             original_elements_iter = chain((first_element,), elements_iter)
 
+            # TODO: too ugly, fix it!!!
             if isinstance(first_element, Box):
                 boxes = cast(Iterable[Box], original_elements_iter)
                 if isinstance(value, abc.Iterable) \
@@ -725,7 +726,7 @@ class Image(Shapable):
                             isinstance(value, tuple)
                             and value
                             and isinstance(value[0], int)
-                            ):
+                ):
                     if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
                         alpha = cycle((alpha,))
                     self.fill_by_box_value_tuples(
@@ -759,7 +760,7 @@ class Image(Shapable):
                             isinstance(value, tuple)
                             and value
                             and isinstance(value[0], int)
-                            ):
+                ):
                     if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
                         alpha = cycle((alpha,))
                     self.fill_by_polygon_value_tuples(
@@ -793,7 +794,7 @@ class Image(Shapable):
                             isinstance(value, tuple)
                             and value
                             and isinstance(value[0], int)
-                            ):
+                ):
                     if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
                         alpha = cycle((alpha,))
                     self.fill_by_mask_value_tuples(
@@ -827,7 +828,7 @@ class Image(Shapable):
                             isinstance(value, tuple)
                             and value
                             and isinstance(value[0], int)
-                            ):
+                ):
                     self.fill_by_score_map_value_tuples(
                         score_map_value_tuples=zip(score_maps, value),
                         mode=mode,
