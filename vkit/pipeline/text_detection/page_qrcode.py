@@ -25,7 +25,6 @@ class PageQrcodeStepConfig:
     alpha_max: float = 1.0
 
 
-# TODO: Simplify other pipeline steps as well.
 @attrs.define
 class PageQrcodeStepOutput:
     height: int
