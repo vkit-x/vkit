@@ -1,6 +1,7 @@
 from typing import Optional, Sequence, List
 import math
 import heapq
+from enum import Enum, unique
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -84,6 +85,14 @@ class LayoutImage:
 @attrs.define
 class LayoutQrcode:
     box: Box
+
+
+@unique
+class LayoutQrcodePlacement(Enum):
+    NEXT_TO_UP = 'next_to_up'
+    NEXT_TO_DOWN = 'next_to_down'
+    NEXT_TO_LEFT = 'next_to_left'
+    NEXT_TO_RIGHT = 'next_to_right'
 
 
 @attrs.define
@@ -538,6 +547,9 @@ class PageLayoutStep(
         if large_text_line_gird:
             layout_text_lines.append(self.fill_large_text_line_to_grid(large_text_line_gird, rng))
 
+        # Must place text line.
+        assert layout_text_lines
+
         return (
             layout_text_lines,
             large_text_line_gird,
@@ -594,7 +606,8 @@ class PageLayoutStep(
             self.config.num_qrcodes_min,
             self.config.num_qrcodes_max + 1,
         )
-        for _ in range(num_layout_qrcodes):
+        num_retries = 3
+        while num_layout_qrcodes > 0 and num_retries > 0:
             qrcode_length_ratio = rng.uniform(
                 self.config.qrcode_length_ratio_min,
                 self.config.qrcode_length_ratio_max,
@@ -602,11 +615,82 @@ class PageLayoutStep(
             qrcode_length = round(qrcode_length_ratio * reference_height)
             qrcode_length = min(height, width, qrcode_length)
 
-            up = rng.integers(0, height - qrcode_length + 1)
-            down = up + qrcode_length - 1
-            left = rng.integers(0, width - qrcode_length + 1)
-            right = left + qrcode_length - 1
-            layout_qrcodes.append(LayoutQrcode(box=Box(up=up, down=down, left=left, right=right)))
+            # Place QR code next to text line.
+            anchor_layout_text_line_box = rng_choice(rng, layout_text_lines).box
+            anchor_layout_text_line_box_center = anchor_layout_text_line_box.get_center_point()
+            placement = rng_choice(rng, tuple(LayoutQrcodePlacement))
+
+            if placement in (LayoutQrcodePlacement.NEXT_TO_DOWN, LayoutQrcodePlacement.NEXT_TO_UP):
+                if placement == LayoutQrcodePlacement.NEXT_TO_DOWN:
+                    up = anchor_layout_text_line_box.down + 1
+                    down = up + qrcode_length - 1
+                    if down >= height:
+                        num_retries -= 1
+                        continue
+                else:
+                    assert placement == LayoutQrcodePlacement.NEXT_TO_UP
+                    down = anchor_layout_text_line_box.up - 1
+                    up = down + 1 - qrcode_length
+                    if up < 0:
+                        num_retries -= 1
+                        continue
+
+                left_min = max(
+                    0,
+                    anchor_layout_text_line_box_center.x - qrcode_length,
+                )
+                left_max = min(
+                    width - qrcode_length,
+                    anchor_layout_text_line_box_center.x,
+                )
+                if left_min > left_max:
+                    num_retries -= 1
+                    continue
+                left = int(rng.integers(left_min, left_max + 1))
+                right = left + qrcode_length - 1
+
+            else:
+                assert placement in (
+                    LayoutQrcodePlacement.NEXT_TO_RIGHT,
+                    LayoutQrcodePlacement.NEXT_TO_LEFT,
+                )
+
+                if placement == LayoutQrcodePlacement.NEXT_TO_RIGHT:
+                    left = anchor_layout_text_line_box.right + 1
+                    right = left + qrcode_length - 1
+                    if right >= width:
+                        num_retries -= 1
+                        continue
+                else:
+                    assert placement == LayoutQrcodePlacement.NEXT_TO_LEFT
+                    right = anchor_layout_text_line_box.left - 1
+                    left = right + 1 - qrcode_length
+                    if left < 0:
+                        num_retries -= 1
+                        continue
+
+                up_min = max(
+                    0,
+                    anchor_layout_text_line_box_center.y - qrcode_length,
+                )
+                up_max = min(
+                    height - qrcode_length,
+                    anchor_layout_text_line_box_center.y,
+                )
+                if up_min > up_max:
+                    num_retries -= 1
+                    continue
+
+                up = int(rng.integers(up_min, up_max + 1))
+                down = up + qrcode_length - 1
+
+            num_layout_qrcodes -= 1
+            layout_qrcodes.append(LayoutQrcode(box=Box(
+                up=up,
+                down=down,
+                left=left,
+                right=right,
+            )))
 
         if layout_qrcodes:
             # QR code could not be overlapped with text lines.

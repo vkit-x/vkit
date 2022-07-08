@@ -14,7 +14,7 @@ from ..interface import (
 )
 from .page_layout import PageLayoutStep
 
-CV_PAYLOAD_TEXT_LENGTH_MAX = 100
+CV_PAYLOAD_TEXT_LENGTH_MAX = 150
 
 
 @attrs.define

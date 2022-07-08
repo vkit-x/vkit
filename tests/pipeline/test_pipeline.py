@@ -353,31 +353,31 @@ def test_page():
         painter.paint_score_map(page_distorted_text_line_height_score_map)
         write_image(f'page_resized_{seed}_text_line_score_map.jpg', painter.image)
 
-        output3: PageCroppingStepOutput = result.key_to_value['page_cropping_step']
-        for idx, cropped_page in enumerate(output3.cropped_pages):
-            write_image(f'page_cropped_{seed}_{idx}_image.jpg', cropped_page.page_image)
-            painter = Painter.create(cropped_page.page_image)
-            painter.paint_mask(cropped_page.page_text_line_mask)
-            write_image(f'page_cropped_{seed}_{idx}_mask.jpg', painter.image)
-            painter = Painter.create(cropped_page.page_image)
-            painter.paint_score_map(cropped_page.page_text_line_height_score_map)
-            write_image(f'page_cropped_{seed}_{idx}_score_map.jpg', painter.image)
+        # output3: PageCroppingStepOutput = result.key_to_value['page_cropping_step']
+        # for idx, cropped_page in enumerate(output3.cropped_pages):
+        #     write_image(f'page_cropped_{seed}_{idx}_image.jpg', cropped_page.page_image)
+        #     painter = Painter.create(cropped_page.page_image)
+        #     painter.paint_mask(cropped_page.page_text_line_mask)
+        #     write_image(f'page_cropped_{seed}_{idx}_mask.jpg', painter.image)
+        #     painter = Painter.create(cropped_page.page_image)
+        #     painter.paint_score_map(cropped_page.page_text_line_height_score_map)
+        #     write_image(f'page_cropped_{seed}_{idx}_score_map.jpg', painter.image)
 
-            downsampled_label = cropped_page.downsampled_label
-            assert downsampled_label
+        #     downsampled_label = cropped_page.downsampled_label
+        #     assert downsampled_label
 
-            page_downsampled_text_line_mask = downsampled_label.page_text_line_mask
-            assert page_downsampled_text_line_mask
-            page_downsampled_text_line_height_score_map = downsampled_label.page_text_line_height_score_map
-            assert page_downsampled_text_line_height_score_map
+        #     page_downsampled_text_line_mask = downsampled_label.page_text_line_mask
+        #     assert page_downsampled_text_line_mask
+        #     page_downsampled_text_line_height_score_map = downsampled_label.page_text_line_height_score_map
+        #     assert page_downsampled_text_line_height_score_map
 
-            painter = Painter.create(page_downsampled_text_line_mask)
-            painter.paint_mask(page_downsampled_text_line_mask)
-            write_image(f'page_cropped_{seed}_{idx}_ds_mask.jpg', painter.image)
+        #     painter = Painter.create(page_downsampled_text_line_mask)
+        #     painter.paint_mask(page_downsampled_text_line_mask)
+        #     write_image(f'page_cropped_{seed}_{idx}_ds_mask.jpg', painter.image)
 
-            painter = Painter.create(page_downsampled_text_line_height_score_map)
-            painter.paint_score_map(page_downsampled_text_line_height_score_map)
-            write_image(f'page_cropped_{seed}_{idx}_ds_score_map.jpg', painter.image)
+        #     painter = Painter.create(page_downsampled_text_line_height_score_map)
+        #     painter.paint_score_map(page_downsampled_text_line_height_score_map)
+        #     write_image(f'page_cropped_{seed}_{idx}_ds_score_map.jpg', painter.image)
 
         # page: Page = result.key_to_value['page']
         # write_image(f'page_{seed}.jpg', page.image)
