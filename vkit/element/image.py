@@ -9,6 +9,7 @@ from PIL import (
     ImageOps as PilImageOps,
 )
 import cv2 as cv
+import iolite as io
 
 from vkit.utility import PathType
 from .type import Shapable, FillByElementsMode
@@ -327,25 +328,30 @@ class Image(Shapable):
 
     @staticmethod
     def from_file(path: PathType, disable_exif_orientation: bool = False):
-        pil_img = PilImage.open(str(path))
-        pil_img.load()
+        # NOTE: PilImage.open cannot handle `~`.
+        path = io.file(path).expanduser()
+
+        pil_image = PilImage.open(str(path))
+        pil_image.load()
 
         if not disable_exif_orientation:
             # https://exiftool.org/TagNames/EXIF.html
             # https://github.com/python-pillow/Pillow/blob/main/src/PIL/ImageOps.py#L571
             # Avoid unnecessary copy.
-            if pil_img.getexif().get(0x0112):
-                pil_img = PilImageOps.exif_transpose(pil_img)
+            if pil_image.getexif().get(0x0112):
+                pil_image = PilImageOps.exif_transpose(pil_image)
 
-        return Image.from_pil_image(pil_img)
+        return Image.from_pil_image(pil_image)
 
     def to_file(self, path: PathType, disable_to_rgb_image: bool = False):
         image = self
         if not disable_to_rgb_image:
             image = image.to_rgb_image()
 
-        pil_img = image.to_pil_image()
-        pil_img.save(str(path))
+        pil_image = image.to_pil_image()
+
+        path = io.file(path).expanduser()
+        pil_image.save(str(path))
 
     ############
     # Operator #
