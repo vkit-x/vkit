@@ -215,7 +215,7 @@ class ImageSetItemConfig:
         Tuple[int, ...],
         int,
     ]  # yapf: disable
-    alpha: Union[float, np.ndarray] = 1.0
+    alpha: Union[np.ndarray, float] = 1.0
 
 
 _E = TypeVar('_E', 'Box', 'Polygon', 'Mask', 'ScoreMap')
@@ -446,7 +446,7 @@ class Image(Shapable):
         self,
         boxes: Iterable['Box'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
     ):
         self.fill_by_box_value_tuples(
@@ -510,7 +510,7 @@ class Image(Shapable):
         self,
         polygons: Iterable['Polygon'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
     ):
         self.fill_by_polygon_value_tuples(
@@ -578,7 +578,7 @@ class Image(Shapable):
         self,
         masks: Iterable['Mask'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
     ):
         self.fill_by_mask_value_tuples(

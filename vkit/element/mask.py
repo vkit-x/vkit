@@ -298,7 +298,7 @@ class Mask(Shapable):
         self,
         mat: np.ndarray,
         value: Union[np.ndarray, Tuple[float, ...], float],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):

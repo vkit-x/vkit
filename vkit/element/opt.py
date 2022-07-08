@@ -104,7 +104,7 @@ def fill_np_array(
     mat: np.ndarray,
     value: Union[np.ndarray, Tuple[float, ...], float],
     np_mask: Optional[np.ndarray] = None,
-    alpha: Union[float, np.ndarray] = 1.0,
+    alpha: Union[np.ndarray, float] = 1.0,
     keep_max_value: bool = False,
     keep_min_value: bool = False,
 ):
