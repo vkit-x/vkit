@@ -1,6 +1,4 @@
-from typing import cast, Optional, Tuple, Union, Iterable, Callable, List, TypeVar, Sequence
-from collections import abc
-from itertools import chain
+from typing import Optional, Tuple, Union, Iterable, Callable, List, TypeVar
 
 import attrs
 import numpy as np
@@ -19,9 +17,7 @@ class ScoreMapSetItemConfig:
         'ScoreMap',
         np.ndarray,
         float,
-        Iterable[Union['ScoreMap', np.ndarray, float]],
     ] = 1.0  # yapf: disable
-    mode: FillByElementsMode = FillByElementsMode.UNION
     keep_max_value: bool = False
     keep_min_value: bool = False
 
@@ -263,44 +259,6 @@ class ScoreMap(Shapable):
         return attrs.evolve(self, mat=self.mat.copy())
 
     @staticmethod
-    def check_value_uniqueness(
-        value0: Union['ScoreMap', np.ndarray, float],
-        value1: Union['ScoreMap', np.ndarray, float],
-    ):
-        if type(value0) is not type(value1):
-            return False
-
-        if isinstance(value0, ScoreMap):
-            value1 = cast(ScoreMap, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0.mat == value1.mat).all()
-
-        elif isinstance(value0, np.ndarray):
-            value1 = cast(np.ndarray, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0 == value1).all()
-
-        elif isinstance(value0, float):
-            value1 = cast(float, value1)
-            return value0 == value1
-
-        else:
-            raise NotImplementedError()
-
-    @staticmethod
-    def check_values_uniqueness(values: Sequence[Union['ScoreMap', np.ndarray, float]]):
-        unique = True
-        for idx, value in enumerate(values):
-            if idx == 0:
-                continue
-            if not ScoreMap.check_value_uniqueness(values[0], value):
-                unique = False
-                break
-        return unique
-
-    @staticmethod
     def unpack_element_value_pairs(
         is_prob: bool,
         element_value_pairs: Iterable[Tuple[_E, Union['ScoreMap', np.ndarray, float]]],
@@ -347,7 +305,7 @@ class ScoreMap(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 boxes_mask.fill_score_map(
@@ -405,7 +363,7 @@ class ScoreMap(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 polygons_mask.fill_score_map(
@@ -465,7 +423,7 @@ class ScoreMap(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 masks_mask.fill_score_map(
@@ -510,127 +468,42 @@ class ScoreMap(Shapable):
         self,
         element: Union[
             'Box',
-            Iterable['Box'],
             'Polygon',
-            Iterable['Polygon'],
             'Mask',
-            Iterable['Mask'],
         ],
         config: Union[
             'ScoreMap',
             np.ndarray,
             float,
-            Iterable[Union['ScoreMap', np.ndarray, float]],
             ScoreMapSetItemConfig,
         ],
     ):  # yapf: disable
         if not isinstance(config, ScoreMapSetItemConfig):
             value = config
-            mode = FillByElementsMode.UNION
             keep_max_value = False
             keep_min_value = False
         else:
             assert isinstance(config, ScoreMapSetItemConfig)
             value = config.value
-            mode = config.mode
             keep_max_value = config.keep_max_value
             keep_min_value = config.keep_min_value
 
-        if isinstance(element, (Box, Polygon, Mask)):
-            assert not isinstance(value, abc.Iterable)
-            element.fill_score_map(score_map=self, value=value)
-
-        elif isinstance(element, abc.Iterable):
-            elements_iter = iter(element)
-            first_element = next(elements_iter)
-            original_elements_iter = chain((first_element,), elements_iter)
-
-            if isinstance(first_element, Box):
-                boxes = cast(Iterable[Box], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    self.fill_by_box_value_pairs(
-                        box_value_pairs=zip(boxes, value),
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                elif isinstance(value, float):
-                    self.fill_by_boxes(
-                        boxes=boxes,
-                        value=value,
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            elif isinstance(first_element, Polygon):
-                polygons = cast(Iterable[Polygon], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    self.fill_by_polygon_value_pairs(
-                        polygon_value_pairs=zip(polygons, value),
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                elif isinstance(value, float):
-                    self.fill_by_polygons(
-                        polygons=polygons,
-                        value=value,
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            elif isinstance(first_element, Mask):
-                masks = cast(Iterable[Mask], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    self.fill_by_mask_value_pairs(
-                        mask_value_pairs=zip(masks, value),
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                elif isinstance(value, float):
-                    self.fill_by_masks(
-                        masks=masks,
-                        value=value,
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            else:
-                raise NotImplementedError()
-
-        else:
-            raise NotImplementedError()
+        element.fill_score_map(
+            score_map=self,
+            value=value,
+            keep_min_value=keep_min_value,
+            keep_max_value=keep_max_value,
+        )
 
     def __getitem__(
         self,
         element: Union[
             'Box',
-            Iterable['Box'],
             'Polygon',
-            Iterable['Polygon'],
             'Mask',
-            Iterable['Mask'],
         ],
     ):  # yapf: disable
-        if isinstance(element, (Box, Polygon, Mask)):
-            return element.extract_score_map(self)
-
-        elif isinstance(element, abc.Iterable):
-            elements = element
-            return [element.extract_score_map(self) for element in elements]
-
-        else:
-            raise NotImplementedError()
+        return element.extract_score_map(self)
 
     def fill_by_quad_interpolation(
         self,
@@ -755,7 +628,40 @@ class ScoreMap(Shapable):
         return Mask(mat=mat, box=self.box)
 
 
+def generate_fill_by_score_maps_mask(
+    shape: Tuple[int, int],
+    score_maps: Iterable[ScoreMap],
+    mode: FillByElementsMode,
+):
+    if mode == FillByElementsMode.UNION:
+        return None
+
+    score_maps_mask = Mask.from_shape(shape)
+
+    for score_map in score_maps:
+        if score_map.box:
+            boxed_mat = score_map.box.extract_np_array(score_maps_mask.mat)
+        else:
+            boxed_mat = score_maps_mask.mat
+
+        np_non_oob_mask = (boxed_mat < 255)
+        # NOTE: ScoreMap.np_mask requires is_prob=True.
+        boxed_mat[score_map.to_mask().np_mask & np_non_oob_mask] += 1
+
+    if mode == FillByElementsMode.DISTINCT:
+        score_maps_mask.mat[score_maps_mask.mat > 1] = 0
+
+    elif mode == FillByElementsMode.INTERSECT:
+        score_maps_mask.mat[score_maps_mask.mat == 1] = 0
+
+    else:
+        raise NotImplementedError()
+
+    return score_maps_mask
+
+
 # Cyclic dependency, by design.
+from .uniqueness import check_elements_uniqueness  # noqa: E402
 from .image import Image  # noqa: E402
 from .point import Point  # noqa: E402
 from .box import Box, generate_fill_by_boxes_mask  # noqa: E402

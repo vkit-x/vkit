@@ -1,7 +1,6 @@
 from typing import cast, Mapping, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
 from enum import Enum, unique
 from collections import abc
-from itertools import chain, cycle
 
 import attrs
 import numpy as np
@@ -10,6 +9,7 @@ from PIL import (
     ImageOps as PilImageOps,
 )
 import cv2 as cv
+import iolite as io
 
 from vkit.utility import PathType
 from .type import Shapable, FillByElementsMode
@@ -215,16 +215,11 @@ class ImageSetItemConfig:
         np.ndarray,
         Tuple[int, ...],
         int,
-        Iterable[Union['Image', np.ndarray, Tuple[int, ...], int]],
     ]  # yapf: disable
-    alpha: Union[
-        Union[float, np.ndarray],
-        Iterable[Union[float, np.ndarray]],
-    ] = 1.0  # yapf: disable
-    mode: FillByElementsMode = FillByElementsMode.UNION
+    alpha: Union[np.ndarray, float] = 1.0
 
 
-_E = TypeVar('_E', 'Box', 'Polygon', 'Mask')
+_E = TypeVar('_E', 'Box', 'Polygon', 'Mask', 'ScoreMap')
 
 
 @attrs.define
@@ -333,25 +328,30 @@ class Image(Shapable):
 
     @staticmethod
     def from_file(path: PathType, disable_exif_orientation: bool = False):
-        pil_img = PilImage.open(str(path))
-        pil_img.load()
+        # NOTE: PilImage.open cannot handle `~`.
+        path = io.file(path).expanduser()
+
+        pil_image = PilImage.open(str(path))
+        pil_image.load()
 
         if not disable_exif_orientation:
             # https://exiftool.org/TagNames/EXIF.html
             # https://github.com/python-pillow/Pillow/blob/main/src/PIL/ImageOps.py#L571
             # Avoid unnecessary copy.
-            if pil_img.getexif().get(0x0112):
-                pil_img = PilImageOps.exif_transpose(pil_img)
+            if pil_image.getexif().get(0x0112):
+                pil_image = PilImageOps.exif_transpose(pil_image)
 
-        return Image.from_pil_image(pil_img)
+        return Image.from_pil_image(pil_image)
 
     def to_file(self, path: PathType, disable_to_rgb_image: bool = False):
         image = self
         if not disable_to_rgb_image:
             image = image.to_rgb_image()
 
-        pil_img = image.to_pil_image()
-        pil_img.save(str(path))
+        pil_image = image.to_pil_image()
+
+        path = io.file(path).expanduser()
+        pil_image.save(str(path))
 
     ############
     # Operator #
@@ -361,57 +361,11 @@ class Image(Shapable):
         return attrs.evolve(self, mat=mat)
 
     @staticmethod
-    def check_value_uniqueness(
-        value0: Union['Image', np.ndarray, Tuple[int, ...], int, float],
-        value1: Union['Image', np.ndarray, Tuple[int, ...], int, float],
-    ):
-        if type(value0) is not type(value1):
-            return False
-
-        if isinstance(value0, Image):
-            value1 = cast(Image, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0.mat == value1.mat).all()
-
-        elif isinstance(value0, np.ndarray):
-            value1 = cast(np.ndarray, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0 == value1).all()
-
-        elif isinstance(value0, tuple):
-            value1 = cast(tuple, value1)
-            assert len(value0) == len(value1)
-            return value0 == value1
-
-        elif isinstance(value0, int):
-            value1 = cast(int, value1)
-            return value0 == value1
-
-        elif isinstance(value0, float):
-            value1 = cast(float, value1)
-            return value0 == value1
-
-        else:
-            raise NotImplementedError()
-
-    @staticmethod
-    def check_values_uniqueness(
+    def check_values_and_alphas_uniqueness(
         values: Sequence[Union['Image', np.ndarray, Tuple[int, ...], int, float]],
-        alphas: Sequence[Union[float, np.ndarray]]
+        alphas: Sequence[Union['ScoreMap', np.ndarray, float]]
     ):
-        unique = True
-        for idx, (value, alpha) in enumerate(zip(values, alphas)):
-            if idx == 0:
-                continue
-            if not Image.check_value_uniqueness(values[0], value):
-                unique = False
-                break
-            if not Image.check_value_uniqueness(alphas[0], alpha):
-                unique = False
-                break
-        return unique
+        return check_elements_uniqueness(values) and check_elements_uniqueness(alphas)
 
     @staticmethod
     def unpack_element_value_tuples(
@@ -477,7 +431,7 @@ class Image(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values, alphas)
+                unique = self.check_values_and_alphas_uniqueness(values, alphas)
 
             if unique:
                 boxes_mask.fill_image(
@@ -498,7 +452,7 @@ class Image(Shapable):
         self,
         boxes: Iterable['Box'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
     ):
         self.fill_by_box_value_tuples(
@@ -539,7 +493,7 @@ class Image(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values, alphas)
+                unique = self.check_values_and_alphas_uniqueness(values, alphas)
 
             if unique:
                 polygons_mask.fill_image(
@@ -562,7 +516,7 @@ class Image(Shapable):
         self,
         polygons: Iterable['Polygon'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
     ):
         self.fill_by_polygon_value_tuples(
@@ -603,7 +557,7 @@ class Image(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values, alphas)
+                unique = self.check_values_and_alphas_uniqueness(values, alphas)
 
             if unique:
                 masks_mask.fill_image(
@@ -630,7 +584,7 @@ class Image(Shapable):
         self,
         masks: Iterable['Mask'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         mode: FillByElementsMode = FillByElementsMode.UNION,
     ):
         self.fill_by_mask_value_tuples(
@@ -639,131 +593,123 @@ class Image(Shapable):
             skip_values_uniqueness_check=True,
         )
 
+    def fill_by_score_map_value_tuples(
+        self,
+        score_map_value_tuples: Iterable[
+            Tuple[
+                'ScoreMap',
+                Union['Image', np.ndarray, Tuple[int, ...], int],
+            ]
+        ],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+        skip_values_uniqueness_check: bool = False,
+    ):  # yapf: disable
+        # NOTE: score maps serve as masks & alphas, hence ignoring unpacked alphas.
+        score_maps, values, _ = self.unpack_element_value_tuples(score_map_value_tuples)
+
+        score_maps_mask = generate_fill_by_score_maps_mask(self.shape, score_maps, mode)
+        if score_maps_mask is None:
+            for score_map, value in zip(score_maps, values):
+                score_map.fill_image(
+                    image=self,
+                    value=value,
+                )
+
+        else:
+            unique = True
+            if not skip_values_uniqueness_check:
+                unique = check_elements_uniqueness(values)
+
+            if unique:
+                # This is unlikely to happen.
+                score_maps_mask.fill_image(
+                    image=self,
+                    value=values[0],
+                    alpha=score_maps[0],
+                )
+            else:
+                for score_map, value in zip(score_maps, values):
+                    if score_map.box:
+                        boxed_mask = score_map.box.extract_mask(score_maps_mask)
+                    else:
+                        boxed_mask = score_maps_mask
+
+                    boxed_mask = boxed_mask.copy()
+                    score_map.to_mask().to_inverted_mask().fill_mask(boxed_mask, value=0)
+                    boxed_mask.fill_image(
+                        image=self,
+                        value=value,
+                        alpha=score_map,
+                    )
+
+    def fill_by_score_maps(
+        self,
+        score_maps: Iterable['ScoreMap'],
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        mode: FillByElementsMode = FillByElementsMode.UNION,
+    ):
+        self.fill_by_score_map_value_tuples(
+            score_map_value_tuples=((score_map, value) for score_map in score_maps),
+            mode=mode,
+            skip_values_uniqueness_check=True,
+        )
+
     def __setitem__(
         self,
         element: Union[
             'Box',
-            Iterable['Box'],
             'Polygon',
-            Iterable['Polygon'],
             'Mask',
-            Iterable['Mask'],
+            'ScoreMap',
         ],
         config: Union[
             'Image',
             np.ndarray,
             Tuple[int, ...],
             int,
-            Iterable[Union['Image', np.ndarray, Tuple[int, ...], int]],
             ImageSetItemConfig,
         ],
     ):  # yapf: disable
         if not isinstance(config, ImageSetItemConfig):
             value = config
             alpha = 1.0
-            mode = FillByElementsMode.UNION
         else:
             assert isinstance(config, ImageSetItemConfig)
             value = config.value
             alpha = config.alpha
-            mode = config.mode
 
-        if isinstance(element, (Box, Polygon, Mask)):
-            assert not isinstance(value, abc.Iterable)
-            assert not isinstance(alpha, abc.Iterable)
-            element.fill_image(image=self, value=value, alpha=alpha)
-
-        elif isinstance(element, abc.Iterable):
-            elements_iter = iter(element)
-            first_element = next(elements_iter)
-            original_elements_iter = chain((first_element,), elements_iter)
-
-            if isinstance(first_element, Box):
-                boxes = cast(Iterable[Box], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
-                        alpha = cycle((alpha,))
-                    self.fill_by_box_value_tuples(
-                        box_value_tuples=zip(boxes, value, alpha),
-                        mode=mode,
-                    )
-                elif isinstance(value, int):
-                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
-                    self.fill_by_boxes(
-                        boxes=boxes,
-                        value=value,
-                        alpha=alpha,
-                        mode=mode,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            elif isinstance(first_element, Polygon):
-                polygons = cast(Iterable[Polygon], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
-                        alpha = cycle((alpha,))
-                    self.fill_by_polygon_value_tuples(
-                        polygon_value_tuples=zip(polygons, value, alpha),
-                        mode=mode,
-                    )
-                elif isinstance(value, int):
-                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
-                    self.fill_by_polygons(
-                        polygons=polygons,
-                        value=value,
-                        alpha=alpha,
-                        mode=mode,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            elif isinstance(first_element, Mask):
-                masks = cast(Iterable[Mask], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
-                        alpha = cycle((alpha,))
-                    self.fill_by_mask_value_tuples(
-                        mask_value_tuples=zip(masks, value, alpha),
-                        mode=mode,
-                    )
-                elif isinstance(value, int):
-                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
-                    self.fill_by_masks(
-                        masks=masks,
-                        value=value,
-                        alpha=alpha,
-                        mode=mode,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            else:
-                raise NotImplementedError()
-
+        if isinstance(value, tuple):
+            assert value
+            assert isinstance(value[0], int)
         else:
-            raise NotImplementedError()
+            assert not isinstance(value, abc.Iterable)
+
+        # Type inference cannot handle this case.
+        value = cast(
+            Union[
+                'Image',
+                np.ndarray,
+                Tuple[int, ...],
+                int,
+            ],
+            value
+        )  # yapf: disable
+        assert not isinstance(alpha, abc.Iterable)
+
+        if isinstance(element, ScoreMap):
+            element.fill_image(image=self, value=value)
+        else:
+            element.fill_image(image=self, value=value, alpha=alpha)
 
     def __getitem__(
         self,
         element: Union[
             'Box',
-            Iterable['Box'],
             'Polygon',
-            Iterable['Polygon'],
             'Mask',
-            Iterable['Mask'],
         ],
     ):  # yapf: disable
-        if isinstance(element, (Box, Polygon, Mask)):
-            return element.extract_image(self)
-
-        elif isinstance(element, abc.Iterable):
-            elements = element
-            return [element.extract_image(self) for element in elements]
-
-        else:
-            raise NotImplementedError()
+        return element.extract_image(self)
 
     def to_box_attached(self, box: 'Box'):
         return attrs.evolve(self, box=box)
@@ -912,6 +858,8 @@ class Image(Shapable):
 
 
 # Cyclic dependency, by design.
+from .uniqueness import check_elements_uniqueness  # noqa: E402
 from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
-from .mask import Mask, generate_fill_by_masks_mask  # noqa: E402
 from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402
+from .mask import Mask, generate_fill_by_masks_mask  # noqa: E402
+from .score_map import ScoreMap, generate_fill_by_score_maps_mask  # noqa: E402

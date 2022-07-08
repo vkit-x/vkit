@@ -12,35 +12,64 @@ from vkit.element import Shapable, Point, Polygon, PointList
 class ImageGrid:
     points_2d: List[List[Point]]
 
-    image_height: int = attrs.field(init=False)
-    image_width: int = attrs.field(init=False)
-
     # If set, then this is a src image grid.
     grid_size: Optional[int] = None
 
-    cached_trans_mat: List[List[Optional[np.ndarray]]] = attrs.field(init=False)
-    cached_inv_trans_mat: List[List[Optional[np.ndarray]]] = attrs.field(init=False)
     cached_map_y: Optional[np.ndarray] = None
     cached_map_x: Optional[np.ndarray] = None
 
-    def __attrs_post_init__(self):
+    _image_height: Optional[int] = None
+    _image_width: Optional[int] = None
+
+    _cached_trans_mat: Optional[List[List[Optional[np.ndarray]]]] = None
+    _cached_inv_trans_mat: Optional[List[List[Optional[np.ndarray]]]] = None
+
+    def lazy_post_init(self):
+        initialized = (self._image_height is not None)
+        if initialized:
+            return
+
         assert min(point.y for point in self.flatten_points) == 0
-        self.image_height = max(point.y for point in self.flatten_points) + 1
+        self._image_height = max(point.y for point in self.flatten_points) + 1
 
         assert min(point.x for point in self.flatten_points) == 0
-        self.image_width = max(point.x for point in self.flatten_points) + 1
+        self._image_width = max(point.x for point in self.flatten_points) + 1
 
         if self.grid_size is not None:
-            self.cached_trans_mat: List[List[Optional[np.ndarray]]] = [
+            self._cached_trans_mat = [
                 [None] * (self.num_cols - 1) for _ in range(self.num_rows - 1)
             ]
-            self.cached_inv_trans_mat: List[List[Optional[np.ndarray]]] = [
+            self._cached_inv_trans_mat = [
                 [None] * (self.num_cols - 1) for _ in range(self.num_rows - 1)
             ]
         else:
             # Avoid pickling error.
-            self.cached_trans_mat = []
-            self.cached_inv_trans_mat = []
+            self._cached_trans_mat = []
+            self._cached_inv_trans_mat = []
+
+    @property
+    def image_height(self):
+        self.lazy_post_init()
+        assert self._image_height is not None
+        return self._image_height
+
+    @property
+    def image_width(self):
+        self.lazy_post_init()
+        assert self._image_width is not None
+        return self._image_width
+
+    @property
+    def cached_trans_mat(self):
+        self.lazy_post_init()
+        assert self._cached_trans_mat is not None
+        return self._cached_trans_mat
+
+    @property
+    def cached_inv_trans_mat(self):
+        self.lazy_post_init()
+        assert self._cached_inv_trans_mat is not None
+        return self._cached_inv_trans_mat
 
     @property
     def num_rows(self):

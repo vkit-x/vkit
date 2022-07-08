@@ -10,7 +10,6 @@ from vkit.element import (
     Mask,
     ScoreMap,
     Image,
-    ScoreMapSetItemConfig,
     Painter,
 )
 from tests.opt import write_image
@@ -96,21 +95,21 @@ def test_score_map_setitem_box():
     write_image('1.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400))
-    score_map[(box0, box1)] = 1.0
+    score_map.fill_by_boxes((box0, box1))
 
     painter = Painter.create(score_map)
     painter.paint_score_map(score_map)
     write_image('union.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400))
-    score_map[(box0, box1)] = ScoreMapSetItemConfig(mode=FillByElementsMode.INTERSECT)
+    score_map.fill_by_boxes((box0, box1), mode=FillByElementsMode.INTERSECT)
 
     painter = Painter.create(score_map)
     painter.paint_score_map(score_map)
     write_image('intersect.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400))
-    score_map[(box0, box1)] = ScoreMapSetItemConfig(mode=FillByElementsMode.DISTINCT)
+    score_map.fill_by_boxes((box0, box1), mode=FillByElementsMode.DISTINCT)
 
     painter = Painter.create(score_map)
     painter.paint_score_map(score_map)
@@ -118,9 +117,8 @@ def test_score_map_setitem_box():
 
     box2 = Box(up=200, down=300, left=200, right=300)
     score_map = ScoreMap.from_shape((400, 400))
-    score_map[(box0, box1, box2)] = ScoreMapSetItemConfig(
-        value=[1.0, 0.75, 0.5],
-        keep_max_value=True,
+    score_map.fill_by_box_value_pairs(
+        zip((box0, box1, box2), [1.0, 0.75, 0.5]), keep_max_value=True
     )
 
     painter = Painter.create(score_map)
@@ -128,12 +126,12 @@ def test_score_map_setitem_box():
     write_image('keep_max.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400), value=1.0)
-    score_map[(box0, box1, box2)] = ScoreMapSetItemConfig(
-        value=[1.0, 0.75, 0.5],
-        keep_min_value=True,
+    score_map.fill_by_box_value_pairs(
+        zip((box0, box1, box2), [1.0, 0.75, 0.5]), keep_min_value=True
     )
+
     mask = Mask.from_shapable(score_map)
-    mask[(box0, box1, box2)] = 1
+    mask.fill_by_boxes((box0, box1, box2))
     mask.to_inverted_mask().fill_score_map(score_map, 0.0)
 
     painter = Painter.create(score_map)
@@ -168,7 +166,7 @@ def test_score_map_setitem_polygon():
     write_image('1.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400))
-    score_map[(polygon0, polygon1)] = (0.75, 0.5)
+    score_map.fill_by_polygon_value_pairs(zip((polygon0, polygon1), (0.75, 0.5)))
     painter = Painter.create(score_map)
     painter.paint_score_map(score_map)
     write_image('2.jpg', painter.image)

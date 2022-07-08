@@ -36,16 +36,20 @@ KEY_NO_TAG = '__no_tag'
 class LexiconCollection:
     lexicons: Sequence[Lexicon]
 
-    char_to_lexicon: Mapping[str, Lexicon] = attrs.field(init=False)
-    tag_to_lexicons: Mapping[str, Sequence[Lexicon]] = attrs.field(init=False)
-    tags: Sequence[str] = attrs.field(init=False)
+    _char_to_lexicon: Optional[Mapping[str, Lexicon]] = None
+    _tag_to_lexicons: Optional[Mapping[str, Sequence[Lexicon]]] = None
+    _tags: Optional[Sequence[str]] = None
 
-    def __attrs_post_init__(self):
-        self.char_to_lexicon = {}
+    def lazy_post_init(self):
+        initialized = (self._char_to_lexicon is not None)
+        if initialized:
+            return
+
+        self._char_to_lexicon = {}
         for lexicon in self.lexicons:
             for char in lexicon.char_and_aliases:
-                assert char not in self.char_to_lexicon
-                self.char_to_lexicon[char] = lexicon
+                assert char not in self._char_to_lexicon
+                self._char_to_lexicon[char] = lexicon
 
         tag_to_lexicons: DefaultDict[str, List[Lexicon]] = defaultdict(list)
         for lexicon in self.lexicons:
@@ -54,8 +58,26 @@ class LexiconCollection:
                     tag_to_lexicons[tag].append(lexicon)
             else:
                 tag_to_lexicons[KEY_NO_TAG].append(lexicon)
-        self.tag_to_lexicons = dict(tag_to_lexicons)
-        self.tags = sorted(self.tag_to_lexicons)
+        self._tag_to_lexicons = dict(tag_to_lexicons)
+        self._tags = sorted(self._tag_to_lexicons)
+
+    @property
+    def char_to_lexicon(self):
+        self.lazy_post_init()
+        assert self._char_to_lexicon is not None
+        return self._char_to_lexicon
+
+    @property
+    def tag_to_lexicons(self):
+        self.lazy_post_init()
+        assert self._tag_to_lexicons is not None
+        return self._tag_to_lexicons
+
+    @property
+    def tags(self):
+        self.lazy_post_init()
+        assert self._tags is not None
+        return self._tags
 
     def has_char(self, char: str):
         return char in self.char_to_lexicon

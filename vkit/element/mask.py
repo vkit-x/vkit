@@ -1,6 +1,4 @@
-from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar, Sequence
-from collections import abc
-from itertools import chain
+from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar
 
 import attrs
 import numpy as np
@@ -12,8 +10,7 @@ from .opt import generate_resized_shape, fill_np_array
 
 @attrs.define
 class MaskSetItemConfig:
-    value: Union['Mask', np.ndarray, int, Iterable[Union['Mask', np.ndarray, int]]] = 1
-    mode: FillByElementsMode = FillByElementsMode.UNION
+    value: Union['Mask', np.ndarray, int] = 1
     keep_max_value: bool = False
     keep_min_value: bool = False
 
@@ -74,44 +71,6 @@ class Mask(Shapable):
         return attrs.evolve(self, mat=self.mat.copy())
 
     @staticmethod
-    def check_value_uniqueness(
-        value0: Union['Mask', np.ndarray, int],
-        value1: Union['Mask', np.ndarray, int],
-    ):
-        if type(value0) is not type(value1):
-            return False
-
-        if isinstance(value0, Mask):
-            value1 = cast(Mask, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0.mat == value1.mat).all()
-
-        elif isinstance(value0, np.ndarray):
-            value1 = cast(np.ndarray, value1)
-            if value0.shape != value1.shape:
-                return False
-            return (value0 == value1).all()
-
-        elif isinstance(value0, int):
-            value1 = cast(int, value1)
-            return value0 == value1
-
-        else:
-            raise NotImplementedError()
-
-    @staticmethod
-    def check_values_uniqueness(values: Sequence[Union['Mask', np.ndarray, int]]):
-        unique = True
-        for idx, value in enumerate(values):
-            if idx == 0:
-                continue
-            if not Mask.check_value_uniqueness(values[0], value):
-                unique = False
-                break
-        return unique
-
-    @staticmethod
     def unpack_element_value_pairs(
         element_value_pairs: Iterable[Tuple[_E, Union['Mask', np.ndarray, int]]],
     ):
@@ -145,7 +104,7 @@ class Mask(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 boxes_mask.fill_mask(
@@ -203,7 +162,7 @@ class Mask(Shapable):
         else:
             unique = True
             if not skip_values_uniqueness_check:
-                unique = self.check_values_uniqueness(values)
+                unique = check_elements_uniqueness(values)
 
             if unique:
                 polygons_mask.fill_mask(
@@ -242,95 +201,36 @@ class Mask(Shapable):
 
     def __setitem__(
         self,
-        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+        element: Union['Box', 'Polygon'],
         config: Union[
             'Mask',
             np.ndarray,
             int,
-            Iterable[Union['Mask', np.ndarray, int]],
             MaskSetItemConfig,
         ],
     ):  # yapf: disable
         if not isinstance(config, MaskSetItemConfig):
             value = config
-            mode = FillByElementsMode.UNION
             keep_max_value = False
             keep_min_value = False
         else:
             assert isinstance(config, MaskSetItemConfig)
             value = config.value
-            mode = config.mode
             keep_max_value = config.keep_max_value
             keep_min_value = config.keep_min_value
 
-        if isinstance(element, (Box, Polygon)):
-            assert not isinstance(value, abc.Iterable)
-            element.fill_mask(mask=self, value=value)
-
-        elif isinstance(element, abc.Iterable):
-            elements_iter = iter(element)
-            first_element = next(elements_iter)
-            original_elements_iter = chain((first_element,), elements_iter)
-
-            if isinstance(first_element, Box):
-                boxes = cast(Iterable[Box], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    self.fill_by_box_value_pairs(
-                        box_value_pairs=zip(boxes, value),
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                elif isinstance(value, int):
-                    self.fill_by_boxes(
-                        boxes=boxes,
-                        value=value,
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            elif isinstance(first_element, Polygon):
-                polygons = cast(Iterable[Polygon], original_elements_iter)
-                if isinstance(value, abc.Iterable) and not isinstance(value, np.ndarray):
-                    self.fill_by_polygon_value_pairs(
-                        polygon_value_pairs=zip(polygons, value),
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                elif isinstance(value, int):
-                    self.fill_by_polygons(
-                        polygons=polygons,
-                        value=value,
-                        mode=mode,
-                        keep_max_value=keep_max_value,
-                        keep_min_value=keep_min_value,
-                    )
-                else:
-                    raise NotImplementedError()
-
-            else:
-                raise NotImplementedError()
-
-        else:
-            raise NotImplementedError()
+        element.fill_mask(
+            mask=self,
+            value=value,
+            keep_min_value=keep_min_value,
+            keep_max_value=keep_max_value,
+        )
 
     def __getitem__(
         self,
-        element: Union['Box', Iterable['Box'], 'Polygon', Iterable['Polygon']],
+        element: Union['Box', 'Polygon'],
     ):
-        if isinstance(element, (Box, Polygon)):
-            return element.extract_mask(self)
-
-        elif isinstance(element, abc.Iterable):
-            elements = element
-            return [element.extract_mask(self) for element in elements]
-
-        else:
-            raise NotImplementedError()
+        return element.extract_mask(self)
 
     def to_inverted_mask(self):
         mat = (~self.np_mask).astype(np.uint8)
@@ -398,7 +298,7 @@ class Mask(Shapable):
         self,
         mat: np.ndarray,
         value: Union[np.ndarray, Tuple[float, ...], float],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union[np.ndarray, float] = 1.0,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
@@ -480,10 +380,13 @@ class Mask(Shapable):
         self,
         image: 'Image',
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        alpha: Union[float, np.ndarray] = 1.0,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
         if isinstance(value, Image):
             value = value.mat
+        if isinstance(alpha, ScoreMap):
+            assert alpha.is_prob
+            alpha = alpha.mat
 
         self.fill_np_array(image.mat, value, alpha=alpha)
 
@@ -520,6 +423,7 @@ def generate_fill_by_masks_mask(
 
 
 # Cyclic dependency, by design.
+from .uniqueness import check_elements_uniqueness  # noqa: E402
 from .image import Image  # noqa: E402
 from .box import Box, generate_fill_by_boxes_mask  # noqa: E402
 from .polygon import Polygon, generate_fill_by_polygons_mask  # noqa: E402
