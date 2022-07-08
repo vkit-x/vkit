@@ -54,8 +54,8 @@ class NoTextImageWriter(BaseWriter):  # type: ignore
     def _init(self, code: str):
         width, height = self.calculate_size(len(code[0]), len(code))
         size = (int(mm2px(width, self.dpi)), int(mm2px(height, self.dpi)))
-        self._image = PilImage.new(self.mode, size, self.background)
-        self._draw = PilImageDraw.Draw(self._image)
+        self._image = PilImage.new(self.mode, size, self.background)  # type: ignore
+        self._draw = PilImageDraw.Draw(self._image)  # type: ignore
 
     def _paint_module(self, xpos: int, ypos: int, width: int, color: Any):
         size = [
