@@ -44,6 +44,12 @@ from .text_detection.page_qrcode import (
     PageQrcodeStepConfig,
     PageQrcodeStepOutput,
 )
+from .text_detection.page_barcode import (
+    page_barcode_step_factory,
+    PageBarcodeStep,
+    PageBarcodeStepConfig,
+    PageBarcodeStepOutput,
+)
 from .text_detection.page_text_line import (
     page_text_line_step_factory,
     PageTextLineStep,
@@ -95,6 +101,7 @@ pipeline_step_collection_factory.register_step_factories(
         page_layout_step_factory,
         page_image_step_factory,
         page_qrcode_step_factory,
+        page_barcode_step_factory,
         page_text_line_step_factory,
         page_text_line_label_step_factory,
         page_assembler_step_factory,

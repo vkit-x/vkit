@@ -13,7 +13,7 @@ from ..interface import (
 
 @attrs.define
 class PageResizingStepConfig:
-    resized_text_line_height_min: float = 5.0
+    resized_text_line_height_min: float = 3.5
     resized_text_line_height_max: float = 15.0
 
 
