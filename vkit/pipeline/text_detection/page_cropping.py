@@ -18,6 +18,7 @@ class PageCroppingStepConfig:
     core_size: int
     pad_size: int
     num_samples: Optional[int] = None
+    num_samples_estimation_factor: float = 1.5
     pad_value: int = 0
     drop_cropped_page_with_no_text: bool = True
     enable_downsample_labeling: bool = True
@@ -218,9 +219,11 @@ class PageCroppingStep(
 
         num_samples = self.config.num_samples
         if num_samples is None:
+            page_image_area = page_image.height * page_image.width
+            core_area = self.config.core_size**2
             num_samples = max(
                 1,
-                round(page_image.height * page_image.width / (self.config.core_size**2)),
+                round(page_image_area / core_area * self.config.num_samples_estimation_factor),
             )
 
         cropped_pages: List[CroppedPage] = []
