@@ -33,7 +33,7 @@ class PageLayoutStepConfig:
     # Normal text line.
     num_normal_text_line_heights_min: int = 2
     num_normal_text_line_heights_max: int = 4
-    normal_text_line_height_ratio_min: float = 0.005
+    normal_text_line_height_ratio_min: float = 0.01
     normal_text_line_height_ratio_max: float = 0.05
     force_add_normal_text_line_height_ratio_min: bool = True
 

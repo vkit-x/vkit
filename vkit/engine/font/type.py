@@ -146,10 +146,14 @@ class FontCollectionFolderTree(Enum):
 class FontCollection:
     font_metas: Sequence[FontMeta]
 
-    _name_to_font_meta: Mapping[str, FontMeta] = attrs.field(init=False)
-    _char_to_font_meta_names: Mapping[str, Set[str]] = attrs.field(init=False)
+    _name_to_font_meta: Optional[Mapping[str, FontMeta]] = None
+    _char_to_font_meta_names: Optional[Mapping[str, Set[str]]] = None
 
-    def __attrs_post_init__(self):
+    def lazy_post_init(self):
+        initialized = (self._name_to_font_meta is not None)
+        if initialized:
+            return
+
         name_to_font_meta: Dict[str, FontMeta] = {}
         char_to_font_meta_names: DefaultDict[str, Set[str]] = defaultdict(set)
         for font_meta in self.font_metas:
@@ -160,12 +164,24 @@ class FontCollection:
         self._name_to_font_meta = name_to_font_meta
         self._char_to_font_meta_names = dict(char_to_font_meta_names)
 
+    @property
+    def name_to_font_meta(self):
+        self.lazy_post_init()
+        assert self._name_to_font_meta is not None
+        return self._name_to_font_meta
+
+    @property
+    def char_to_font_meta_names(self):
+        self.lazy_post_init()
+        assert self._char_to_font_meta_names is not None
+        return self._char_to_font_meta_names
+
     def filter_font_metas(self, chars: Iterable[str]):
         font_meta_names = set.intersection(
-            *[self._char_to_font_meta_names[char] for char in chars if not char.isspace()]
+            *[self.char_to_font_meta_names[char] for char in chars if not char.isspace()]
         )
         font_meta_names = sorted(font_meta_names)
-        return [self._name_to_font_meta[font_meta_name] for font_meta_name in font_meta_names]
+        return [self.name_to_font_meta[font_meta_name] for font_meta_name in font_meta_names]
 
     @staticmethod
     def from_folder(folder: PathType):
