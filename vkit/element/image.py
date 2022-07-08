@@ -1,7 +1,6 @@
 from typing import cast, Mapping, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
 from enum import Enum, unique
 from collections import abc
-from itertools import chain, cycle
 
 import attrs
 import numpy as np
@@ -215,15 +214,8 @@ class ImageSetItemConfig:
         np.ndarray,
         Tuple[int, ...],
         int,
-        Iterable['Image'],
-        Iterable[np.ndarray],
-        Iterable[Tuple[int, ...]],
     ]  # yapf: disable
-    alpha: Union[
-        Union[float, np.ndarray],
-        Iterable[Union[float, np.ndarray]],
-    ] = 1.0  # yapf: disable
-    mode: FillByElementsMode = FillByElementsMode.UNION
+    alpha: Union[float, np.ndarray] = 1.0
 
 
 _E = TypeVar('_E', 'Box', 'Polygon', 'Mask', 'ScoreMap')
@@ -660,221 +652,58 @@ class Image(Shapable):
         self,
         element: Union[
             'Box',
-            Iterable['Box'],
             'Polygon',
-            Iterable['Polygon'],
             'Mask',
-            Iterable['Mask'],
             'ScoreMap',
-            Iterable['ScoreMap'],
         ],
         config: Union[
             'Image',
             np.ndarray,
             Tuple[int, ...],
             int,
-            Iterable['Image'],
-            Iterable[np.ndarray],
-            Iterable[Tuple[int, ...]],
             ImageSetItemConfig,
         ],
     ):  # yapf: disable
         if not isinstance(config, ImageSetItemConfig):
             value = config
             alpha = 1.0
-            mode = FillByElementsMode.UNION
         else:
             assert isinstance(config, ImageSetItemConfig)
             value = config.value
             alpha = config.alpha
-            mode = config.mode
 
-        if isinstance(element, (Box, Polygon, Mask, ScoreMap)):
-            if isinstance(value, tuple):
-                assert value
-                assert isinstance(value[0], int)
-            else:
-                assert not isinstance(value, abc.Iterable)
-            # Type inference cannot handle this case.
-            value = cast(
-                Union[
-                    'Image',
-                    np.ndarray,
-                    Tuple[int, ...],
-                    int,
-                ],
-                value
-            )  # yapf: disable
-            assert not isinstance(alpha, abc.Iterable)
-
-            if isinstance(element, ScoreMap):
-                element.fill_image(image=self, value=value)
-            else:
-                element.fill_image(image=self, value=value, alpha=alpha)
-
-        elif isinstance(element, abc.Iterable):
-            elements_iter = iter(element)
-            first_element = next(elements_iter)
-            original_elements_iter = chain((first_element,), elements_iter)
-
-            # TODO: too ugly, fix it!!!
-            if isinstance(first_element, Box):
-                boxes = cast(Iterable[Box], original_elements_iter)
-                if isinstance(value, abc.Iterable) \
-                        and not isinstance(value, np.ndarray) \
-                        and not (
-                            isinstance(value, tuple)
-                            and value
-                            and isinstance(value[0], int)
-                ):
-                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
-                        alpha = cycle((alpha,))
-                    self.fill_by_box_value_tuples(
-                        box_value_tuples=zip(boxes, value, alpha),
-                        mode=mode,
-                    )
-                else:
-                    # Type inference cannot handle this case.
-                    value = cast(
-                        Union[
-                            'Image',
-                            np.ndarray,
-                            Tuple[int, ...],
-                            int,
-                        ],
-                        value
-                    )  # yapf: disable
-                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
-                    self.fill_by_boxes(
-                        boxes=boxes,
-                        value=value,
-                        alpha=alpha,
-                        mode=mode,
-                    )
-
-            elif isinstance(first_element, Polygon):
-                polygons = cast(Iterable[Polygon], original_elements_iter)
-                if isinstance(value, abc.Iterable) \
-                        and not isinstance(value, np.ndarray) \
-                        and not (
-                            isinstance(value, tuple)
-                            and value
-                            and isinstance(value[0], int)
-                ):
-                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
-                        alpha = cycle((alpha,))
-                    self.fill_by_polygon_value_tuples(
-                        polygon_value_tuples=zip(polygons, value, alpha),
-                        mode=mode,
-                    )
-                else:
-                    # Type inference cannot handle this case.
-                    value = cast(
-                        Union[
-                            'Image',
-                            np.ndarray,
-                            Tuple[int, ...],
-                            int,
-                        ],
-                        value
-                    )  # yapf: disable
-                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
-                    self.fill_by_polygons(
-                        polygons=polygons,
-                        value=value,
-                        alpha=alpha,
-                        mode=mode,
-                    )
-
-            elif isinstance(first_element, Mask):
-                masks = cast(Iterable[Mask], original_elements_iter)
-                if isinstance(value, abc.Iterable) \
-                        and not isinstance(value, np.ndarray) \
-                        and not (
-                            isinstance(value, tuple)
-                            and value
-                            and isinstance(value[0], int)
-                ):
-                    if not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray):
-                        alpha = cycle((alpha,))
-                    self.fill_by_mask_value_tuples(
-                        mask_value_tuples=zip(masks, value, alpha),
-                        mode=mode,
-                    )
-                else:
-                    # Type inference cannot handle this case.
-                    value = cast(
-                        Union[
-                            'Image',
-                            np.ndarray,
-                            Tuple[int, ...],
-                            int,
-                        ],
-                        value
-                    )  # yapf: disable
-                    assert not isinstance(alpha, abc.Iterable) or isinstance(alpha, np.ndarray)
-                    self.fill_by_masks(
-                        masks=masks,
-                        value=value,
-                        alpha=alpha,
-                        mode=mode,
-                    )
-
-            elif isinstance(first_element, ScoreMap):
-                score_maps = cast(Iterable[ScoreMap], original_elements_iter)
-                if isinstance(value, abc.Iterable) \
-                        and not isinstance(value, np.ndarray) \
-                        and not (
-                            isinstance(value, tuple)
-                            and value
-                            and isinstance(value[0], int)
-                ):
-                    self.fill_by_score_map_value_tuples(
-                        score_map_value_tuples=zip(score_maps, value),
-                        mode=mode,
-                    )
-                else:
-                    # Type inference cannot handle this case.
-                    value = cast(
-                        Union[
-                            'Image',
-                            np.ndarray,
-                            Tuple[int, ...],
-                            int,
-                        ],
-                        value
-                    )  # yapf: disable
-                    self.fill_by_score_maps(
-                        score_maps=score_maps,
-                        value=value,
-                        mode=mode,
-                    )
-            else:
-                raise NotImplementedError()
-
+        if isinstance(value, tuple):
+            assert value
+            assert isinstance(value[0], int)
         else:
-            raise NotImplementedError()
+            assert not isinstance(value, abc.Iterable)
+
+        # Type inference cannot handle this case.
+        value = cast(
+            Union[
+                'Image',
+                np.ndarray,
+                Tuple[int, ...],
+                int,
+            ],
+            value
+        )  # yapf: disable
+        assert not isinstance(alpha, abc.Iterable)
+
+        if isinstance(element, ScoreMap):
+            element.fill_image(image=self, value=value)
+        else:
+            element.fill_image(image=self, value=value, alpha=alpha)
 
     def __getitem__(
         self,
         element: Union[
             'Box',
-            Iterable['Box'],
             'Polygon',
-            Iterable['Polygon'],
             'Mask',
-            Iterable['Mask'],
         ],
     ):  # yapf: disable
-        if isinstance(element, (Box, Polygon, Mask)):
-            return element.extract_image(self)
-
-        elif isinstance(element, abc.Iterable):
-            elements = element
-            return [element.extract_image(self) for element in elements]
-
-        else:
-            raise NotImplementedError()
+        return element.extract_image(self)
 
     def to_box_attached(self, box: 'Box'):
         return attrs.evolve(self, box=box)

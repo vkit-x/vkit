@@ -1,6 +1,6 @@
 from numpy.random import default_rng
 
-from vkit.element import FillByElementsMode, Box, Polygon, Mask, MaskSetItemConfig, Painter
+from vkit.element import FillByElementsMode, Box, Polygon, Mask, Painter
 from tests.opt import write_image
 
 
@@ -28,21 +28,21 @@ def test_mask_setitem_box():
     write_image('2.jpg', painter.image)
 
     mask = Mask.from_shape((400, 400))
-    mask[(box0, box1, box2)] = 1
+    mask.fill_by_boxes((box0, box1, box2), 1)
 
     painter = Painter.create(mask)
     painter.paint_mask(mask)
     write_image('union.jpg', painter.image)
 
     mask = Mask.from_shape((400, 400))
-    mask[(box0, box1, box2)] = MaskSetItemConfig(mode=FillByElementsMode.INTERSECT)
+    mask.fill_by_boxes((box0, box1, box2), mode=FillByElementsMode.INTERSECT)
 
     painter = Painter.create(mask)
     painter.paint_mask(mask)
     write_image('intersect.jpg', painter.image)
 
     mask = Mask.from_shape((400, 400))
-    mask[(box0, box1, box2)] = MaskSetItemConfig(mode=FillByElementsMode.DISTINCT)
+    mask.fill_by_boxes((box0, box1, box2), mode=FillByElementsMode.DISTINCT)
 
     painter = Painter.create(mask)
     painter.paint_mask(mask)
@@ -87,21 +87,21 @@ def test_mask_setitem_polygon():
     write_image('1.jpg', painter.image)
 
     mask = Mask.from_shape((400, 400))
-    mask[(polygon0, polygon1)] = 1
+    mask.fill_by_polygons((polygon0, polygon1))
 
     painter = Painter.create(mask)
     painter.paint_mask(mask)
     write_image('union.jpg', painter.image)
 
     mask = Mask.from_shape((400, 400))
-    mask[(polygon0, polygon1)] = MaskSetItemConfig(mode=FillByElementsMode.INTERSECT)
+    mask.fill_by_polygons((polygon0, polygon1), mode=FillByElementsMode.INTERSECT)
 
     painter = Painter.create(mask)
     painter.paint_mask(mask)
     write_image('intersect.jpg', painter.image)
 
     mask = Mask.from_shape((400, 400))
-    mask[(polygon0, polygon1)] = MaskSetItemConfig(mode=FillByElementsMode.DISTINCT)
+    mask.fill_by_polygons((polygon0, polygon1), mode=FillByElementsMode.DISTINCT)
 
     painter = Painter.create(mask)
     painter.paint_mask(mask)
