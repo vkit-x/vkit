@@ -11,6 +11,8 @@
 
 </div>
 
+**NOTICE: Documentation is out-of-date. Will be updated in version `22.3.1`.**
+
 [vkit](https://github.com/vkit-x/vkit) is a toolkit designed for CV (Computer Vision) developers, especially targeting document image analysis and optical character recognition workloads:
 
 * Supporting rich data augmentation strategies:
@@ -77,9 +79,10 @@ pip install vkit-nightly
 * 22.2.0
   - [X] Improve element classes design.
   - [X] Improve element visualization.
-  - [ ] Support dataset pipeline for OCR text detection
+  - [X] Support dataset pipeline for OCR text detection (`adaptive_scaling`)
   - [X] Support CPython 3.10
 * 22.3.0
+  - [ ] Support dataset pipeline for OCR text detection
   - [ ] Support dataset pipeline for OCR text recognition
 * 22.3.1
   - [ ] Improve documentation
