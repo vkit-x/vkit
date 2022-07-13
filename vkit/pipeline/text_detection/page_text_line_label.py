@@ -13,6 +13,17 @@ from .page_text_line import PageTextLineStep, PageTextLineCollection
 
 
 @attrs.define
+class PageTextLineLabelStepConfig:
+    ref_char_height_ratio: float = 0.6
+    ref_char_width_ratio: float = 0.6
+    num_sample_height_points: int = 3
+    enable_text_line_mask: bool = False
+    enable_boundary_mask: bool = False
+    boundary_dilate_ratio: float = 0.5
+    enable_boundary_score_map: bool = False
+
+
+@attrs.define
 class PageTextLinePolygonCollection:
     height: int
     width: int
@@ -23,16 +34,17 @@ class PageTextLinePolygonCollection:
 
 
 @attrs.define
-class PageTextLineLabelStepConfig:
-    num_sample_height_points: int = 3
-    enable_text_line_mask: bool = False
-    enable_boundary_mask: bool = False
-    boundary_dilate_ratio: float = 0.5
-    enable_boundary_score_map: bool = False
+class PageCharPolygonCollection:
+    height: int
+    width: int
+    polygons: Sequence[Polygon]
+    height_points_up: PointList
+    height_points_down: PointList
 
 
 @attrs.define
 class PageTextLineLabelStepOutput:
+    page_char_polygon_collection: PageCharPolygonCollection
     page_text_line_polygon_collection: PageTextLinePolygonCollection
     page_text_line_mask: Optional[Mask]
     page_text_line_boundary_mask: Optional[Mask]
@@ -47,6 +59,35 @@ class PageTextLineLabelStep(
     ]
 ):  # yapf: disable
 
+    def generate_page_char_polygon_collection(
+        self,
+        page_text_line_collection: PageTextLineCollection,
+    ):
+        char_polygons: List[Polygon] = []
+        height_points_up = PointList()
+        height_points_down = PointList()
+
+        for text_line in page_text_line_collection.text_lines:
+            char_polygons.extend(
+                text_line.to_char_polygons(
+                    page_height=page_text_line_collection.height,
+                    page_width=page_text_line_collection.width,
+                    ref_char_height_ratio=self.config.ref_char_height_ratio,
+                    ref_char_width_ratio=self.config.ref_char_width_ratio,
+                )
+            )
+            height_points_up.extend(text_line.get_char_level_height_points(is_up=True))
+            height_points_down.extend(text_line.get_char_level_height_points(is_up=False))
+
+        assert len(char_polygons) == len(height_points_up) == len(height_points_down)
+        return PageCharPolygonCollection(
+            height=page_text_line_collection.height,
+            width=page_text_line_collection.width,
+            polygons=char_polygons,
+            height_points_up=height_points_up,
+            height_points_down=height_points_down,
+        )
+
     def generate_page_text_line_polygon_collection(
         self,
         page_text_line_collection: PageTextLineCollection,
@@ -57,8 +98,7 @@ class PageTextLineLabelStep(
         height_points_up = PointList()
         height_points_down = PointList()
 
-        text_lines = page_text_line_collection.text_lines
-        for text_line in text_lines:
+        for text_line in page_text_line_collection.text_lines:
             text_line_polygons.append(text_line.to_polygon())
 
             cur_height_points_up = text_line.get_height_points(
@@ -240,6 +280,9 @@ class PageTextLineLabelStep(
         page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
+        page_char_polygon_collection = self.generate_page_char_polygon_collection(
+            page_text_line_collection,
+        )
         page_text_line_polygon_collection = self.generate_page_text_line_polygon_collection(
             page_text_line_collection,
         )
@@ -276,6 +319,7 @@ class PageTextLineLabelStep(
                         )
 
         return PageTextLineLabelStepOutput(
+            page_char_polygon_collection=page_char_polygon_collection,
             page_text_line_polygon_collection=page_text_line_polygon_collection,
             page_text_line_mask=page_text_line_mask,
             page_text_line_boundary_mask=page_text_line_boundary_mask,

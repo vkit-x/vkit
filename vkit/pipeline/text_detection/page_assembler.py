@@ -14,7 +14,11 @@ from .page_image import PageImageStep, PageImageCollection
 from .page_qrcode import PageQrcodeStep
 from .page_barcode import PageBarcodeStep
 from .page_text_line import PageTextLineStep, PageTextLineCollection
-from .page_text_line_label import PageTextLineLabelStep, PageTextLinePolygonCollection
+from .page_text_line_label import (
+    PageTextLineLabelStep,
+    PageCharPolygonCollection,
+    PageTextLinePolygonCollection,
+)
 
 
 @attrs.define
@@ -22,6 +26,7 @@ class Page(Shapable):
     image: Image
     page_image_collection: PageImageCollection
     page_text_line_collection: PageTextLineCollection
+    page_char_polygon_collection: PageCharPolygonCollection
     page_text_line_polygon_collection: PageTextLinePolygonCollection
 
     @property
@@ -62,6 +67,8 @@ class PageAssemblerStep(
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
         page_text_line_label_step_output = state.get_pipeline_step_output(PageTextLineLabelStep)
+        page_char_polygon_collection = \
+            page_text_line_label_step_output.page_char_polygon_collection
         page_text_line_polygon_collection = \
             page_text_line_label_step_output.page_text_line_polygon_collection
 
@@ -98,6 +105,7 @@ class PageAssemblerStep(
             image=assembled_image,
             page_image_collection=page_image_collection,
             page_text_line_collection=page_text_line_collection,
+            page_char_polygon_collection=page_char_polygon_collection,
             page_text_line_polygon_collection=page_text_line_polygon_collection,
         )
         return PageAssemblerStepOutput(page=page)

@@ -13,13 +13,15 @@ from ..interface import (
 
 @attrs.define
 class PageResizingStepConfig:
-    resized_text_line_height_min: float = 3.5
+    resized_text_line_height_min: float = 2.0
     resized_text_line_height_max: float = 15.0
 
 
 @attrs.define
 class PageResizingStepOutput:
     page_image: Image
+    page_char_mask: Mask
+    page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
 
@@ -37,11 +39,20 @@ class PageResizingStep(
     def run(self, state: PipelineState, rng: RandomGenerator):
         page_distortion_step_output = state.get_pipeline_step_output(PageDistortionStep)
         page_image = page_distortion_step_output.page_image
+
+        page_char_mask = page_distortion_step_output.page_char_mask
+        assert page_char_mask
+
+        page_char_height_score_map = page_distortion_step_output.page_char_height_score_map
+        assert page_char_height_score_map
+
         page_text_line_mask = page_distortion_step_output.page_text_line_mask
         assert page_text_line_mask
+
         page_text_line_height_score_map = \
             page_distortion_step_output.page_text_line_height_score_map
         assert page_text_line_height_score_map
+
         page_distorted_text_line_heights = page_distortion_step_output.page_text_line_heights
         assert page_distorted_text_line_heights
 
@@ -67,12 +78,30 @@ class PageResizingStep(
             resized_width=resized_width,
             cv_resize_interpolation=cv_resize_interpolation,
         )
+
+        assert page_char_mask.shape == (height, width)
+        page_char_mask = page_char_mask.to_resized_mask(
+            resized_height=resized_height,
+            resized_width=resized_width,
+            cv_resize_interpolation=cv_resize_interpolation,
+        )
+
+        assert page_char_height_score_map.shape == (height, width)
+        page_char_height_score_map = page_char_height_score_map.to_resized_score_map(
+            resized_height=resized_height,
+            resized_width=resized_width,
+            cv_resize_interpolation=cv_resize_interpolation,
+        )
+        # Scores are resized as well.
+        page_char_height_score_map.mat *= resize_ratio
+
         assert page_text_line_mask.shape == (height, width)
         page_text_line_mask = page_text_line_mask.to_resized_mask(
             resized_height=resized_height,
             resized_width=resized_width,
             cv_resize_interpolation=cv_resize_interpolation,
         )
+
         assert page_text_line_height_score_map.shape == (height, width)
         page_text_line_height_score_map = page_text_line_height_score_map.to_resized_score_map(
             resized_height=resized_height,
@@ -84,6 +113,8 @@ class PageResizingStep(
 
         return PageResizingStepOutput(
             page_image=page_image,
+            page_char_mask=page_char_mask,
+            page_char_height_score_map=page_char_height_score_map,
             page_text_line_mask=page_text_line_mask,
             page_text_line_height_score_map=page_text_line_height_score_map,
         )

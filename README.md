@@ -76,11 +76,6 @@ pip install vkit-nightly
 
 ## Recent release plans
 
-* 22.2.0
-  - [X] Improve element classes design.
-  - [X] Improve element visualization.
-  - [X] Support dataset pipeline for OCR text detection (`adaptive_scaling`)
-  - [X] Support CPython 3.10
 * 22.3.0
   - [ ] Support dataset pipeline for OCR text detection
   - [ ] Support dataset pipeline for OCR text recognition
@@ -90,6 +85,11 @@ pip install vkit-nightly
 
 ## Recent stable releases
 
+* 22.2.0
+  - Improve element classes design.
+  - Improve element visualization.
+  - Support dataset pipeline for OCR text detection (`adaptive_scaling`)
+  - Support CPython 3.10
 * 22.1.0
   - Use the CalVer versioning convention
   - Complete CI testing pipeline

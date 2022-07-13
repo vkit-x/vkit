@@ -62,6 +62,7 @@ from .text_detection.page_text_line_label import (
     PageTextLineLabelStep,
     PageTextLineLabelStepConfig,
     PageTextLineLabelStepOutput,
+    PageCharPolygonCollection,
     PageTextLinePolygonCollection,
 )
 from .text_detection.page_assembler import (
