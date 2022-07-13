@@ -33,6 +33,8 @@ class PageCroppingStepConfig:
 class DownsampledLabel:
     shape: Tuple[int, int]
     core_box: Box
+    page_char_mask: Mask
+    page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
 
@@ -40,6 +42,8 @@ class DownsampledLabel:
 @attrs.define
 class CroppedPage:
     page_image: Image
+    page_char_mask: Mask
+    page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
     core_box: Box
@@ -81,6 +85,8 @@ class PageCroppingStep(
     def sample_cropped_page(
         self,
         page_image: Image,
+        page_char_mask: Mask,
+        page_char_height_score_map: ScoreMap,
         page_text_line_mask: Mask,
         page_text_line_height_score_map: ScoreMap,
         rng: RandomGenerator,
@@ -94,7 +100,12 @@ class PageCroppingStep(
 
         cropped_shape = (self.config.crop_size, self.config.crop_size)
         origin_box = Box(up=up, down=down, left=left, right=right)
+
         page_image = origin_box.extract_image(page_image)
+
+        page_char_mask = origin_box.extract_mask(page_char_mask)
+        page_char_height_score_map = origin_box.extract_score_map(page_char_height_score_map)
+
         page_text_line_mask = origin_box.extract_mask(page_text_line_mask)
         page_text_line_height_score_map = origin_box.extract_score_map(
             page_text_line_height_score_map
@@ -123,6 +134,17 @@ class PageCroppingStep(
             target_box.fill_image(new_page_image, page_image)
             page_image = new_page_image
 
+            new_page_char_mask = Mask.from_shape(cropped_shape)
+            target_box.fill_mask(new_page_char_mask, page_char_mask)
+            page_char_mask = new_page_char_mask
+
+            new_page_char_height_score_map = ScoreMap.from_shape(
+                cropped_shape,
+                is_prob=False,
+            )
+            target_box.fill_score_map(new_page_char_height_score_map, page_char_height_score_map)
+            page_char_height_score_map = new_page_char_height_score_map
+
             new_page_text_line_mask = Mask.from_shape(cropped_shape)
             target_box.fill_mask(new_page_text_line_mask, page_text_line_mask)
             page_text_line_mask = new_page_text_line_mask
@@ -141,6 +163,12 @@ class PageCroppingStep(
         core_begin = self.config.pad_size
         core_end = core_begin + self.config.core_size - 1
         core_box = Box(up=core_begin, down=core_end, left=core_begin, right=core_end)
+
+        page_char_mask = core_box.extract_mask(page_char_mask)
+        page_char_mask = page_char_mask.to_box_attached(core_box)
+
+        page_char_height_score_map = core_box.extract_score_map(page_char_height_score_map)
+        page_char_height_score_map = page_char_height_score_map.to_box_attached(core_box)
 
         page_text_line_mask = core_box.extract_mask(page_text_line_mask)
         page_text_line_mask = page_text_line_mask.to_box_attached(core_box)
@@ -178,6 +206,24 @@ class PageCroppingStep(
                 right=downsampled_core_end,
             )
 
+            downsampled_page_char_mask = page_char_mask.copy()
+            downsampled_page_char_mask.box = None
+            downsampled_page_char_mask = \
+                downsampled_page_char_mask.to_resized_mask(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
+            downsampled_page_char_height_score_map = page_char_height_score_map.copy()
+            downsampled_page_char_height_score_map.box = None
+            downsampled_page_char_height_score_map = \
+                downsampled_page_char_height_score_map.to_resized_score_map(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
             downsampled_page_text_line_mask = page_text_line_mask.copy()
             downsampled_page_text_line_mask.box = None
             downsampled_page_text_line_mask = \
@@ -199,12 +245,16 @@ class PageCroppingStep(
             downsampled_label = DownsampledLabel(
                 shape=downsampled_shape,
                 core_box=downsampled_core_box,
+                page_char_mask=downsampled_page_char_mask,
+                page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_text_line_mask=downsampled_page_text_line_mask,
                 page_text_line_height_score_map=downsampled_page_text_line_height_score_map,
             )
 
         return CroppedPage(
             page_image=page_image,
+            page_char_mask=page_char_mask,
+            page_char_height_score_map=page_char_height_score_map,
             page_text_line_mask=page_text_line_mask,
             page_text_line_height_score_map=page_text_line_height_score_map,
             core_box=core_box,
@@ -214,6 +264,8 @@ class PageCroppingStep(
     def run(self, state: PipelineState, rng: RandomGenerator):
         page_resizing_step_output = state.get_pipeline_step_output(PageResizingStep)
         page_image = page_resizing_step_output.page_image
+        page_char_mask = page_resizing_step_output.page_char_mask
+        page_char_height_score_map = page_resizing_step_output.page_char_height_score_map
         page_text_line_mask = page_resizing_step_output.page_text_line_mask
         page_text_line_height_score_map = page_resizing_step_output.page_text_line_height_score_map
 
@@ -230,6 +282,8 @@ class PageCroppingStep(
         for _ in range(num_samples):
             cropped_page = self.sample_cropped_page(
                 page_image=page_image,
+                page_char_mask=page_char_mask,
+                page_char_height_score_map=page_char_height_score_map,
                 page_text_line_mask=page_text_line_mask,
                 page_text_line_height_score_map=page_text_line_height_score_map,
                 rng=rng,

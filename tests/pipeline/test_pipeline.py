@@ -272,6 +272,7 @@ def test_page():
             {
                 'name': 'text_detection.page_distortion_step',
                 'config': {
+                    'enable_distorted_char_heights_debug': True,
                     'enable_distorted_text_line_heights_debug': True,
                     'debug_random_distortion': True,
                 },
@@ -301,6 +302,22 @@ def test_page():
         write_image(f'page_{seed}.jpg', image)
 
         vis_image = image.copy()
+
+        page_distorted_char_mask = output.page_char_mask
+        assert page_distorted_char_mask
+        page_distorted_char_mask.fill_image(vis_image, (255, 0, 0), 0.5)
+        write_image(f'page_{seed}_char_mask.jpg', vis_image)
+
+        painter = Painter.create(image)
+        page_distorted_char_height_score_map = output.page_char_height_score_map
+        assert page_distorted_char_height_score_map
+        painter.paint_score_map(page_distorted_char_height_score_map)
+        write_image(f'page_{seed}_char_score_map.jpg', painter.image)
+
+        debug_image = output.page_char_heights_debug_image
+        assert debug_image
+        write_image(f'page_{seed}_char_score_map_debug.jpg', debug_image)
+
         page_distorted_text_line_mask = output.page_text_line_mask
         assert page_distorted_text_line_mask
         page_distorted_text_line_mask.fill_image(vis_image, (255, 0, 0), 0.5)
@@ -345,6 +362,18 @@ def test_page():
         write_image(f'page_resized_{seed}.jpg', image)
 
         vis_image = image.copy()
+
+        page_distorted_char_mask = output2.page_char_mask
+        assert page_distorted_char_mask
+        page_distorted_char_mask.fill_image(vis_image, (255, 0, 0), 0.5)
+        write_image(f'page_resized_{seed}_char_mask.jpg', vis_image)
+
+        painter = Painter.create(image)
+        page_distorted_char_height_score_map = output2.page_char_height_score_map
+        assert page_distorted_char_height_score_map
+        painter.paint_score_map(page_distorted_char_height_score_map)
+        write_image(f'page_resized_{seed}_char_score_map.jpg', painter.image)
+
         page_distorted_text_line_mask = output2.page_text_line_mask
         assert page_distorted_text_line_mask
         page_distorted_text_line_mask.fill_image(vis_image, (255, 0, 0), 0.5)

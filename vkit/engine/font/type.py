@@ -396,10 +396,74 @@ class TextLine:
 
             return Polygon(points=points)
 
+    def to_char_polygons(
+        self,
+        page_height: int,
+        page_width: int,
+        ref_char_height_ratio: float = 1.0,
+        ref_char_width_ratio: float = 1.0,
+    ):
+        ref_char_height = round(self.ref_char_height * ref_char_height_ratio)
+        ref_char_width = round(self.ref_char_width * ref_char_width_ratio)
+
+        if self.is_hori:
+            polygons: List[Polygon] = []
+            for char_box in self.char_boxes:
+                box = char_box.box
+
+                up = box.up
+                down = box.down
+                if box.height < ref_char_height:
+                    inc = ref_char_height - box.height
+                    inc_up = inc // 2
+                    inc_down = inc - inc_up
+                    up = max(0, up - inc_up)
+                    down = min(page_height - 1, down + inc_down)
+
+                left = box.left
+                right = box.right
+                if box.width < ref_char_width:
+                    inc = ref_char_width - box.width
+                    inc_left = inc // 2
+                    inc_right = inc - inc_left
+                    left = max(0, left - inc_left)
+                    right = min(page_width - 1, right + inc_right)
+
+                box = Box(up=up, down=down, left=left, right=right)
+                polygons.append(box.to_polygon())
+            return polygons
+
+        else:
+            polygons: List[Polygon] = []
+            for char_box in self.char_boxes:
+                box = char_box.box
+
+                left = box.left
+                right = box.right
+                if box.width < ref_char_height:
+                    inc = ref_char_height - box.width
+                    inc_left = inc // 2
+                    inc_right = inc - inc_left
+                    left = max(0, left - inc_left)
+                    right = min(page_width - 1, right + inc_right)
+
+                up = box.up
+                down = box.down
+                if box.height < ref_char_width:
+                    inc = ref_char_width - box.height
+                    inc_up = inc // 2
+                    inc_down = inc - inc_up
+                    up = max(self.box.up, up - inc_up)
+                    down = min(page_height - 1, down + inc_down)
+
+                box = Box(up=up, down=down, left=left, right=right)
+                polygons.append(box.to_polygon())
+            return polygons
+
     def get_height_points(self, num_points: int, is_up: bool):
         if self.is_hori:
             step = max(1, self.box.width // num_points)
-            xs = list(range(self.box.left, self.box.right + 1, step))
+            xs = list(range(0, self.box.right + 1, step))
             if len(xs) >= num_points:
                 xs = xs[:num_points - 1]
                 xs.append(self.box.right)
@@ -426,5 +490,28 @@ class TextLine:
                     x = self.box.right
                 else:
                     x = self.box.left
+                points.append(Point(y=y, x=x))
+            return points
+
+    def get_char_level_height_points(self, is_up: bool):
+        if self.is_hori:
+            points = PointList()
+            for char_box in self.char_boxes:
+                x = (char_box.left + char_box.right) // 2
+                if is_up:
+                    y = char_box.up
+                else:
+                    y = char_box.down
+                points.append(Point(y=y, x=x))
+            return points
+
+        else:
+            points = PointList()
+            for char_box in self.char_boxes:
+                y = (char_box.up + char_box.down) // 2
+                if is_up:
+                    x = char_box.right
+                else:
+                    x = char_box.left
                 points.append(Point(y=y, x=x))
             return points
