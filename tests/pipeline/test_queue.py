@@ -1,5 +1,7 @@
 import time
 from multiprocessing import JoinableQueue, Process
+import logging
+
 import numpy as np
 
 from vkit.pipeline import (
@@ -8,6 +10,8 @@ from vkit.pipeline import (
     bypass_post_processor_factory,
     pipeline_step_collection_factory,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def demo_target(joinable_queue: JoinableQueue, process_idx: int):
@@ -85,7 +89,7 @@ def test_pool():
         shapes0.append((page_shape_step.height, page_shape_step.width))
 
     pipeline_pool.reset()
-    print('!!! reset !!!')
+    logger.error('!!! reset !!!')
 
     shapes1 = []
     for _ in range(4):
