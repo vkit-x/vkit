@@ -8,7 +8,13 @@ from typing import (
     List,
 )
 from queue import Empty
-from multiprocessing import JoinableQueue, Process
+from multiprocessing import (
+    JoinableQueue,
+    Process,
+    log_to_stderr,
+)
+import os
+import time
 import logging
 
 from numpy.random import (
@@ -28,11 +34,14 @@ class PipelinePoolRunner(Generic[_T_OUTPUT]):
     def __init__(
         self,
         process_idx: int,
+        logger: logging.Logger,
         pipeline: Pipeline[_T_OUTPUT],
         rng_state: Mapping[str, Any],
         num_runs_reset_rng: Optional[int],
     ):
         self.process_idx = process_idx
+        self.logger = logger
+
         self.pipeline = pipeline
 
         self.rng_state = rng_state
@@ -40,13 +49,15 @@ class PipelinePoolRunner(Generic[_T_OUTPUT]):
         self.reset_rng()
 
         self.num_runs_reset_rng = num_runs_reset_rng
-        self.run_idx = 0
+        self.rng_run_idx = 0
 
     def reset_rng(self):
         self.rng.bit_generator.state = self.rng_state
-        logger.debug(
+        self.rng_run_idx = 0
+        self.logger.debug(
             f'Reset pipeline process_idx={self.process_idx} '
-            f'rng_state to {self.rng.bit_generator.state}'
+            f'rng_state to {self.rng.bit_generator.state} '
+            'and run_idx to 0'
         )
 
     def run(self):
@@ -58,7 +69,7 @@ class PipelinePoolRunner(Generic[_T_OUTPUT]):
                 output = self.pipeline.run(self.rng)
                 break
             except Exception:
-                logger.exception(
+                self.logger.exception(
                     f'pipeline.run process_idx={self.process_idx} failed with '
                     f'rng_state={cur_rng_state}, retrying...'
                 )
@@ -68,9 +79,9 @@ class PipelinePoolRunner(Generic[_T_OUTPUT]):
 
         assert output is not None
 
-        self.run_idx += 1
-        if self.num_runs_reset_rng and self.run_idx % self.num_runs_reset_rng == 0:
-            logger.debug(f'pipeline.run run_idx={self.run_idx}, hit reset_rng')
+        self.rng_run_idx += 1
+        if self.num_runs_reset_rng and self.rng_run_idx % self.num_runs_reset_rng == 0:
+            self.logger.debug(f'pipeline.run rng_run_idx={self.rng_run_idx}, hit reset_rng')
             self.reset_rng()
 
         return output
@@ -82,10 +93,13 @@ def pipeline_pool_process_target(
     rng_state: Mapping[str, Any],
     num_runs_per_worker: int,
     num_runs_reset_rng: Optional[int],
-    joinable_queues: Sequence[JoinableQueue[_T_OUTPUT]],
+    joinable_queues: Sequence['JoinableQueue[_T_OUTPUT]'],
 ):
+    logger = log_to_stderr(os.getenv('LOGGING_LEVEL'))
+
     pipeline_pool_runner = PipelinePoolRunner(
         process_idx=process_idx,
+        logger=logger,
         pipeline=pipeline,
         rng_state=rng_state,
         num_runs_reset_rng=num_runs_reset_rng,
@@ -103,12 +117,16 @@ def pipeline_pool_process_target(
                 f'process_idx={process_idx} start filling '
                 f'joinable_queue={joinable_queue_idx} ...'
             )
-            for run_idx in range(num_runs_per_worker):
+            for worker_run_idx in range(num_runs_per_worker):
                 joinable_queue.put(pipeline_pool_runner.run())
                 logger.debug(
-                    f'process_idx={process_idx} filled run_idx={run_idx} to '
+                    f'process_idx={process_idx} filled worker_run_idx={worker_run_idx} to '
                     f'joinable_queue={joinable_queue_idx}'
                 )
+            logger.debug(
+                f'process_idx={process_idx} finished filling '
+                f'joinable_queue={joinable_queue_idx}'
+            )
 
 
 class PipelinePool(Generic[_T_OUTPUT]):
@@ -135,7 +153,7 @@ class PipelinePool(Generic[_T_OUTPUT]):
         self.num_runs_reset_rng = num_runs_reset_rng
         self.num_joinable_queues = num_joinable_queues
 
-        self.joinable_queues: Sequence[JoinableQueue[_T_OUTPUT]] = []
+        self.joinable_queues: Sequence['JoinableQueue[_T_OUTPUT]'] = []
         self.processes: Sequence[Process] = []
         self.reset()
 
@@ -144,15 +162,21 @@ class PipelinePool(Generic[_T_OUTPUT]):
         self.joinable_queue_idx = 0
         self.run_idx = 0
 
-    def reset(self):
+    def cleanup(self):
         # Killing all processes.
         for process_idx, process in enumerate(self.processes):
             logger.debug(f'Killing process_idx={process_idx} ...')
             process.kill()
+            while process.is_alive():
+                logger.debug(f'Waiting for process_idx={process_idx} to be killed ...')
+                time.sleep(0.01)
             process.close()
         # Then closing all joinable queues.
         for joinable_queue in self.joinable_queues:
             joinable_queue.close()
+
+    def reset(self):
+        self.cleanup()
 
         self.joinable_queues = [JoinableQueue() for _ in range(self.num_joinable_queues)]
         logger.debug(f'{self.num_joinable_queues} joinable queues initialized.')
@@ -177,6 +201,10 @@ class PipelinePool(Generic[_T_OUTPUT]):
             process.start()
             processes.append(process)
         self.processes = processes
+
+        self.joinable_queue_idx = 0
+        self.run_idx = 0
+
         logger.debug('All resources reset.')
 
     def run(self):
