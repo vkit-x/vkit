@@ -88,8 +88,13 @@ def test_pool():
         page_shape_step = state.key_to_value['page_shape_step']
         shapes0.append((page_shape_step.height, page_shape_step.width))
 
-    pipeline_pool.reset()
-    logger.error('!!! reset !!!')
+    # pipeline_pool.reset()
+    pipeline_pool = PipelinePool(
+        pipeline=pipeline,
+        rng_seed=1234,
+        num_workers=2,
+        num_runs_per_worker=2,
+    )
 
     shapes1 = []
     for _ in range(4):
