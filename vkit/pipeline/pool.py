@@ -95,7 +95,9 @@ def pipeline_pool_process_target(
     num_runs_reset_rng: Optional[int],
     joinable_queues: Sequence['JoinableQueue[_T_OUTPUT]'],
 ):
-    logger = log_to_stderr(os.getenv('LOGGING_LEVEL'))
+    # logger = log_to_stderr(os.getenv('LOGGING_LEVEL'))
+    # CI DEBUG.
+    logger = log_to_stderr('DEBUG')
 
     pipeline_pool_runner = PipelinePoolRunner(
         process_idx=process_idx,
