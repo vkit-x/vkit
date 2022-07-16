@@ -85,6 +85,7 @@ def test_pool():
         shapes0.append((page_shape_step.height, page_shape_step.width))
 
     pipeline_pool.reset()
+    print('!!! reset !!!')
 
     shapes1 = []
     for _ in range(4):
