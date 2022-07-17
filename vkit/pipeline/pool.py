@@ -6,10 +6,12 @@ from typing import (
     Sequence,
     Optional,
     List,
+    Dict,
 )
 from queue import Empty
 from multiprocessing import (
-    JoinableQueue,
+    Manager,
+    Queue,
     Process,
     log_to_stderr,
 )
@@ -95,13 +97,13 @@ def pipeline_pool_process_target(
     process_idx: int,
     pipeline: Pipeline[_T_OUTPUT],
     rng_state: Mapping[str, Any],
-    num_runs_per_worker: int,
+    num_runs_per_process: int,
     num_runs_reset_rng: Optional[int],
-    joinable_queues: Sequence['JoinableQueue[_T_OUTPUT]'],
+    queues: Sequence['Queue[_T_OUTPUT]'],
+    process_status_for_queues: List[Dict[int, bool]],
+    process_status_for_queues_lock: Any,
 ):
     logger = log_to_stderr(os.getenv('LOGGING_LEVEL'))
-    # CI DEBUG.
-    logger = log_to_stderr('DEBUG')
 
     pipeline_pool_runner = PipelinePoolRunner(
         process_idx=process_idx,
@@ -112,26 +114,37 @@ def pipeline_pool_process_target(
     )
 
     while True:
-        for joinable_queue_idx, joinable_queue in enumerate(joinable_queues):
-            logger.debug(
-                f'process_idx={process_idx} waiting for '
-                f'joinable_queue={joinable_queue_idx} ...'
-            )
-            joinable_queue.join()
+        for queue_idx, queue in enumerate(queues):
+            logger.debug(f'process_idx={process_idx} waiting for queue={queue_idx} ...')
+            while True:
+                process_status_for_queues_lock.acquire()
+                process_status = process_status_for_queues[queue_idx]
+                process_status_for_queues_lock.release()
 
-            logger.debug(
-                f'process_idx={process_idx} start filling '
-                f'joinable_queue={joinable_queue_idx} ...'
-            )
-            for worker_run_idx in range(num_runs_per_worker):
-                joinable_queue.put(pipeline_pool_runner.run())
+                if process_status[process_idx]:
+                    break
+
+                logger.debug(f'queue={queue_idx} is NOT ready for process, waiting ...')
+                time.sleep(0.05)
+
+            logger.debug(f'process_idx={process_idx} start filling queue={queue_idx} ...')
+            for process_run_idx in range(num_runs_per_process):
+                output = pipeline_pool_runner.run()
+                queue.put(output)
                 logger.debug(
-                    f'process_idx={process_idx} filled worker_run_idx={worker_run_idx} to '
-                    f'joinable_queue={joinable_queue_idx}'
+                    f'process_idx={process_idx} filled process_run_idx={process_run_idx} '
+                    f'output={output} to '
+                    f'queue={queue_idx}'
                 )
+
+            process_status_for_queues_lock.acquire()
+            process_status_for_queues[queue_idx][process_idx] = False
+            process_status = process_status_for_queues[queue_idx]
+            process_status_for_queues_lock.release()
             logger.debug(
                 f'process_idx={process_idx} finished filling '
-                f'joinable_queue={joinable_queue_idx}'
+                f'queue={queue_idx}, '
+                f'change process_status to {process_status}'
             )
 
 
@@ -141,54 +154,67 @@ class PipelinePool(Generic[_T_OUTPUT]):
         self,
         pipeline: Pipeline[_T_OUTPUT],
         rng_seed: int,
-        num_workers: int,
-        num_runs_per_worker: int,
+        num_processes: int,
+        num_runs_per_process: int,
         num_runs_reset_rng: Optional[int] = None,
-        num_joinable_queues: int = 2,
+        num_queues: int = 2,
         get_timeout: int = 20,
     ):
-        assert num_workers > 0
-        assert num_runs_per_worker > 0
+        assert num_processes > 0
+        assert num_runs_per_process > 0
         if num_runs_reset_rng is not None:
             assert num_runs_reset_rng > 0
 
         self.pipeline = pipeline
         self.rng_seed = rng_seed
-        self.num_workers = num_workers
-        self.num_runs_per_worker = num_runs_per_worker
+        self.num_processes = num_processes
+        self.num_runs_per_process = num_runs_per_process
         self.num_runs_reset_rng = num_runs_reset_rng
-        self.num_joinable_queues = num_joinable_queues
+        self.num_queues = num_queues
 
-        self.joinable_queues: Sequence['JoinableQueue[_T_OUTPUT]'] = []
+        self.queues: Sequence['Queue[_T_OUTPUT]'] = []
+        self.manager = Manager()
+        self.process_status_for_queues: List[Dict[int, bool]] = self.manager.list()  # type: ignore
+        self.process_status_for_queues_lock = self.manager.Lock()
         self.processes: Sequence[Process] = []
         self.reset()
 
-        self.num_runs_per_joinable_queue = num_workers * num_runs_per_worker
+        self.num_runs_per_queue = num_processes * num_runs_per_process
         self.get_timeout = get_timeout
-        self.joinable_queue_idx = 0
+        self.queue_idx = 0
         self.run_idx = 0
 
     def cleanup(self):
         # Killing all processes.
         for process_idx, process in enumerate(self.processes):
             logger.debug(f'Killing process_idx={process_idx} ...')
-            process.kill()
+            if process.is_alive():
+                process.kill()
             while process.is_alive():
                 logger.debug(f'Waiting for process_idx={process_idx} to be killed ...')
-                time.sleep(0.01)
+                time.sleep(0.05)
             process.close()
-        # Then closing all joinable queues.
-        for joinable_queue in self.joinable_queues:
-            joinable_queue.close()
+
+        # Then closing all queues.
+        for queue in self.queues:
+            queue.close()
 
     def reset(self):
         self.cleanup()
 
-        self.joinable_queues = [JoinableQueue() for _ in range(self.num_joinable_queues)]
-        logger.debug(f'{self.num_joinable_queues} joinable queues initialized.')
+        self.queues = [Queue() for _ in range(self.num_queues)]
+        process_status_for_queues = []
+        for _ in range(self.num_queues):
+            process_status = dict((process_idx, True) for process_idx in range(self.num_processes))
+            process_status_for_queues.append(self.manager.dict(process_status))
+        self.process_status_for_queues = self.manager.list(  # type: ignore
+            process_status_for_queues
+        )
+        self.process_status_for_queues_lock = self.manager.Lock()
+        logger.debug(f'{self.num_queues} queues initialized.')
 
         processes: List[Process] = []
-        seed_sequences = SeedSequence(self.rng_seed).spawn(self.num_workers)
+        seed_sequences = SeedSequence(self.rng_seed).spawn(self.num_processes)
         for process_idx, seed_sequence in enumerate(seed_sequences):
             logger.debug(f'Creating process_idx={process_idx} ...')
             process = Process(
@@ -198,9 +224,11 @@ class PipelinePool(Generic[_T_OUTPUT]):
                     'process_idx': process_idx,
                     'pipeline': self.pipeline,
                     'rng_state': default_rng(seed_sequence).bit_generator.state,
-                    'num_runs_per_worker': self.num_runs_per_worker,
+                    'num_runs_per_process': self.num_runs_per_process,
                     'num_runs_reset_rng': self.num_runs_reset_rng,
-                    'joinable_queues': self.joinable_queues,
+                    'queues': self.queues,
+                    'process_status_for_queues': self.process_status_for_queues,
+                    'process_status_for_queues_lock': self.process_status_for_queues_lock,
                 },
                 daemon=True,
             )
@@ -208,30 +236,46 @@ class PipelinePool(Generic[_T_OUTPUT]):
             processes.append(process)
         self.processes = processes
 
-        self.joinable_queue_idx = 0
+        self.queue_idx = 0
         self.run_idx = 0
 
         logger.debug('All resources reset.')
 
     def run(self):
-        output: Optional[_T_OUTPUT] = None
+        while True:
+            self.process_status_for_queues_lock.acquire()
+            process_status = self.process_status_for_queues[self.queue_idx]
+            self.process_status_for_queues_lock.release()
 
-        joinable_queue = self.joinable_queues[self.joinable_queue_idx]
+            if not any(process_status.values()):
+                break
+
+            logger.debug(f'queue={self.queue_idx} is NOT ready for consumer, waiting ...')
+            time.sleep(0.05)
+
+        logger.debug(f'Can consume queue={self.queue_idx} now!')
+        output: Optional[_T_OUTPUT] = None
+        queue = self.queues[self.queue_idx]
         try:
-            output = joinable_queue.get(timeout=self.get_timeout)
-            joinable_queue.task_done()
+            output = queue.get(timeout=self.get_timeout)
         except Empty:
             logger.error(
                 'taking too long to get output from '
-                f'joinable_queue={self.joinable_queue_idx}, something is wrong.'
+                f'queue={self.queue_idx}, something is wrong.'
             )
             raise
         assert output is not None
 
         self.run_idx += 1
-        if self.run_idx >= self.num_runs_per_joinable_queue:
-            self.joinable_queue_idx = (self.joinable_queue_idx + 1) % self.num_joinable_queues
+        if self.run_idx >= self.num_runs_per_queue:
+            logger.debug(f'Make queue={self.queue_idx} ready for processes.')
+            self.process_status_for_queues_lock.acquire()
+            for process_idx in range(self.num_processes):
+                self.process_status_for_queues[self.queue_idx][process_idx] = True
+            self.process_status_for_queues_lock.release()
+
+            self.queue_idx = (self.queue_idx + 1) % self.num_queues
             self.run_idx = 0
-            logger.debug(f'Switch to joinable_queue={self.joinable_queue_idx}')
+            logger.debug(f'Switch to queue={self.queue_idx}')
 
         return output

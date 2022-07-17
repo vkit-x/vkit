@@ -78,8 +78,29 @@ def test_pool():
     pipeline_pool = PipelinePool(
         pipeline=pipeline,
         rng_seed=1234,
-        num_workers=2,
-        num_runs_per_worker=2,
+        num_processes=2,
+        num_runs_per_process=4,
+    )
+    shapes = []
+    for _ in range(8):
+        state = pipeline_pool.run()
+        page_shape_step = state.key_to_value['page_shape_step']
+        shapes.append((page_shape_step.height, page_shape_step.width))
+    assert len(set(shapes)) == 8
+
+    for _ in range(4):
+        state = pipeline_pool.run()
+        page_shape_step = state.key_to_value['page_shape_step']
+        shapes.append((page_shape_step.height, page_shape_step.width))
+    assert len(set(shapes)) > 8
+
+    pipeline_pool.cleanup()
+
+    pipeline_pool = PipelinePool(
+        pipeline=pipeline,
+        rng_seed=1234,
+        num_processes=2,
+        num_runs_per_process=2,
         num_runs_reset_rng=1,
     )
 
@@ -90,12 +111,6 @@ def test_pool():
         shapes0.append((page_shape_step.height, page_shape_step.width))
 
     pipeline_pool.reset()
-    # pipeline_pool = PipelinePool(
-    #     pipeline=pipeline,
-    #     rng_seed=1234,
-    #     num_workers=1,
-    #     num_runs_per_worker=2,
-    # )
 
     shapes1 = []
     for _ in range(4):
@@ -106,19 +121,21 @@ def test_pool():
     assert set(shapes0) == set(shapes1)
     assert len(set(shapes0)) == 2
 
-    # pipeline_pool.cleanup()
+    pipeline_pool.cleanup()
 
-    # print('!!! set num_runs_reset_rng !!!')
-    # pipeline_pool = PipelinePool(
-    #     pipeline=pipeline,
-    #     rng_seed=1234,
-    #     num_workers=2,
-    #     num_runs_per_worker=4,
-    #     num_runs_reset_rng=2,
-    # )
-    # shapes = []
-    # for _ in range(8):
-    #     state = pipeline_pool.run()
-    #     page_shape_step = state.key_to_value['page_shape_step']
-    #     shapes.append((page_shape_step.height, page_shape_step.width))
-    # assert len(set(shapes)) == 4
+    print('!!! set num_runs_reset_rng !!!')
+    pipeline_pool = PipelinePool(
+        pipeline=pipeline,
+        rng_seed=1234,
+        num_processes=2,
+        num_runs_per_process=4,
+        num_runs_reset_rng=2,
+    )
+    shapes = []
+    for _ in range(8):
+        state = pipeline_pool.run()
+        page_shape_step = state.key_to_value['page_shape_step']
+        shapes.append((page_shape_step.height, page_shape_step.width))
+    assert len(set(shapes)) == 4
+
+    pipeline_pool.cleanup()
