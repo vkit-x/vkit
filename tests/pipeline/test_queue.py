@@ -78,13 +78,13 @@ def test_pool():
     pipeline_pool = PipelinePool(
         pipeline=pipeline,
         rng_seed=1234,
-        num_workers=1,
+        num_workers=2,
         num_runs_per_worker=2,
         num_runs_reset_rng=1,
     )
 
     shapes0 = []
-    for _ in range(2):
+    for _ in range(4):
         state = pipeline_pool.run()
         page_shape_step = state.key_to_value['page_shape_step']
         shapes0.append((page_shape_step.height, page_shape_step.width))
@@ -98,13 +98,13 @@ def test_pool():
     # )
 
     shapes1 = []
-    for _ in range(2):
+    for _ in range(4):
         state = pipeline_pool.run()
         page_shape_step = state.key_to_value['page_shape_step']
         shapes1.append((page_shape_step.height, page_shape_step.width))
 
     assert set(shapes0) == set(shapes1)
-    assert len(set(shapes0)) == 1
+    assert len(set(shapes0)) == 2
 
     # pipeline_pool.cleanup()
 
