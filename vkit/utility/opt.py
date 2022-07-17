@@ -7,7 +7,7 @@ from typing import (
     Type,
     Union,
     Tuple,
-    Dict,
+    Mapping,
     List,
 )
 import subprocess
@@ -107,7 +107,7 @@ _T_KEY = TypeVar('_T_KEY')
 
 
 def normalize_to_keys_and_probs(
-    key_weight_items: Union[Sequence[Tuple[_T_KEY, float]], Dict[_T_KEY, float]]
+    key_weight_items: Union[Sequence[Tuple[_T_KEY, float]], Mapping[_T_KEY, float]]
 ) -> Tuple[Sequence[_T_KEY], Sequence[float]]:
     keys: List[_T_KEY] = []
     weights: List[float] = []

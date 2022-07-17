@@ -26,8 +26,6 @@ from numpy.random import (
 
 from .interface import Pipeline
 
-logger = logging.getLogger(__name__)
-
 _T_OUTPUT = TypeVar('_T_OUTPUT')
 
 
@@ -146,6 +144,9 @@ def pipeline_pool_process_target(
                 f'queue={queue_idx}, '
                 f'change process_status to {process_status}'
             )
+
+
+logger = logging.getLogger(__name__)
 
 
 class PipelinePool(Generic[_T_OUTPUT]):
