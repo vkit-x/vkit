@@ -189,16 +189,20 @@ class PipelinePool(Generic[_T_OUTPUT]):
         # Killing all processes.
         for process_idx, process in enumerate(self.processes):
             logger.debug(f'Killing process_idx={process_idx} ...')
-            if process.is_alive():
+            try:
                 process.kill()
-            while process.is_alive():
-                logger.debug(f'Waiting for process_idx={process_idx} to be killed ...')
-                time.sleep(0.05)
-            process.close()
+                while process.is_alive():
+                    logger.debug(f'Waiting for process_idx={process_idx} to be killed ...')
+                    time.sleep(0.05)
+                process.close()
+            except Exception:
+                logger.exception('Cannot kill process.')
+        self.processes = []
 
         # Then closing all queues.
         for queue in self.queues:
             queue.close()
+        self.queues = []
 
     def reset(self):
         self.cleanup()
