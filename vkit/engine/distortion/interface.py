@@ -3,7 +3,6 @@ from typing import (
     get_origin,
     Any,
     Callable,
-    Dict,
     Mapping,
     Generic,
     Iterable,
@@ -94,7 +93,7 @@ class DistortionResult:
     text_polygons: Optional[Sequence[TextPolygon]] = None
     config: Optional[Any] = None
     state: Optional[Any] = None
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[Mapping[str, Any]] = None
 
 
 @attrs.define
@@ -221,10 +220,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def prepare_config_and_rng(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shape: Tuple[int, int],
@@ -233,7 +232,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         # yapf: enable
         if callable(config_or_config_generator):
             config_generator = cast(
-                Callable[[Tuple[int, int], RandomGenerator], Union[_T_CONFIG, Dict[str, Any]]],
+                Callable[[Tuple[int, int], RandomGenerator], Union[_T_CONFIG, Mapping[str, Any]]],
                 config_or_config_generator,
             )
             if not rng:
@@ -242,7 +241,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         else:
             config_or_config_generator = cast(
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
                 config_or_config_generator,
             )
             config = dyn_structure(config_or_config_generator, self.config_cls)
@@ -279,10 +278,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def prepare_internals(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         state: Optional[_T_STATE],
@@ -311,10 +310,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def generate_config_and_state(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         state: Optional[_T_STATE],
@@ -334,10 +333,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def generate_config(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -357,10 +356,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def generate_state(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -379,10 +378,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_image(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         image: Image,
@@ -407,10 +406,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_score_map(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         score_map: ScoreMap,
@@ -440,10 +439,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_mask(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         mask: Mask,
@@ -473,10 +472,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def get_active_mask(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -513,10 +512,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_point(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -558,10 +557,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_points(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -605,10 +604,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_polygon(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -656,10 +655,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_polygons(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -716,10 +715,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort(
         self,
         config_or_config_generator: Union[
-            Union[_T_CONFIG, Dict[str, Any]],
+            Union[_T_CONFIG, Mapping[str, Any]],
             Callable[
                 [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Dict[str, Any]],
+                Union[_T_CONFIG, Mapping[str, Any]],
             ],
         ],
         shapable_or_shape: Optional[Union[Shapable, Tuple[int, int]]] = None,

@@ -3,7 +3,7 @@ from typing import (
     Generic,
     Type,
     TypeVar,
-    Dict,
+    Mapping,
     Sequence,
     Any,
     Tuple,
@@ -67,7 +67,11 @@ class EngineRunner(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
     def get_run_config_cls(self) -> Type[_T_RUN_CONFIG]:
         return get_generic_classes(type(self.engine))[2]  # type: ignore
 
-    def run(self, config: Union[Dict[str, Any], _T_RUN_CONFIG], rng: RandomGenerator) -> _T_OUTPUT:
+    def run(
+        self,
+        config: Union[Mapping[str, Any], _T_RUN_CONFIG],
+        rng: RandomGenerator,
+    ) -> _T_OUTPUT:
         config = dyn_structure(config, self.get_run_config_cls())
         return self.engine.run(config, rng)
 
@@ -90,8 +94,8 @@ class EngineFactory(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
 
     def create(
         self,
-        config: Optional[Union[Dict[str, Any], PathType, _T_CONFIG]] = None,
-        resource: Optional[Union[Dict[str, Any], _T_RESOURCE]] = None,
+        config: Optional[Union[Mapping[str, Any], PathType, _T_CONFIG]] = None,
+        resource: Optional[Union[Mapping[str, Any], _T_RESOURCE]] = None,
     ):
         config = dyn_structure(
             config,
@@ -125,7 +129,11 @@ class EngineRunnerAggregator(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
         total = sum(weights)
         self.probs = [weight / total for weight in weights]
 
-    def run(self, config: Union[Dict[str, Any], _T_RUN_CONFIG], rng: RandomGenerator) -> _T_OUTPUT:
+    def run(
+        self,
+        config: Union[Mapping[str, Any], _T_RUN_CONFIG],
+        rng: RandomGenerator,
+    ) -> _T_OUTPUT:
         engine_runner = rng_choice(rng, self.engine_runners, probs=self.probs)
         return engine_runner.run(config, rng)
 
@@ -152,8 +160,8 @@ class EngineRunnerAggregatorFactory(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPU
 
     def create(
         self,
-        configs: Union[Sequence[Dict[str, Any]], PathType],
-        resource: Optional[Union[Dict[str, Any], _T_RESOURCE]] = None,
+        configs: Union[Sequence[Mapping[str, Any]], PathType],
+        resource: Optional[Union[Mapping[str, Any], _T_RESOURCE]] = None,
     ):
         resource_cls = self.get_resource_cls()
         if resource_cls is NoneTypeEngineResource:
@@ -165,7 +173,7 @@ class EngineRunnerAggregatorFactory(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPU
 
         if is_path_type(configs):
             configs = read_json_file(configs)  # type: ignore
-        configs = cast(Sequence[Dict[str, Any]], configs)
+        configs = cast(Sequence[Mapping[str, Any]], configs)
 
         pairs: List[Tuple[EngineRunner[Any, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT], float]] = []
         for config in configs:

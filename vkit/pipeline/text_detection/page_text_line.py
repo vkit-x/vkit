@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Any, List, Union
+from typing import Sequence, Mapping, Any, List, Union
 from enum import Enum, unique
 
 import attrs
@@ -30,8 +30,8 @@ from .page_layout import PageLayoutStep
 class PageTextLineStepConfig:
     lexicon_collection_json: str
     font_collection_folder: str
-    char_sampler_configs: Union[Sequence[Dict[str, Any]], PathType]
-    font_configs: Union[Sequence[Dict[str, Any]], PathType]
+    char_sampler_configs: Union[Sequence[Mapping[str, Any]], PathType]
+    font_configs: Union[Sequence[Mapping[str, Any]], PathType]
     font_style: FontEngineRunConfigStyle = attrs.field(factory=FontEngineRunConfigStyle)
     weight_font_style_glyph_color_grayscale: float = 0.9
     font_style_glyph_color_grayscale_min: int = 0
