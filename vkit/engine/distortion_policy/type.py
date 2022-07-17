@@ -1,5 +1,5 @@
 from typing import (
-    Dict,
+    Mapping,
     Any,
     Generic,
     TypeVar,
@@ -122,7 +122,7 @@ class DistortionPolicyFactory(Generic[_T_GENERATOR_CONFIG, _T_CONFIG, _T_STATE])
 
     def create(
         self,
-        config: Optional[Union[Dict[str, Any], PathType, _T_GENERATOR_CONFIG]] = None,
+        config: Optional[Union[Mapping[str, Any], PathType, _T_GENERATOR_CONFIG]] = None,
     ):
         config = dyn_structure(
             config,

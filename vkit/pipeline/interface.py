@@ -4,6 +4,7 @@ from typing import (
     TypeVar,
     Type,
     Dict,
+    Mapping,
     Any,
     Sequence,
     Optional,
@@ -99,7 +100,7 @@ class PipelineStepFactory(Generic[_T_CONFIG, _T_OUTPUT]):
 
     def create(
         self,
-        config: Optional[Union[Dict[str, Any], PathType, _T_CONFIG]] = None,
+        config: Optional[Union[Mapping[str, Any], PathType, _T_CONFIG]] = None,
     ):
         config = dyn_structure(
             config,
@@ -127,11 +128,11 @@ class PipelineStepCollectionFactory:
 
     def create(
         self,
-        step_configs: Union[Sequence[Dict], PathType],
+        step_configs: Union[Sequence[Mapping[str, Any]], PathType],
     ):
         if is_path_type(step_configs):
             step_configs = read_json_file(step_configs)  # type: ignore
-        step_configs = cast(Sequence[Dict], step_configs)
+        step_configs = cast(Sequence[Mapping[str, Any]], step_configs)
 
         steps: List[PipelineStep] = []
         for step_config in step_configs:
@@ -185,7 +186,7 @@ class PipelinePostProcessorFactory(Generic[_T_CONFIG, _T_OUTPUT]):
 
     def create(
         self,
-        config: Optional[Union[Dict[str, Any], PathType, _T_CONFIG]] = None,
+        config: Optional[Union[Mapping[str, Any], PathType, _T_CONFIG]] = None,
     ):
         config = dyn_structure(
             config,

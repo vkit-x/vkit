@@ -1,4 +1,4 @@
-from typing import Optional, Union, Dict, Any, List, Tuple, Sequence
+from typing import Optional, Union, Mapping, Any, List, Tuple, Sequence
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -18,7 +18,7 @@ from .page_assembler import PageAssemblerStep
 
 @attrs.define
 class PageDistortionStepConfig:
-    random_distortion_factory_config: Optional[Union[Dict[str, Any], PathType]] = attrs.field(
+    random_distortion_factory_config: Optional[Union[Mapping[str, Any], PathType]] = attrs.field(
         factory=lambda: {
             # NOTE: defocus blur and zoom in blur introduce labeling noise.
             # TODO: enhance those blurring methods for page.
@@ -40,7 +40,7 @@ class PageDistortionStepConfig:
 @attrs.define
 class PageDistortionStepOutput:
     page_image: Image
-    page_random_distortion_debug_meta: Optional[Dict[str, Any]]
+    page_random_distortion_debug_meta: Optional[Mapping[str, Any]]
     page_char_polygon_collection: PageCharPolygonCollection
     page_char_mask: Optional[Mask]
     page_char_height_score_map: Optional[ScoreMap]

@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Any, List, Union
+from typing import Sequence, Mapping, Any, List, Union
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -16,7 +16,7 @@ from .page_layout import PageLayoutStep
 
 @attrs.define
 class PageImageStepConfig:
-    image_configs: Union[Sequence[Dict[str, Any]], PathType]
+    image_configs: Union[Sequence[Mapping[str, Any]], PathType]
 
 
 @attrs.define

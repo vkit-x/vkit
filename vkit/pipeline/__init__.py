@@ -10,6 +10,7 @@ from .interface import (
     bypass_post_processor_factory,
     Pipeline,
 )
+from .pool import PipelinePool
 
 # Text detection.
 from .text_detection.page_shape import (

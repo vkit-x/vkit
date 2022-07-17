@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Any, Union
+from typing import Sequence, Mapping, Any, Union
 from enum import Enum, unique
 
 import attrs
@@ -21,7 +21,7 @@ from ..interface import (
 
 @attrs.define
 class PageBackgroundStepConfig:
-    image_configs: Union[Sequence[Dict[str, Any]], PathType]
+    image_configs: Union[Sequence[Mapping[str, Any]], PathType]
     weight_image: float = 0.8
     weight_random_grayscale: float = 0.2
     grayscale_min: int = 127

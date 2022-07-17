@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Optional, List
+from typing import Sequence, Mapping, Optional, List
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -10,7 +10,7 @@ from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
 
 @attrs.define
 class LexiconCharSamplerEngineConfig:
-    tag_to_weight: Optional[Dict[str, float]] = None
+    tag_to_weight: Optional[Mapping[str, float]] = None
     space_prob: float = 0.0
 
 
