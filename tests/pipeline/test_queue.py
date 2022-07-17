@@ -80,6 +80,7 @@ def test_pool():
         rng_seed=1234,
         num_workers=1,
         num_runs_per_worker=2,
+        num_runs_reset_rng=1,
     )
 
     shapes0 = []
@@ -102,21 +103,21 @@ def test_pool():
         page_shape_step = state.key_to_value['page_shape_step']
         shapes1.append((page_shape_step.height, page_shape_step.width))
 
-    assert set(shapes0) == set(shapes1)
+    assert set(shapes0) == set(shapes1) == 1
 
-    pipeline_pool.cleanup()
+    # pipeline_pool.cleanup()
 
-    print('!!! set num_runs_reset_rng !!!')
-    pipeline_pool = PipelinePool(
-        pipeline=pipeline,
-        rng_seed=1234,
-        num_workers=2,
-        num_runs_per_worker=4,
-        num_runs_reset_rng=2,
-    )
-    shapes = []
-    for _ in range(8):
-        state = pipeline_pool.run()
-        page_shape_step = state.key_to_value['page_shape_step']
-        shapes.append((page_shape_step.height, page_shape_step.width))
-    assert len(set(shapes)) == 4
+    # print('!!! set num_runs_reset_rng !!!')
+    # pipeline_pool = PipelinePool(
+    #     pipeline=pipeline,
+    #     rng_seed=1234,
+    #     num_workers=2,
+    #     num_runs_per_worker=4,
+    #     num_runs_reset_rng=2,
+    # )
+    # shapes = []
+    # for _ in range(8):
+    #     state = pipeline_pool.run()
+    #     page_shape_step = state.key_to_value['page_shape_step']
+    #     shapes.append((page_shape_step.height, page_shape_step.width))
+    # assert len(set(shapes)) == 4
