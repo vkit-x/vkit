@@ -103,7 +103,8 @@ def test_pool():
         page_shape_step = state.key_to_value['page_shape_step']
         shapes1.append((page_shape_step.height, page_shape_step.width))
 
-    assert set(shapes0) == set(shapes1) == 1
+    assert set(shapes0) == set(shapes1)
+    assert len(set(shapes0)) == 1
 
     # pipeline_pool.cleanup()
 
