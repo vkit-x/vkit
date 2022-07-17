@@ -13,6 +13,7 @@ from multiprocessing import (
     Manager,
     Queue,
     Process,
+    Lock,
     log_to_stderr,
 )
 import os
@@ -176,7 +177,7 @@ class PipelinePool(Generic[_T_OUTPUT]):
         self.queues: Sequence['Queue[_T_OUTPUT]'] = []
         self.manager = Manager()
         self.process_status_for_queues: List[Dict[int, bool]] = self.manager.list()  # type: ignore
-        self.process_status_for_queues_lock = self.manager.Lock()
+        self.process_status_for_queues_lock = Lock()
         self.processes: Sequence[Process] = []
         self.reset()
 
@@ -215,7 +216,7 @@ class PipelinePool(Generic[_T_OUTPUT]):
         self.process_status_for_queues = self.manager.list(  # type: ignore
             process_status_for_queues
         )
-        self.process_status_for_queues_lock = self.manager.Lock()
+        self.process_status_for_queues_lock = Lock()
         logger.debug(f'{self.num_queues} queues initialized.')
 
         processes: List[Process] = []
