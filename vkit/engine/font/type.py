@@ -499,9 +499,9 @@ class TextLine:
             for char_box in self.char_boxes:
                 x = (char_box.left + char_box.right) // 2
                 if is_up:
-                    y = char_box.up
+                    y = self.box.up
                 else:
-                    y = char_box.down
+                    y = self.box.down
                 points.append(Point(y=y, x=x))
             return points
 
@@ -510,8 +510,8 @@ class TextLine:
             for char_box in self.char_boxes:
                 y = (char_box.up + char_box.down) // 2
                 if is_up:
-                    x = char_box.right
+                    x = self.box.right
                 else:
-                    x = char_box.left
+                    x = self.box.left
                 points.append(Point(y=y, x=x))
             return points
