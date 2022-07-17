@@ -67,6 +67,10 @@ class PipelinePoolRunner(Generic[_T_OUTPUT]):
             cur_rng_state = self.rng.bit_generator.state
             try:
                 output = self.pipeline.run(self.rng)
+                self.logger.debug(
+                    f'pipeline.run process_idx={self.process_idx} with '
+                    f'rng_state={cur_rng_state} generates output={output}'
+                )
                 break
             except Exception:
                 self.logger.exception(
