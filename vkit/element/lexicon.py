@@ -6,7 +6,7 @@ import attrs
 import cattrs
 import iolite as io
 
-from vkit.utility import PathType, read_json_file
+from vkit.utility import PathType, dyn_structure
 
 
 @attrs.define(frozen=True)
@@ -87,7 +87,7 @@ class LexiconCollection:
 
     @staticmethod
     def from_file(path: PathType):
-        lexicons = cattrs.structure(read_json_file(path), Sequence[Lexicon])
+        lexicons = dyn_structure(path, Sequence[Lexicon], force_path_type=True)
         return LexiconCollection(lexicons=lexicons)
 
     def to_file(self, path: PathType):

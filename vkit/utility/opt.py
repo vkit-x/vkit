@@ -72,29 +72,50 @@ def rng_choice_with_size(
 
 _T_TARGET = TypeVar('_T_TARGET')
 
+_cattrs = cattrs.GenConverter(forbid_extra_keys=True)
+
 
 def dyn_structure(
     dyn_object: Any,
     target_cls: Type[_T_TARGET],
     support_path_type: bool = False,
+    force_path_type: bool = False,
     support_none_type: bool = False,
 ) -> _T_TARGET:
     if support_none_type and dyn_object is None:
         return target_cls()
 
-    if support_path_type and is_path_type(dyn_object):
-        dyn_object = read_json_file(dyn_object)
+    if support_path_type or force_path_type:
+        dyn_object_is_path_type = is_path_type(dyn_object)
+        if force_path_type:
+            assert dyn_object_is_path_type
+        if dyn_object_is_path_type:
+            dyn_object = read_json_file(dyn_object)
 
-    if isinstance(dyn_object, abc.Mapping):
+    isinstance_target_cls = False
+    try:
+        if isinstance(dyn_object, target_cls):
+            isinstance_target_cls = True
+    except TypeError:
+        # target_cls could be type annotation like Sequence[int].
+        pass
+
+    if isinstance_target_cls:
+        # Do nothing.
+        pass
+    elif isinstance(dyn_object, abc.Mapping):
         try:
-            return cattrs.structure(dyn_object, target_cls)
+            dyn_object = _cattrs.structure(dyn_object, target_cls)
         except ClassValidationError:
-            return target_cls(**dyn_object)
+            # cattrs cannot handle Class with hierarchy structure,
+            # in such case, fallback to manually initialization.
+            dyn_object = target_cls(**dyn_object)
+    elif isinstance(dyn_object, abc.Sequence):
+        dyn_object = _cattrs.structure(dyn_object, target_cls)
+    else:
+        raise NotImplementedError()
 
-    if isinstance(dyn_object, target_cls):
-        return dyn_object
-
-    raise NotImplementedError()
+    return dyn_object
 
 
 def normalize_to_probs(weights: Sequence[float]):
