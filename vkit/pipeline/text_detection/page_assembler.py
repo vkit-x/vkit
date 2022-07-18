@@ -78,7 +78,11 @@ class PageAssemblerStep(
 
         # Page images.
         for page_image in page_image_collection.page_images:
-            page_image.box.fill_image(assembled_image, page_image.image)
+            page_image.box.fill_image(
+                assembled_image,
+                page_image.image,
+                alpha=page_image.alpha,
+            )
 
         # Page QR codes.
         for qrcode_score_map in page_qrcode_step_output.qrcode_score_maps:
