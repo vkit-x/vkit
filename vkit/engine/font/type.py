@@ -6,7 +6,7 @@ import attrs
 import cattrs
 import iolite as io
 
-from vkit.utility import PathType, read_json_file
+from vkit.utility import PathType, dyn_structure
 from vkit.element import (
     Image,
     Box,
@@ -66,7 +66,7 @@ class FontMeta:
         path: PathType,
         font_file_prefix: Optional[PathType] = None,
     ):
-        font: FontMeta = cattrs.structure(read_json_file(path), FontMeta)
+        font = dyn_structure(path, FontMeta, force_path_type=True)
 
         if font_file_prefix:
             font_file_prefix_fd = io.folder(font_file_prefix, exists=True)

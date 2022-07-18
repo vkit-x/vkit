@@ -154,51 +154,6 @@ def test_page_text_line():
 
 
 @pytest.mark.local
-def test_page_image():
-    pipeline = Pipeline(
-        steps=[
-            page_shape_step_factory.create(),
-            page_layout_step_factory.create({
-                'image_sampling_config': {
-                    'prob_enable': 1.0,
-                    'num_layouts_min': 3,
-                    'num_layouts_max': 5,
-                    'empty_area_ratio_min': 0.2,
-                    'height_ratio_min': 0.158,
-                    'height_ratio_max': 0.316,
-                    'width_ratio_min': 0.158,
-                    'width_ratio_max': 0.316,
-                }
-            }),
-            page_image_step_factory.create({
-                'image_configs': [{
-                    'type': 'selector',
-                    'config': {
-                        'image_folder':
-                            '$VKIT_PRIVATE_DATA/dataset_synthetext/bg_data/no_background_text_images'  # noqa
-                    }
-                }]
-            })
-        ],
-        post_processor=bypass_post_processor_factory.create(),
-    )
-
-    for seed in range(3):
-        rng = default_rng(seed)
-        result = pipeline.run(rng)
-        page_image_collection: PageImageCollection = result.key_to_value['page_image_step'
-                                                                         ].page_image_collection
-
-        image = Image.from_shape(
-            (page_image_collection.height, page_image_collection.width),
-            num_channels=3,
-        )
-        for page_image in page_image_collection.page_images:
-            page_image.box.fill_image(image, page_image.image)
-        write_image(f'page_image_{seed}.jpg', image)
-
-
-@pytest.mark.local
 def test_page():
 
     pipeline = Pipeline(

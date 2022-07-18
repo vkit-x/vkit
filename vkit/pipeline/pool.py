@@ -248,18 +248,23 @@ class PipelinePool(Generic[_T_OUTPUT]):
         logger.debug('All resources reset.')
 
     def run(self):
-        while True:
+        time_begin = time.time()
+        queue_is_ready = False
+        while time.time() - time_begin < self.get_timeout:
             self.process_status_for_queues_lock.acquire()
             process_status = self.process_status_for_queues[self.queue_idx]
             self.process_status_for_queues_lock.release()
 
             if not any(process_status.values()):
+                queue_is_ready = True
                 break
 
             logger.debug(f'queue={self.queue_idx} is NOT ready for consumer, waiting ...')
             time.sleep(0.05)
 
+        assert queue_is_ready
         logger.debug(f'Can consume queue={self.queue_idx} now!')
+
         output: Optional[_T_OUTPUT] = None
         queue = self.queues[self.queue_idx]
         try:
