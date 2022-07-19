@@ -1,7 +1,7 @@
 import attrs
 from numpy.random import Generator as RandomGenerator
-import cv2 as cv
 
+from vkit.utility import sample_cv_resize_interpolation
 from vkit.element import Mask, ScoreMap, Image
 from .page_distortion import PageDistortionStep
 from ..interface import (
@@ -13,8 +13,8 @@ from ..interface import (
 
 @attrs.define
 class PageResizingStepConfig:
-    resized_text_line_height_min: float = 2.0
-    resized_text_line_height_max: float = 15.0
+    resized_text_line_height_min: float = 1.5
+    resized_text_line_height_max: float = 10.0
 
 
 @attrs.define
@@ -68,10 +68,10 @@ class PageResizingStep(
         resized_height = round(resize_ratio * height)
         resized_width = round(resize_ratio * width)
 
-        if resize_ratio < 1.0:
-            cv_resize_interpolation = cv.INTER_AREA
-        else:
-            cv_resize_interpolation = cv.INTER_CUBIC
+        cv_resize_interpolation = sample_cv_resize_interpolation(
+            rng,
+            include_cv_inter_area=(resize_ratio < 1.0),
+        )
 
         page_image = page_image.to_resized_image(
             resized_height=resized_height,

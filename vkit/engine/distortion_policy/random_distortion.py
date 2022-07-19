@@ -7,8 +7,9 @@ from typing import (
     Optional,
     Sequence,
     List,
-    Set,
 )
+from collections import defaultdict
+import logging
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -17,6 +18,7 @@ from vkit.utility import (
     dyn_structure,
     rng_choice,
     rng_choice_with_size,
+    normalize_to_probs,
     PathType,
 )
 from vkit.element import (
@@ -44,25 +46,31 @@ from .geometric import (
     camera,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class RandomDistortion:
 
     def __init__(
         self,
         photometric_policies: Sequence[DistortionPolicy],
+        photometric_policy_weights: Sequence[float],
         num_photometric_min: int,
         num_photometric_max: int,
         geometric_policies: Sequence[DistortionPolicy],
+        geometric_policy_weights: Sequence[float],
         prob_geometric: float,
         policy_conflict_control_keyword_groups: Sequence[Sequence[str]],
         level_min: int,
         level_max: int,
     ):
         self.photometric_policies = photometric_policies
+        self.photometric_policy_probs = normalize_to_probs(photometric_policy_weights)
         self.num_photometric_min = num_photometric_min
         self.num_photometric_max = num_photometric_max
 
         self.geometric_policies = geometric_policies
+        self.geometric_policy_probs = normalize_to_probs(geometric_policy_weights)
         self.prob_geometric = prob_geometric
 
         self.policy_conflict_control_keyword_groups = policy_conflict_control_keyword_groups
@@ -75,34 +83,48 @@ class RandomDistortion:
         if num_photometric <= 0:
             return []
 
-        photometric_policies: List[DistortionPolicy] = []
-        conflicted_indices: Set[int] = set()
+        num_retries = 5
+        while num_retries > 0:
+            photometric_policies = rng_choice_with_size(
+                rng,
+                self.photometric_policies,
+                size=num_photometric,
+                probs=self.photometric_policy_probs,
+            )
 
-        for photometric_policy in rng_choice_with_size(
-            rng,
-            self.photometric_policies,
-            size=num_photometric,
-        ):
-            skip = False
-            for idx, keywords in enumerate(self.policy_conflict_control_keyword_groups):
-                match = False
-                for keyword in keywords:
-                    if keyword in photometric_policy.name:
-                        match = True
+            # Conflict analysis.
+            conflict_idx_to_count = defaultdict(int)
+            for photometric_policy in photometric_policies:
+                for conflict_idx, keywords in \
+                        enumerate(self.policy_conflict_control_keyword_groups):
+                    match = False
+                    for keyword in keywords:
+                        if keyword in photometric_policy.name:
+                            match = True
+                            break
+                    if match:
+                        conflict_idx_to_count[conflict_idx] += 1
                         break
-                if match:
-                    if idx in conflicted_indices:
-                        skip = True
-                    else:
-                        conflicted_indices.add(idx)
+
+            no_conflict = True
+            for count in conflict_idx_to_count.values():
+                if count > 1:
+                    no_conflict = False
+                    logger.debug(
+                        'photometric policies conflict detected '
+                        f'conflict_idx_to_count={conflict_idx_to_count}'
+                    )
                     break
 
-            if skip:
-                continue
+            if no_conflict:
+                return photometric_policies
+            else:
+                num_retries -= 1
 
-            photometric_policies.append(photometric_policy)
-
-        return photometric_policies
+        logger.warning(
+            f'Cannot sample photometric policies with num_photometric={num_photometric}.'
+        )
+        return []
 
     def distort(
         self,
@@ -171,7 +193,11 @@ class RandomDistortion:
             result.state = None
 
         if rng.random() < self.prob_geometric:
-            geometric_policy = rng_choice(rng, self.geometric_policies)
+            geometric_policy = rng_choice(
+                rng,
+                self.geometric_policies,
+                probs=self.geometric_policy_probs,
+            )
             result = geometric_policy.distort(
                 level=level,
                 shapable_or_shape=result.shape,
@@ -233,13 +259,12 @@ class RandomDistortionFactoryConfig:
     )
     disabled_policy_names: Sequence[str] = attrs.field(factory=list)
     name_to_policy_config: Mapping[str, Any] = attrs.field(factory=dict)
+    name_to_policy_weight: Mapping[str, float] = attrs.field(factory=dict)
 
 
-class RandomDistortionFactory:
-
-    def __init__(
-        self,
-        photometric_policy_factories: Sequence[DistortionPolicyFactory] = (
+_PHOTOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
+    (
+        (
             color.mean_shift_policy_factory,
             color.color_shift_policy_factory,
             color.brightness_shift_policy_factory,
@@ -250,37 +275,145 @@ class RandomDistortionFactory:
             color.posterization_policy_factory,
             color.color_balance_policy_factory,
             color.channel_permutation_policy_factory,
+        ),
+        2.0,
+    ),
+    (
+        (
             blur.gaussian_blur_policy_factory,
             blur.defocus_blur_policy_factory,
             blur.motion_blur_policy_factory,
             blur.glass_blur_policy_factory,
             blur.zoom_in_blur_policy_factory,
+        ),
+        1.0,
+    ),
+    (
+        (
             noise.gaussion_noise_policy_factory,
             noise.poisson_noise_policy_factory,
             noise.impulse_noise_policy_factory,
             noise.speckle_noise_policy_factory,
+        ),
+        1.0,
+    ),
+    (
+        (
             effect.jpeg_quality_policy_factory,
             effect.pixelation_policy_factory,
             effect.fog_policy_factory,
+        ),
+        1.0,
+    ),
+    (
+        (
             streak.line_streak_policy_factory,
             streak.rectangle_streak_policy_factory,
             streak.ellipse_streak_policy_factory,
         ),
-        geometric_policy_factories: Sequence[DistortionPolicyFactory] = (
+        2.0,
+    ),
+)
+
+_GEOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
+    (
+        (
             affine.shear_hori_policy_factory,
             affine.shear_vert_policy_factory,
             affine.rotate_policy_factory,
             affine.skew_hori_policy_factory,
             affine.skew_vert_policy_factory,
-            mls.similarity_mls_policy_factory,
+        ),
+        1.0,
+    ),
+    ((mls.similarity_mls_policy_factory,), 1.0),
+    (
+        (
             camera.camera_plane_only_policy_factory,
             camera.camera_cubic_curve_policy_factory,
             camera.camera_plane_line_fold_policy_factory,
             camera.camera_plane_line_curve_policy_factory,
         ),
+        1.0,
+    ),
+)
+
+
+class RandomDistortionFactory:
+
+    @staticmethod
+    def unpack_policy_factories_and_default_weights_sum_pairs(
+        policy_factories_and_default_weights_sum_pairs: Sequence[
+            Tuple[
+                Sequence[DistortionPolicyFactory],
+                float,
+            ]
+        ]
+    ):  # yapf: disable
+        flatten_policy_factories: List[DistortionPolicyFactory] = []
+        flatten_policy_default_weights: List[float] = []
+
+        for policy_factories, default_weights_sum in policy_factories_and_default_weights_sum_pairs:
+            default_weight = default_weights_sum / len(policy_factories)
+            flatten_policy_factories.extend(policy_factories)
+            flatten_policy_default_weights.extend([default_weight] * len(policy_factories))
+
+        assert len(flatten_policy_factories) == len(flatten_policy_default_weights)
+        return flatten_policy_factories, flatten_policy_default_weights
+
+    @staticmethod
+    def create_policies_and_policy_weights(
+        policy_factories: Sequence[DistortionPolicyFactory],
+        policy_default_weights: Sequence[float],
+        config: RandomDistortionFactoryConfig,
     ):
-        self.photometric_policy_factories = photometric_policy_factories
-        self.geometric_policy_factories = geometric_policy_factories
+        disabled_policy_names = set(config.disabled_policy_names)
+
+        policies: List[DistortionPolicy] = []
+        policy_weights: List[float] = []
+
+        for policy_factory, policy_default_weight in zip(policy_factories, policy_default_weights):
+            if policy_factory.name in disabled_policy_names:
+                continue
+
+            policy_config = config.name_to_policy_config.get(policy_factory.name)
+            policies.append(policy_factory.create(policy_config))
+
+            policy_weight = policy_default_weight
+            if policy_factory.name in config.name_to_policy_weight:
+                policy_weight = config.name_to_policy_weight[policy_factory.name]
+            policy_weights.append(policy_weight)
+
+        return policies, policy_weights
+
+    def __init__(
+        self,
+        photometric_policy_factories_and_default_weights_sum_pairs: Sequence[
+            Tuple[
+                Sequence[DistortionPolicyFactory],
+                float,
+            ]
+        ] = _PHOTOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS,
+        geometric_policy_factories_and_default_weights_sum_pairs: Sequence[
+            Tuple[
+                Sequence[DistortionPolicyFactory],
+                float,
+            ]
+        ] = _GEOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS,
+    ):  # yapf: disable
+        (
+            self.photometric_policy_factories,
+            self.photometric_policy_default_weights,
+        ) = self.unpack_policy_factories_and_default_weights_sum_pairs(
+            photometric_policy_factories_and_default_weights_sum_pairs
+        )
+
+        (
+            self.geometric_policy_factories,
+            self.geometric_policy_default_weights,
+        ) = self.unpack_policy_factories_and_default_weights_sum_pairs(
+            geometric_policy_factories_and_default_weights_sum_pairs
+        )
 
     def create(
         self,
@@ -293,27 +426,31 @@ class RandomDistortionFactory:
             support_none_type=True,
         )
 
-        disabled_policy_names = set(config.disabled_policy_names)
+        (
+            photometric_policies,
+            photometric_policy_weights,
+        ) = self.create_policies_and_policy_weights(
+            self.photometric_policy_factories,
+            self.photometric_policy_default_weights,
+            config,
+        )
 
-        photometric_policies: List[DistortionPolicy] = []
-        for policy_factory in self.photometric_policy_factories:
-            if policy_factory.name in disabled_policy_names:
-                continue
-            policy_config = config.name_to_policy_config.get(policy_factory.name)
-            photometric_policies.append(policy_factory.create(policy_config))
-
-        geometric_policies: List[DistortionPolicy] = []
-        for policy_factory in self.geometric_policy_factories:
-            if policy_factory.name in disabled_policy_names:
-                continue
-            policy_config = config.name_to_policy_config.get(policy_factory.name)
-            geometric_policies.append(policy_factory.create(policy_config))
+        (
+            geometric_policies,
+            geometric_policy_weights,
+        ) = self.create_policies_and_policy_weights(
+            self.geometric_policy_factories,
+            self.geometric_policy_default_weights,
+            config,
+        )
 
         return RandomDistortion(
             photometric_policies=photometric_policies,
+            photometric_policy_weights=photometric_policy_weights,
             num_photometric_min=config.num_photometric_min,
             num_photometric_max=config.num_photometric_max,
             geometric_policies=geometric_policies,
+            geometric_policy_weights=geometric_policy_weights,
             prob_geometric=config.prob_geometric,
             policy_conflict_control_keyword_groups=config.policy_conflict_control_keyword_groups,
             level_min=config.level_min,

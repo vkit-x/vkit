@@ -39,8 +39,8 @@ class PageLayoutStepConfig:
 
     prob_normal_text_line_diff_heights_gap: float = 0.5
     prob_normal_text_line_gap: float = 0.5
-    normal_text_line_gap_ratio_min: float = 0.0
-    normal_text_line_gap_ratio_max: float = 0.5
+    normal_text_line_gap_ratio_min: float = 0.05
+    normal_text_line_gap_ratio_max: float = 1.5
     normal_text_line_length_ratio_min: float = 0.5
     normal_text_line_length_ratio_max: float = 1.0
 
@@ -65,14 +65,14 @@ class PageLayoutStepConfig:
     # QR code.
     num_qrcodes_min: int = 0
     num_qrcodes_max: int = 1
-    qrcode_length_ratio_min: float = 0.1
-    qrcode_length_ratio_max: float = 0.2
+    qrcode_length_ratio_min: float = 0.05
+    qrcode_length_ratio_max: float = 0.15
 
     # Bar code.
     num_barcodes_min: int = 0
     num_barcodes_max: int = 1
     barcode_height_ratio_min: float = 0.025
-    barcode_height_ratio_max: float = 0.1
+    barcode_height_ratio_max: float = 0.05
     barcode_aspect_ratio: float = 0.2854396602149411
     barcode_num_chars_min: int = 9
     barcode_num_chars_max: int = 13
