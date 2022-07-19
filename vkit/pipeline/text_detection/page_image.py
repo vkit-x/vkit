@@ -17,7 +17,7 @@ from .page_layout import PageLayoutStep
 @attrs.define
 class PageImageStepConfig:
     image_configs: Union[Sequence[Mapping[str, Any]], PathType]
-    alpha_min: float = 0.5
+    alpha_min: float = 0.25
     alpha_max: float = 1.0
 
 

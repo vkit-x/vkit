@@ -186,6 +186,17 @@ def test_camera_plane_line_curve_policy_factory():
 def test_random_distortion():
     random_distortion = random_distortion_factory.create()
 
+    print('photometric:')
+    for policy, policy_prob in zip(
+        random_distortion.photometric_policies, random_distortion.photometric_policy_probs
+    ):
+        print(policy.name, policy_prob)
+    print('geometric:')
+    for policy, policy_prob in zip(
+        random_distortion.geometric_policies, random_distortion.geometric_policy_probs
+    ):
+        print(policy.name, policy_prob)
+
     image = read_image('Lenna.png').to_rgb_image()
     rng = default_rng(0)
 

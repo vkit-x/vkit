@@ -5,6 +5,7 @@ from .opt import (
     get_data_folder,
     rng_choice,
     rng_choice_with_size,
+    sample_cv_resize_interpolation,
     dyn_structure,
     normalize_to_probs,
     normalize_to_keys_and_probs,

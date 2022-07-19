@@ -6,6 +6,7 @@ from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 import freetype
 
+from vkit.utility import sample_cv_resize_interpolation
 from vkit.element import Image, CharBox, Box, Mask, ScoreMap
 from vkit.engine.interface import (
     Engine,
@@ -1035,6 +1036,11 @@ class FreetypeDefaultFontEngine(
             font_face=font_face,
             func_render_char_glyph=FreetypeDefaultFontEngine.render_char_glyph,
             rng=rng,
+            cv_resize_interpolation_enlarge=sample_cv_resize_interpolation(rng),
+            cv_resize_interpolation_shrink=sample_cv_resize_interpolation(
+                rng,
+                include_cv_inter_area=True,
+            ),
         )
 
 
@@ -1099,6 +1105,11 @@ class FreetypeLcdFontEngine(
             font_face=font_face,
             func_render_char_glyph=FreetypeLcdFontEngine.bind_render_char_glyph(lcd_hc_matrix),
             rng=rng,
+            cv_resize_interpolation_enlarge=sample_cv_resize_interpolation(rng),
+            cv_resize_interpolation_shrink=sample_cv_resize_interpolation(
+                rng,
+                include_cv_inter_area=True,
+            ),
         )
 
 

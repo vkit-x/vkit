@@ -1,5 +1,6 @@
 from typing import (
     get_args,
+    cast,
     Sequence,
     Optional,
     TypeVar,
@@ -16,6 +17,7 @@ from collections import abc
 import re
 
 from numpy.random import Generator as RandomGenerator
+import cv2 as cv
 import iolite as io
 import cattrs
 from cattrs.errors import ClassValidationError
@@ -68,6 +70,32 @@ def rng_choice_with_size(
 ) -> Sequence[_T_ITEM]:
     indices = rng.choice(len(items), p=probs, size=size)
     return [items[idx] for idx in indices]
+
+
+_CV_INTER_FLAGS = cast(
+    Sequence[int],
+    (
+        # NOTE: Keep the EXACT version.
+        # cv.INTER_NEAREST,
+        # NOTE: this one is Any.
+        cv.INTER_NEAREST_EXACT,
+        # NOTE: Keep the EXACT version.
+        # cv.INTER_LINEAR,
+        cv.INTER_LINEAR_EXACT,
+        cv.INTER_CUBIC,
+        cv.INTER_LANCZOS4,
+    ),
+)
+
+
+def sample_cv_resize_interpolation(
+    rng: RandomGenerator,
+    include_cv_inter_area: bool = False,
+):
+    flags = _CV_INTER_FLAGS
+    if include_cv_inter_area:
+        flags = (*_CV_INTER_FLAGS, cv.INTER_AREA)
+    return rng_choice(rng, flags)
 
 
 _T_TARGET = TypeVar('_T_TARGET')

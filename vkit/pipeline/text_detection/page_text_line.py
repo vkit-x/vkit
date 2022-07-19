@@ -1,5 +1,6 @@
-from typing import Sequence, Mapping, Any, List, Union
+from typing import Sequence, Mapping, Any, List, Union, Optional
 from enum import Enum, unique
+import logging
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -25,6 +26,8 @@ from ..interface import (
 )
 from .page_layout import PageLayoutStep
 
+logger = logging.getLogger(__name__)
+
 
 @attrs.define
 class PageTextLineStepConfig:
@@ -42,6 +45,11 @@ class PageTextLineStepConfig:
     font_style_glyph_color_rgb_min: int = 128
     font_style_glyph_color_rgb_max: int = 255
     return_font_variant: bool = False
+    short_text_line_char_sampler_configs: Optional[
+        Union[Sequence[Mapping[str, Any]], PathType]
+    ] = None  # yapf: disable
+    prob_short_text_line: float = 0.15
+    short_text_line_num_chars_max: int = 2
 
 
 @unique
@@ -86,6 +94,7 @@ class PageTextLineStep(
                 'lexicon_collection': lexicon_collection,
             },
         )
+
         self.char_and_font_sampler = char_and_font_sampler_factory.create(
             {},
             {
@@ -94,6 +103,23 @@ class PageTextLineStep(
                 'char_sampler_aggregator': char_sampler_aggregator,
             },
         )
+
+        self.short_text_line_char_and_font_sampler = self.char_and_font_sampler
+        if self.config.short_text_line_char_sampler_configs is not None:
+            short_text_line_char_sampler_aggregator = char_sampler_factory.create(
+                self.config.short_text_line_char_sampler_configs,
+                {
+                    'lexicon_collection': lexicon_collection,
+                },
+            )
+            self.short_text_line_char_and_font_sampler = char_and_font_sampler_factory.create(
+                {},
+                {
+                    'lexicon_collection': lexicon_collection,
+                    'font_collection': font_collection,
+                    'char_sampler_aggregator': short_text_line_char_sampler_aggregator,
+                },
+            )
 
         self.keys, self.probs = normalize_to_keys_and_probs([
             (
@@ -121,9 +147,19 @@ class PageTextLineStep(
 
         text_lines: List[TextLine] = []
         for layout_text_line in page_layout.layout_text_lines:
+            char_and_font = None
+            is_short_text_line = False
 
-            while True:
-                char_and_font = self.char_and_font_sampler.run(
+            num_retries = 3
+            while num_retries > 0:
+                is_short_text_line = (rng.random() < self.config.prob_short_text_line)
+
+                if is_short_text_line:
+                    char_and_font_sampler = self.short_text_line_char_and_font_sampler
+                else:
+                    char_and_font_sampler = self.char_and_font_sampler
+
+                char_and_font = char_and_font_sampler.run(
                     config={
                         'height': layout_text_line.box.height,
                         'width': layout_text_line.box.width,
@@ -132,6 +168,35 @@ class PageTextLineStep(
                 )
                 if char_and_font:
                     break
+
+                num_retries -= 1
+
+            if num_retries <= 0:
+                logger.warning(
+                    f'Cannot sample char_and_font for layout_text_line={layout_text_line}'
+                )
+                continue
+            assert char_and_font
+
+            if is_short_text_line:
+                # Trim to short text line.
+                short_text_line_num_chars = int(
+                    rng.integers(
+                        1,
+                        self.config.short_text_line_num_chars_max + 1,
+                    )
+                )
+                chars = [char for char in char_and_font.chars if not char.isspace()]
+                if len(chars) > short_text_line_num_chars:
+                    begin = int(rng.integers(
+                        0,
+                        len(chars) - short_text_line_num_chars + 1,
+                    ))
+                    end = begin + short_text_line_num_chars - 1
+                    chars = chars[begin:end + 1]
+
+                logger.debug(f'short_text_line: trim chars={char_and_font.chars} to {chars}.')
+                char_and_font = attrs.evolve(char_and_font, chars=chars)
 
             key = rng_choice(rng, self.keys, probs=self.probs)
             if key == PageTextLineStepKey.FONT_STYLE_GLYPH_COLOR_GRAYSCALE:
