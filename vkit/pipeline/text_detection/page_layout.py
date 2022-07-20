@@ -40,7 +40,7 @@ class PageLayoutStepConfig:
     prob_normal_text_line_diff_heights_gap: float = 0.5
     prob_normal_text_line_gap: float = 0.5
     normal_text_line_gap_ratio_min: float = 0.05
-    normal_text_line_gap_ratio_max: float = 1.5
+    normal_text_line_gap_ratio_max: float = 1.25
     normal_text_line_length_ratio_min: float = 0.5
     normal_text_line_length_ratio_max: float = 1.0
 
@@ -506,7 +506,7 @@ class PageLayoutStep(
 
     def get_reference_height(self, height: int, width: int):
         area = height * width
-        reference_height = round(math.sqrt(area / self.config.reference_aspect_ratio))
+        reference_height = math.ceil(math.sqrt(area) / self.config.reference_aspect_ratio)
         return reference_height
 
     def sample_layout_text_lines(self, height: int, width: int, rng: RandomGenerator):

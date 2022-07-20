@@ -176,6 +176,11 @@ class PipelinePool(Generic[_T_OUTPUT]):
 
         self.queues: Sequence['Queue[_T_OUTPUT]'] = []
         self.manager = Manager()
+        try:
+            self.manager.start()
+        except Exception:
+            # Hack.
+            time.sleep(0.1)
         self.process_status_for_queues: List[Dict[int, bool]] = self.manager.list()  # type: ignore
         self.process_status_for_queues_lock = Lock()
         self.processes: Sequence[Process] = []
@@ -205,10 +210,23 @@ class PipelinePool(Generic[_T_OUTPUT]):
             queue.close()
         self.queues = []
 
+        # Then the shared list and manager.
+        self.process_status_for_queues = []
+        try:
+            self.manager.shutdown()
+        except Exception:
+            logger.warning('Cannot shutdown manager.')
+
     def reset(self):
         self.cleanup()
 
         self.queues = [Queue() for _ in range(self.num_queues)]
+        self.manager = Manager()
+        try:
+            self.manager.start()
+        except Exception:
+            # Hack.
+            time.sleep(0.1)
         process_status_for_queues = []
         for _ in range(self.num_queues):
             process_status = dict((process_idx, True) for process_idx in range(self.num_processes))
