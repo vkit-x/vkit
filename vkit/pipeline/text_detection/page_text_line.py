@@ -203,16 +203,20 @@ class PageTextLineStep(
 
             key = rng_choice(rng, self.keys, probs=self.probs)
             if key == PageTextLineStepKey.FONT_STYLE_GLYPH_COLOR_GRAYSCALE:
-                grayscale_value = rng.integers(
-                    self.config.font_style_glyph_color_grayscale_min,
-                    self.config.font_style_glyph_color_grayscale_max + 1,
+                grayscale_value = int(
+                    rng.integers(
+                        self.config.font_style_glyph_color_grayscale_min,
+                        self.config.font_style_glyph_color_grayscale_max + 1,
+                    )
                 )
                 glyph_color = (grayscale_value,) * 3
 
             else:
-                rgb_value = rng.integers(
-                    self.config.font_style_glyph_color_rgb_min,
-                    self.config.font_style_glyph_color_rgb_max + 1,
+                rgb_value = int(
+                    rng.integers(
+                        self.config.font_style_glyph_color_rgb_min,
+                        self.config.font_style_glyph_color_rgb_max + 1,
+                    )
                 )
 
                 if key == PageTextLineStepKey.FONT_STYLE_GLYPH_COLOR_RED:

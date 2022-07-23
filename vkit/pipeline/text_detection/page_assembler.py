@@ -19,6 +19,7 @@ from .page_text_line_label import (
     PageCharPolygonCollection,
     PageTextLinePolygonCollection,
 )
+from .page_text_line_bounding_box import PageTextLineBoundingBoxStep
 
 
 @attrs.define
@@ -66,6 +67,11 @@ class PageAssemblerStep(
         page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
+        page_text_line_bounding_box_step_output = \
+            state.get_pipeline_step_output(PageTextLineBoundingBoxStep)
+        text_line_bounding_box_score_maps = page_text_line_bounding_box_step_output.score_maps
+        text_line_bounding_box_colors = page_text_line_bounding_box_step_output.colors
+
         page_text_line_label_step_output = state.get_pipeline_step_output(PageTextLineLabelStep)
         page_char_polygon_collection = \
             page_text_line_label_step_output.page_char_polygon_collection
@@ -90,6 +96,12 @@ class PageAssemblerStep(
         # Page Bar codes.
         for barcode_score_map in page_barcode_step_output.barcode_score_maps:
             assembled_image[barcode_score_map] = (0, 0, 0)
+
+        # Page text line bounding boxes.
+        for text_line_bounding_box_score_map, text_line_bounding_box_color in zip(
+            text_line_bounding_box_score_maps, text_line_bounding_box_colors
+        ):
+            assembled_image[text_line_bounding_box_score_map] = text_line_bounding_box_color
 
         # Page text lines.
         for text_line in page_text_line_collection.text_lines:

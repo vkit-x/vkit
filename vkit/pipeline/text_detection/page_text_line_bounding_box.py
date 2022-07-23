@@ -16,11 +16,11 @@ from .page_text_line import PageTextLineStep
 @attrs.define
 class PageTextLineBoundingBoxStepConfig:
     prob_non_short_text_line: float = 0.05
-    prob_short_text_line: float = 0.2
-    offset_ratio_min: float = 0.5
-    offset_ratio_max: float = 3.0
+    prob_short_text_line: float = 0.3
+    offset_ratio_min: float = 0.1
+    offset_ratio_max: float = 2.0
     border_thickness_ratio_min: float = 0.0
-    border_thickness_ratio_max: float = 0.2
+    border_thickness_ratio_max: float = 0.125
     border_thickness_min: int = 1
     alpha_min: float = 0.9
     alpha_max: float = 1.0
