@@ -219,6 +219,9 @@ def test_page():
                 },
             },
             {
+                'name': 'text_detection.page_text_line_bounding_box_step',
+            },
+            {
                 'name': 'text_detection.page_text_line_label_step',
             },
             {

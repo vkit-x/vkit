@@ -292,6 +292,8 @@ class Mask(Shapable):
         return resized_mask
 
     def to_box_attached(self, box: 'Box'):
+        assert self.height == box.height
+        assert self.width == box.width
         return attrs.evolve(self, box=box)
 
     def fill_np_array(

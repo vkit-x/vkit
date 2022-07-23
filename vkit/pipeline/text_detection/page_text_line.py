@@ -65,6 +65,7 @@ class PageTextLineCollection:
     height: int
     width: int
     text_lines: Sequence[TextLine]
+    short_text_line_flags: Sequence[bool]
 
     @property
     def shape(self):
@@ -146,6 +147,8 @@ class PageTextLineStep(
         page_layout = page_layout_step_output.page_layout
 
         text_lines: List[TextLine] = []
+        short_text_line_flags: List[bool] = []
+
         for layout_text_line in page_layout.layout_text_lines:
             char_and_font = None
             is_short_text_line = False
@@ -200,16 +203,20 @@ class PageTextLineStep(
 
             key = rng_choice(rng, self.keys, probs=self.probs)
             if key == PageTextLineStepKey.FONT_STYLE_GLYPH_COLOR_GRAYSCALE:
-                grayscale_value = rng.integers(
-                    self.config.font_style_glyph_color_grayscale_min,
-                    self.config.font_style_glyph_color_grayscale_max + 1,
+                grayscale_value = int(
+                    rng.integers(
+                        self.config.font_style_glyph_color_grayscale_min,
+                        self.config.font_style_glyph_color_grayscale_max + 1,
+                    )
                 )
                 glyph_color = (grayscale_value,) * 3
 
             else:
-                rgb_value = rng.integers(
-                    self.config.font_style_glyph_color_rgb_min,
-                    self.config.font_style_glyph_color_rgb_max + 1,
+                rgb_value = int(
+                    rng.integers(
+                        self.config.font_style_glyph_color_rgb_min,
+                        self.config.font_style_glyph_color_rgb_max + 1,
+                    )
                 )
 
                 if key == PageTextLineStepKey.FONT_STYLE_GLYPH_COLOR_RED:
@@ -242,14 +249,19 @@ class PageTextLineStep(
                     y_offset=layout_text_line.box.up,
                     x_offset=layout_text_line.box.left,
                 )
-                text_lines.extend(text_line.split())
+                split_text_lines = text_line.split()
+                text_lines.extend(split_text_lines)
+                short_text_line_flags.extend([is_short_text_line] * len(split_text_lines))
 
         assert text_lines
+        assert len(text_lines) == len(short_text_line_flags)
+
         return PageTextLineStepOutput(
             page_text_line_collection=PageTextLineCollection(
                 height=page_layout.height,
                 width=page_layout.width,
                 text_lines=text_lines,
+                short_text_line_flags=short_text_line_flags,
             )
         )
 

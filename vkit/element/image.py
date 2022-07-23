@@ -712,6 +712,8 @@ class Image(Shapable):
         return element.extract_image(self)
 
     def to_box_attached(self, box: 'Box'):
+        assert self.height == box.height
+        assert self.width == box.width
         return attrs.evolve(self, box=box)
 
     def to_gcn_image(
