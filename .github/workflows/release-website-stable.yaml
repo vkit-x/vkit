@@ -8,6 +8,9 @@ on:
       confirm:
         description: 'Type "yes" to confirm'
         required: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   check-stable-version-update:
     runs-on: ubuntu-20.04

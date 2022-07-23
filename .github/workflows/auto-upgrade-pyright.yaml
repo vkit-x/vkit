@@ -1,12 +1,15 @@
 name: auto-upgrade-pyright
 on:
   schedule:
-    - cron: '0 11 * * *'
+    - cron: "0 11 * * *"
   workflow_dispatch:
     inputs:
       confirm:
         description: 'Type "yes" to confirm'
         required: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   auto-upgrade-pyright:
     runs-on: ubuntu-20.04
@@ -64,9 +67,9 @@ jobs:
         with:
           token: ${{ secrets.HUNTZHAN_PAT }}
           branch: upgrade-pyright-to-${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}
-          title: 'Automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}'
-          commit-message: 'Automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}'
-          body: ''
+          title: "Automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}"
+          commit-message: "Automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}"
+          body: ""
       - name: Enable auto signoff
         run: |
           gh pr merge --squash --auto

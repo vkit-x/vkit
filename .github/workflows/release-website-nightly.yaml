@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - master
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   check-website-update:
     runs-on: ubuntu-20.04
