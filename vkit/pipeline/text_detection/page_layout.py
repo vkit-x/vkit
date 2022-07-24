@@ -25,16 +25,16 @@ class PageLayoutStepConfig:
 
     # Large text line.
     prob_add_large_text_line: float = 0.5
-    large_text_line_height_ratio_min: float = 0.1
-    large_text_line_height_ratio_max: float = 0.2
+    large_text_line_height_ratio_min: float = 0.085
+    large_text_line_height_ratio_max: float = 0.17
     large_text_line_length_ratio_min: float = 0.5
     large_text_line_length_ratio_max: float = 1.0
 
     # Normal text line.
     num_normal_text_line_heights_min: int = 2
     num_normal_text_line_heights_max: int = 4
-    normal_text_line_height_ratio_min: float = 0.01
-    normal_text_line_height_ratio_max: float = 0.05
+    normal_text_line_height_ratio_min: float = 0.0085
+    normal_text_line_height_ratio_max: float = 0.045
     force_add_normal_text_line_height_ratio_min: bool = True
 
     prob_normal_text_line_diff_heights_gap: float = 0.5
