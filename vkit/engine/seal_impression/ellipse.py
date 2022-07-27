@@ -7,8 +7,9 @@ import numpy as np
 import cv2 as cv
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
-from vkit.element import Point, Mask
+from vkit.element import Point, Mask, ImageKind
 from vkit.engine.interface import Engine
+from vkit.engine.image import selector_image_factory
 from .type import (
     SealImpressionEngineResource,
     SealImpressionEngineRunConfig,
@@ -35,8 +36,13 @@ class EllipseSealImpressionEngineConfig:
     weight_border_style_solid_line = 3
     weight_border_style_double_lines = 1
 
-    # Center shape.
-    # TODO
+    # Icon.
+    icon_image_folder: Optional[str] = None
+    prob_add_icon: float = 0.9
+    icon_height_ratio_min: float = 0.5
+    icon_height_ratio_min: float = 0.8
+    icon_width_ratio_min: float = 0.5
+    icon_width_ratio_min: float = 0.8
 
     # Char slots.
     # NOTE: the ratio is relative to the height of seal impression.
@@ -153,6 +159,12 @@ class EllipseSealImpressionEngine(
                 self.config.weight_color_blue,
             ),
         ])
+        self.icon_image_selector = None
+        if self.config.icon_image_folder:
+            self.icon_image_selector = selector_image_factory.create({
+                'image_folder': self.config.icon_image_folder,
+                'target_kind_image': ImageKind.GRAYSCALE,
+            })
 
     # def sample_shape(self, reference_height: int, rng: RandomGenerator):
     #     # Sample height.
@@ -468,12 +480,14 @@ class EllipseSealImpressionEngine(
     def run(self, config: SealImpressionEngineRunConfig, rng: RandomGenerator):
         # TODO: rename all to run_config.
         alpha, color = self.sample_alpha_and_color(rng)
-        background_mask = self.generate_background_mask(
+
+        text_line_height, char_slots = self.generate_char_slots(
             height=config.height,
             width=config.width,
             rng=rng,
         )
-        text_line_height, char_slots = self.generate_char_slots(
+
+        background_mask = self.generate_background_mask(
             height=config.height,
             width=config.width,
             rng=rng,
