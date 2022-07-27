@@ -29,10 +29,11 @@ class EllipseSealImpressionEngineConfig:
     # general_ellipse_aspect_ratio_max: float = 1.333
 
     # Border.
-    # TODO: add style.
     border_thickness_ratio_min: float = 0.0
     border_thickness_ratio_max: float = 0.02
     border_thickness_min: int = 1
+    weight_border_style_solid_line = 3
+    weight_border_style_double_lines = 1
 
     # Center shape.
     # TODO
@@ -68,6 +69,12 @@ class EllipseSealImpressionEngineConfig:
 class EllipseSealImpressionShapeType(Enum):
     CIRCLE = 'circle'
     GENERAL_ELLIPSE = 'general_ellipse'
+
+
+@unique
+class EllipseSealImpressionBorderStyle(Enum):
+    SOLID_LINE = 'solid_line'
+    DOUBLE_LINES = 'double_lines'
 
 
 @unique
@@ -108,15 +115,43 @@ class EllipseSealImpressionEngine(
         #     (EllipseSealImpressionShapeType.CIRCLE, self.config.weight_circle),
         #     (EllipseSealImpressionShapeType.GENERAL_ELLIPSE, self.config.weight_general_ellipse),
         # ])
+        self.border_styles, self.border_styles_probs = normalize_to_keys_and_probs([
+            (
+                EllipseSealImpressionBorderStyle.SOLID_LINE,
+                self.config.weight_border_style_solid_line,
+            ),
+            (
+                EllipseSealImpressionBorderStyle.DOUBLE_LINES,
+                self.config.weight_border_style_double_lines,
+            ),
+        ])
         self.text_line_modes, self.text_line_modes_probs = normalize_to_keys_and_probs([
-            (EllipseSealImpressionTextLineMode.ONE, self.config.weight_text_line_mode_one),
-            (EllipseSealImpressionTextLineMode.TWO, self.config.weight_text_line_mode_two),
+            (
+                EllipseSealImpressionTextLineMode.ONE,
+                self.config.weight_text_line_mode_one,
+            ),
+            (
+                EllipseSealImpressionTextLineMode.TWO,
+                self.config.weight_text_line_mode_two,
+            ),
         ])
         self.color_modes, self.color_modes_probs = normalize_to_keys_and_probs([
-            (EllipseSealImpressionColorMode.GRAYSCALE, self.config.weight_color_grayscale),
-            (EllipseSealImpressionColorMode.RED, self.config.weight_color_red),
-            (EllipseSealImpressionColorMode.GREEN, self.config.weight_color_green),
-            (EllipseSealImpressionColorMode.BLUE, self.config.weight_color_blue),
+            (
+                EllipseSealImpressionColorMode.GRAYSCALE,
+                self.config.weight_color_grayscale,
+            ),
+            (
+                EllipseSealImpressionColorMode.RED,
+                self.config.weight_color_red,
+            ),
+            (
+                EllipseSealImpressionColorMode.GREEN,
+                self.config.weight_color_green,
+            ),
+            (
+                EllipseSealImpressionColorMode.BLUE,
+                self.config.weight_color_blue,
+            ),
         ])
 
     # def sample_shape(self, reference_height: int, rng: RandomGenerator):
@@ -164,6 +199,9 @@ class EllipseSealImpressionEngine(
     ):
         background_mask = Mask.from_shape((height, width))
 
+        border_style = rng_choice(rng, self.border_styles, probs=self.border_styles_probs)
+
+        # Will generate solid line first.
         border_thickness_ratio = float(
             rng.uniform(
                 self.config.border_thickness_ratio_min,
@@ -174,7 +212,8 @@ class EllipseSealImpressionEngine(
         border_thickness = max(self.config.border_thickness_min, border_thickness)
 
         center = (width // 2, height // 2)
-        axes = (width // 2 - border_thickness, height // 2 - border_thickness)
+        # NOTE: minus 1 to make sure the border is inbound.
+        axes = (width // 2 - border_thickness - 1, height // 2 - border_thickness - 1)
         cv.ellipse(
             background_mask.mat,
             center=center,
@@ -185,6 +224,21 @@ class EllipseSealImpressionEngine(
             color=1,
             thickness=border_thickness,
         )
+
+        if border_thickness >= 4 and border_style == EllipseSealImpressionBorderStyle.DOUBLE_LINES:
+            # Remove the middle part to generate double lines.
+            border_thickness_empty = int(rng.integers(1, border_thickness - 1))
+            cv.ellipse(
+                background_mask.mat,
+                center=center,
+                # NOTE: I don't know why, but this works as expected.
+                axes=axes,
+                angle=0,
+                startAngle=0,
+                endAngle=360,
+                color=0,
+                thickness=border_thickness_empty,
+            )
 
         return background_mask
 
