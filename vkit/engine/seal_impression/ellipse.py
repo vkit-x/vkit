@@ -48,7 +48,7 @@ class EllipseSealImpressionEngineConfig:
     # NOTE: the ratio is relative to the height of seal impression.
     pad_ratio_min: float = 0.03
     pad_ratio_max: float = 0.08
-    text_line_height_ratio_min: float = 0.025
+    text_line_height_ratio_min: float = 0.05
     text_line_height_ratio_max: float = 0.175
     weight_text_line_mode_one: float = 1
     weight_text_line_mode_two: float = 1

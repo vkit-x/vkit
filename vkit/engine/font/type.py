@@ -5,6 +5,8 @@ from collections import defaultdict
 import attrs
 import cattrs
 import iolite as io
+import numpy as np
+import cv2 as cv
 
 from vkit.utility import PathType, dyn_structure
 from vkit.element import (
@@ -248,12 +250,72 @@ class FontEngineRunConfig:
 
 
 @attrs.define
+class CharGlyph:
+    char: str
+    image: Image
+    score_map: Optional[ScoreMap]
+    ascent: int
+    pad_up: int
+    pad_down: int
+    pad_left: int
+    pad_right: int
+
+    def __attrs_post_init__(self):
+        # NOTE: ascent could be negative for char like '_'.
+        assert self.pad_up >= 0
+        assert self.pad_down >= 0
+        assert self.pad_left >= 0
+        assert self.pad_right >= 0
+
+    @property
+    def height(self):
+        return self.image.height
+
+    @property
+    def width(self):
+        return self.image.width
+
+    def get_glyph_mask(
+        self,
+        box: Optional[Box] = None,
+        enable_resize: bool = False,
+        cv_resize_interpolation: int = cv.INTER_CUBIC,
+    ):
+        if self.image.mat.ndim == 2:
+            # Default or monochrome.
+            np_mask = (self.image.mat > 0)
+
+        elif self.image.mat.ndim == 3:
+            # LCD.
+            np_mask = np.any((self.image.mat > 0), axis=2)
+
+        else:
+            raise NotImplementedError()
+
+        mask = Mask(mat=np_mask.astype(np.uint8))
+        if box:
+            if mask.shape != box.shape:
+                assert enable_resize
+                mask = mask.to_resized_mask(
+                    resized_height=box.height,
+                    resized_width=box.width,
+                    cv_resize_interpolation=cv_resize_interpolation,
+                )
+            mask = mask.to_box_attached(box)
+
+        return mask
+
+
+@attrs.define
 class TextLine:
     image: Image
     mask: Mask
     score_map: Optional[ScoreMap]
-    glyph_color: Tuple[int, int, int]
     char_boxes: Sequence[CharBox]
+    # NOTE: char_glyphs might not have the same shapes as char_boxes.
+    char_glyphs: Sequence[CharGlyph]
+    cv_resize_interpolation: int
+    style: FontEngineRunConfigStyle
     font_size: int
     ref_char_height: int
     ref_char_width: int
@@ -270,6 +332,10 @@ class TextLine:
     def box(self):
         assert self.mask.box
         return self.mask.box
+
+    @property
+    def glyph_color(self):
+        return self.style.glyph_color
 
     def to_shifted_text_line(self, y_offset: int = 0, x_offset: int = 0):
         self.shifted = True

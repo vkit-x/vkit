@@ -15,7 +15,8 @@ def fill_text_line_to_seal_impression_layout(
 
     score_map = ScoreMap.from_shape(seal_impression_layout.shape)
 
-    for char_slot_idx, char_box in enumerate(text_line.char_boxes):
+    for char_slot_idx, (char_box, char_glyph) \
+            in enumerate(zip(text_line.char_boxes, text_line.char_glyphs)):
         # Get char slot to be filled.
         if char_slot_idx >= len(seal_impression_layout.char_slots):
             break
@@ -23,16 +24,23 @@ def fill_text_line_to_seal_impression_layout(
 
         # Extract char-level score map.
         box = char_box.box
-
-        # TODO: don't extract from the final text line due to glyph overlapping.
-        if text_line.score_map:
-            char_score_map = box.extract_score_map(text_line.score_map)
-            assert char_score_map.box == box
+        char_score_map = ScoreMap.from_shape((text_line.box.height, box.width))
+        if char_glyph.score_map:
+            char_glyph_score_map = char_glyph.score_map
+            if char_glyph_score_map.shape != box.shape:
+                char_glyph_score_map = char_glyph_score_map.to_resized_score_map(
+                    resized_height=box.height,
+                    resized_width=box.width,
+                    cv_resize_interpolation=text_line.cv_resize_interpolation,
+                )
+            char_score_map.mat[box.up:box.down + 1] = char_glyph_score_map.mat
         else:
-            char_mask = box.extract_mask(text_line.mask)
-            assert char_mask.box == box
-            char_score_map_mat = char_mask.np_mask.astype(np.float32)
-            char_score_map = ScoreMap(mat=char_score_map_mat)
+            # LCD, fallback to mask.
+            char_glyph_mask = char_glyph.get_glyph_mask(
+                box=box,
+                cv_resize_interpolation=text_line.cv_resize_interpolation,
+            )
+            char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
 
         point_up = Point(y=0, x=char_score_map.width // 2)
 

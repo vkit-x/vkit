@@ -78,7 +78,8 @@ def test_ellipse_filling():
 
     for rng_seed in range(10):
         rng = default_rng(rng_seed)
-        seal_impression_layout = engine.run({'height': 400, 'width': 400}, rng)
+        width = int(rng.integers(200, 600 + 1))
+        seal_impression_layout = engine.run({'height': 400, 'width': width}, rng)
 
         char_and_font = char_and_font_sampler.run(
             config={

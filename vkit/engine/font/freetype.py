@@ -17,6 +17,7 @@ from .type import (
     FontEngineRunConfigGlyphSequence,
     FontEngineRunConfigStyle,
     FontEngineRunConfig,
+    CharGlyph,
     TextLine,
 )
 
@@ -96,63 +97,6 @@ def build_freetype_font_face_lcd_hc_matrix(lcd_compression_factor: int):
         int(0.0 * 0x10000),
         int(1.0 * 0x10000),
     )
-
-
-@attrs.define
-class CharGlyph:
-    char: str
-    image: Image
-    score_map: Optional[ScoreMap]
-    ascent: int
-    pad_up: int
-    pad_down: int
-    pad_left: int
-    pad_right: int
-
-    def __attrs_post_init__(self):
-        # NOTE: ascent could be negative for char like '_'.
-        assert self.pad_up >= 0
-        assert self.pad_down >= 0
-        assert self.pad_left >= 0
-        assert self.pad_right >= 0
-
-    @property
-    def height(self):
-        return self.image.height
-
-    @property
-    def width(self):
-        return self.image.width
-
-    def get_glyph_mask(
-        self,
-        box: Optional[Box] = None,
-        enable_resize: bool = False,
-        cv_resize_interpolation: int = cv.INTER_CUBIC,
-    ):
-        if self.image.mat.ndim == 2:
-            # Default or monochrome.
-            np_mask = (self.image.mat > 0)
-
-        elif self.image.mat.ndim == 3:
-            # LCD.
-            np_mask = np.any((self.image.mat > 0), axis=2)
-
-        else:
-            raise NotImplementedError()
-
-        mask = Mask(mat=np_mask.astype(np.uint8))
-        if box:
-            if mask.shape != box.shape:
-                assert enable_resize
-                mask = mask.to_resized_mask(
-                    resized_height=box.height,
-                    resized_width=box.width,
-                    cv_resize_interpolation=cv_resize_interpolation,
-                )
-            mask = mask.to_box_attached(box)
-
-        return mask
 
 
 def trim_char_np_image_vert(np_image: np.ndarray):
@@ -720,7 +664,7 @@ def resize_and_trim_text_line_hori_default(
 
         if last_char_box_idx < 0 or char_boxes[last_char_box_idx].right >= config.width:
             # Cannot trim.
-            return None, None, None, None
+            return None, None, None, None, -1
 
         last_char_box = char_boxes[last_char_box_idx]
         last_char_box_right = last_char_box.right
@@ -772,7 +716,7 @@ def resize_and_trim_text_line_hori_default(
         if score_map:
             score_map.mat = score_map.mat[:, :last_char_box_right + 1]
 
-    return image, mask, score_map, char_boxes
+    return image, mask, score_map, char_boxes, cv_resize_interpolation
 
 
 def resize_and_trim_text_line_vert_default(
@@ -859,7 +803,7 @@ def resize_and_trim_text_line_vert_default(
 
         if last_char_box_idx < 0 or char_boxes[last_char_box_idx].down >= config.height:
             # Cannot trim.
-            return None, None, None, None
+            return None, None, None, None, -1
 
         last_char_box_down = char_boxes[last_char_box_idx].down
         char_boxes = char_boxes[:last_char_box_idx + 1]
@@ -869,7 +813,7 @@ def resize_and_trim_text_line_vert_default(
         if score_map:
             score_map.mat = score_map.mat[:last_char_box_down + 1]
 
-    return image, mask, score_map, char_boxes
+    return image, mask, score_map, char_boxes, cv_resize_interpolation
 
 
 def render_text_line_meta(
@@ -914,6 +858,7 @@ def render_text_line_meta(
             mask,
             score_map,
             char_boxes,
+            cv_resize_interpolation,
         ) = resize_and_trim_text_line_hori_default(
             config=config,
             cv_resize_interpolation_enlarge=cv_resize_interpolation_enlarge,
@@ -944,6 +889,7 @@ def render_text_line_meta(
             mask,
             score_map,
             char_boxes,
+            cv_resize_interpolation,
         ) = resize_and_trim_text_line_vert_default(
             config=config,
             cv_resize_interpolation_enlarge=cv_resize_interpolation_enlarge,
@@ -982,9 +928,11 @@ def render_text_line_meta(
             image=image,
             mask=mask,
             score_map=score_map,
-            glyph_color=config.style.glyph_color,
             char_boxes=char_boxes,
+            char_glyphs=char_glyphs[:len(char_boxes)],
+            cv_resize_interpolation=cv_resize_interpolation,
             font_size=estimate_font_size(config),
+            style=config.style,
             ref_char_height=get_ref_char_height(config),
             ref_char_width=get_ref_char_width(config),
             text=''.join(config.chars[:char_idx]),
