@@ -78,8 +78,8 @@ class PageLayoutStepConfig:
     barcode_num_chars_max: int = 13
 
     # Seal impression.
-    num_seal_impressions_min: int = 0
-    num_seal_impressions_max: int = 2
+    num_seal_impressions_min: int = 1
+    num_seal_impressions_max: int = 3
     seal_impression_height_ratio_min: float = 0.1
     seal_impression_height_ratio_max: float = 0.2
     seal_impression_weight_circle: float = 1
