@@ -7,7 +7,7 @@ import itertools
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.utility import rng_choice, normalize_to_probs
+from vkit.utility import rng_choice, normalize_to_probs, normalize_to_keys_and_probs
 from vkit.element import Box
 from vkit.engine.font.type import FontEngineRunConfigGlyphSequence
 from .page_shape import PageShapeStep
@@ -22,6 +22,16 @@ from ..interface import (
 class PageLayoutStepConfig:
     # Text line heights.
     reference_aspect_ratio: float = 1 / 1.4142
+
+    # Grid points.
+    grid_pad_ratio_min: float = 0.01
+    grid_pad_ratio_max: float = 0.05
+    grid_step_ratio_min: float = 1.0
+    grid_step_ratio_max: float = 1.1
+    grid_vert_gap_ratio_min: float = 0.0
+    grid_vert_gap_ratio_max: float = 0.5
+    grid_hori_gap_ratio_min: float = 1.0
+    grid_hori_gap_ratio_max: float = 1.15
 
     # Large text line.
     prob_add_large_text_line: float = 0.5
@@ -43,16 +53,6 @@ class PageLayoutStepConfig:
     normal_text_line_gap_ratio_max: float = 1.25
     normal_text_line_length_ratio_min: float = 0.5
     normal_text_line_length_ratio_max: float = 1.0
-
-    # Grid points.
-    grid_pad_ratio_min: float = 0.01
-    grid_pad_ratio_max: float = 0.05
-    grid_step_ratio_min: float = 1.0
-    grid_step_ratio_max: float = 1.1
-    grid_vert_gap_ratio_min: float = 0.0
-    grid_vert_gap_ratio_max: float = 0.5
-    grid_hori_gap_ratio_min: float = 1.0
-    grid_hori_gap_ratio_max: float = 1.15
 
     # Image.
     num_images_min: int = 0
@@ -77,11 +77,26 @@ class PageLayoutStepConfig:
     barcode_num_chars_min: int = 9
     barcode_num_chars_max: int = 13
 
+    # Seal impression.
+    num_seal_impressions_min: int = 0
+    num_seal_impressions_max: int = 2
+    seal_impression_height_ratio_min: float = 0.1
+    seal_impression_height_ratio_max: float = 0.2
+    seal_impression_weight_circle: float = 1
+    seal_impression_weight_general_ellipse: float = 1
+    seal_impression_general_ellipse_aspect_ratio_min: float = 0.75
+    seal_impression_general_ellipse_aspect_ratio_max: float = 1.333
+
 
 @attrs.define
 class LayoutTextLine:
     box: Box
     glyph_sequence: FontEngineRunConfigGlyphSequence
+
+
+@attrs.define
+class LayoutSealImpression:
+    box: Box
 
 
 @attrs.define
@@ -112,6 +127,7 @@ class PageLayout:
     height: int
     width: int
     layout_text_lines: Sequence[LayoutTextLine]
+    layout_seal_impressions: Sequence[LayoutSealImpression]
     layout_images: Sequence[LayoutImage]
     layout_qrcodes: Sequence[LayoutQrcode]
     layout_barcodes: Sequence[LayoutBarcode]
@@ -131,6 +147,12 @@ class PrioritizedSegment:
     hori_end_idx: int = attrs.field(order=False)
 
 
+@unique
+class EllipseSealImpressionShapeType(Enum):
+    CIRCLE = 'circle'
+    GENERAL_ELLIPSE = 'general_ellipse'
+
+
 class PageLayoutStep(
     PipelineStep[
         PageLayoutStepConfig,
@@ -140,6 +162,20 @@ class PageLayoutStep(
 
     def __init__(self, config: PageLayoutStepConfig):
         super().__init__(config)
+
+        (
+            self.ellipse_seal_impression_shape_types,
+            self.ellipse_seal_impression_shape_types_probs,
+        ) = normalize_to_keys_and_probs([
+            (
+                EllipseSealImpressionShapeType.CIRCLE,
+                self.config.seal_impression_weight_circle,
+            ),
+            (
+                EllipseSealImpressionShapeType.GENERAL_ELLIPSE,
+                self.config.seal_impression_weight_general_ellipse,
+            ),
+        ])
 
     def sample_large_text_line_height(self, reference_height: int, rng: RandomGenerator):
         if rng.random() < self.config.prob_add_large_text_line:
@@ -861,6 +897,99 @@ class PageLayoutStep(
 
         return layout_qrcodes, layout_barcodes, layout_text_lines
 
+    def sample_layout_seal_impressions(
+        self,
+        height: int,
+        width: int,
+        layout_text_lines: Sequence[LayoutTextLine],
+        rng: RandomGenerator,
+    ):
+        reference_height = self.get_reference_height(height=height, width=width)
+
+        # Sample within the text line area.
+        text_line_up = min(layout_text_line.box.up for layout_text_line in layout_text_lines)
+        text_line_down = max(layout_text_line.box.down for layout_text_line in layout_text_lines)
+        text_line_left = min(layout_text_line.box.left for layout_text_line in layout_text_lines)
+        text_line_right = max(layout_text_line.box.right for layout_text_line in layout_text_lines)
+
+        # Place seal impressions.
+        layout_seal_impressions: List[LayoutSealImpression] = []
+
+        num_seal_impressions = int(
+            rng.integers(
+                self.config.num_seal_impressions_min,
+                self.config.num_seal_impressions_max + 1,
+            )
+        )
+        for _ in range(num_seal_impressions):
+            # Sample height.
+            seal_impression_height_ratio = float(
+                rng.uniform(
+                    self.config.seal_impression_height_ratio_min,
+                    self.config.seal_impression_height_ratio_max,
+                )
+            )
+            seal_impression_height = round(seal_impression_height_ratio * reference_height)
+            seal_impression_height = min(text_line_down + 1 - text_line_up, seal_impression_height)
+
+            # Make sure even.
+            if seal_impression_height % 2 != 0:
+                seal_impression_height -= 1
+
+            # Sample width.
+            shape_type = rng_choice(
+                rng,
+                self.ellipse_seal_impression_shape_types,
+                probs=self.ellipse_seal_impression_shape_types_probs,
+            )
+            if shape_type == EllipseSealImpressionShapeType.CIRCLE:
+                seal_impression_width = seal_impression_height
+
+            elif shape_type == EllipseSealImpressionShapeType.GENERAL_ELLIPSE:
+                aspect_ratio = float(
+                    rng.uniform(
+                        self.config.seal_impression_general_ellipse_aspect_ratio_min,
+                        self.config.seal_impression_general_ellipse_aspect_ratio_max,
+                    )
+                )
+                seal_impression_width = round(aspect_ratio * seal_impression_height)
+
+            else:
+                raise NotImplementedError()
+
+            seal_impression_width = min(text_line_right + 1 - text_line_left, seal_impression_width)
+
+            # Make sure even.
+            if seal_impression_width % 2 != 0:
+                seal_impression_width -= 1
+
+            seal_impression_up_max = text_line_down + 1 - seal_impression_height
+            seal_impression_up = int(rng.integers(
+                text_line_up,
+                seal_impression_up_max + 1,
+            ))
+            seal_impression_down = seal_impression_up + seal_impression_height - 1
+
+            seal_impression_left_max = text_line_right + 1 - seal_impression_width
+            seal_impression_left = int(rng.integers(
+                text_line_left,
+                seal_impression_left_max + 1,
+            ))
+            seal_impression_right = seal_impression_left + seal_impression_width - 1
+
+            layout_seal_impressions.append(
+                LayoutSealImpression(
+                    box=Box(
+                        up=seal_impression_up,
+                        down=seal_impression_down,
+                        left=seal_impression_left,
+                        right=seal_impression_right,
+                    )
+                )
+            )
+
+        return layout_seal_impressions
+
     def run(self, state: PipelineState, rng: RandomGenerator):
         page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
         height = page_shape_step_output.height
@@ -888,11 +1017,20 @@ class PageLayoutStep(
             rng=rng,
         )
 
+        # Seal impressions.
+        layout_seal_impressions = self.sample_layout_seal_impressions(
+            height=height,
+            width=width,
+            layout_text_lines=layout_text_lines,
+            rng=rng,
+        )
+
         return PageLayoutStepOutput(
             page_layout=PageLayout(
                 height=height,
                 width=width,
                 layout_text_lines=layout_text_lines,
+                layout_seal_impressions=layout_seal_impressions,
                 layout_images=layout_images,
                 layout_qrcodes=layout_qrcodes,
                 layout_barcodes=layout_barcodes,

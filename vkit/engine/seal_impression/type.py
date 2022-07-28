@@ -25,7 +25,7 @@ class CharSlot:
 
 
 @attrs.define
-class SealImpressionLayout:
+class SealImpression:
     alpha: float
     color: Tuple[int, int, int]
     background_mask: Mask

@@ -51,6 +51,12 @@ from .text_detection.page_barcode import (
     PageBarcodeStepConfig,
     PageBarcodeStepOutput,
 )
+from .text_detection.page_seal_impression import (
+    page_seal_impresssion_step_factory,
+    PageSealImpresssionStep,
+    PageSealImpresssionStepConfig,
+    PageSealImpresssionStepOutput,
+)
 from .text_detection.page_text_line import (
     page_text_line_step_factory,
     PageTextLineStep,
@@ -110,6 +116,7 @@ pipeline_step_collection_factory.register_step_factories(
         page_image_step_factory,
         page_qrcode_step_factory,
         page_barcode_step_factory,
+        page_seal_impresssion_step_factory,
         page_text_line_step_factory,
         page_text_line_bounding_box_step_factory,
         page_text_line_label_step_factory,

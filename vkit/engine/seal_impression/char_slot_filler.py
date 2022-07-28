@@ -3,24 +3,24 @@ import numpy as np
 from vkit.element import Point, Box, ScoreMap
 from vkit.engine.font import TextLine
 from vkit.engine.distortion.geometric.affine import rotate
-from .type import SealImpressionLayout
+from .type import SealImpression
 
 
-def fill_text_line_to_seal_impression_layout(
-    seal_impression_layout: SealImpressionLayout,
+def fill_text_line_to_seal_impression(
+    seal_impression: SealImpression,
     text_line: TextLine,
 ):
     assert text_line.is_hori
     assert not text_line.shifted
 
-    score_map = ScoreMap.from_shape(seal_impression_layout.shape)
+    score_map = ScoreMap.from_shape(seal_impression.shape)
 
     for char_slot_idx, (char_box, char_glyph) \
             in enumerate(zip(text_line.char_boxes, text_line.char_glyphs)):
         # Get char slot to be filled.
-        if char_slot_idx >= len(seal_impression_layout.char_slots):
+        if char_slot_idx >= len(seal_impression.char_slots):
             break
-        char_slot = seal_impression_layout.char_slots[char_slot_idx]
+        char_slot = seal_impression.char_slots[char_slot_idx]
 
         # Extract char-level score map.
         box = char_box.box
@@ -100,6 +100,6 @@ def fill_text_line_to_seal_impression_layout(
 
     # Adjust alpha.
     score_map_max = score_map.mat.max()
-    score_map.mat = score_map.mat * seal_impression_layout.alpha / score_map_max
+    score_map.mat = score_map.mat * seal_impression.alpha / score_map_max
 
     return score_map

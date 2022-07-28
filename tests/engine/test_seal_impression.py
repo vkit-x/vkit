@@ -79,13 +79,13 @@ def test_ellipse_filling():
     for rng_seed in range(10):
         rng = default_rng(rng_seed)
         width = int(rng.integers(200, 600 + 1))
-        seal_impression_layout = engine.run({'height': 400, 'width': width}, rng)
+        seal_impression = engine.run({'height': 400, 'width': width}, rng)
 
         char_and_font = char_and_font_sampler.run(
             config={
-                'height': seal_impression_layout.text_line_height,
+                'height': seal_impression.text_line_height,
                 'width': 2**32 - 1,
-                'num_chars': len(seal_impression_layout.char_slots),
+                'num_chars': len(seal_impression.char_slots),
             },
             rng=rng,
         )
@@ -93,7 +93,7 @@ def test_ellipse_filling():
 
         text_line = font_aggregator.run(
             config={
-                'height': seal_impression_layout.text_line_height,
+                'height': seal_impression.text_line_height,
                 'width': 2**32 - 1,
                 'chars': char_and_font.chars,
                 'font_variant': char_and_font.font_variant,
@@ -102,17 +102,17 @@ def test_ellipse_filling():
         )
         assert text_line
 
-        filled_score_map = fill_text_line_to_seal_impression_layout(
-            seal_impression_layout,
+        filled_score_map = fill_text_line_to_seal_impression(
+            seal_impression,
             text_line,
         )
 
-        image = Image.from_shape(seal_impression_layout.shape)
-        seal_impression_layout.background_mask.fill_image(
+        image = Image.from_shape(seal_impression.shape)
+        seal_impression.background_mask.fill_image(
             image,
-            value=seal_impression_layout.color,
-            alpha=seal_impression_layout.alpha,
+            value=seal_impression.color,
+            alpha=seal_impression.alpha,
         )
-        image[filled_score_map] = seal_impression_layout.color
+        image[filled_score_map] = seal_impression.color
 
         write_image(f'{rng_seed}.jpg', image)

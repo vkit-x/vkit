@@ -13,21 +13,12 @@ from vkit.engine.image import selector_image_factory
 from .type import (
     SealImpressionEngineRunConfig,
     CharSlot,
-    SealImpressionLayout,
+    SealImpression,
 )
 
 
 @attrs.define
 class EllipseSealImpressionEngineConfig:
-    # TODO: move to pipeline.
-    # Shape.
-    # height_ratio_min: float = 0.05
-    # height_ratio_max: float = 0.15
-    # weight_circle: float = 1
-    # weight_general_ellipse: float = 1
-    # general_ellipse_aspect_ratio_min: float = 0.75
-    # general_ellipse_aspect_ratio_max: float = 1.333
-
     # Border.
     border_thickness_ratio_min: float = 0.0
     border_thickness_ratio_max: float = 0.03
@@ -48,12 +39,12 @@ class EllipseSealImpressionEngineConfig:
     # NOTE: the ratio is relative to the height of seal impression.
     pad_ratio_min: float = 0.03
     pad_ratio_max: float = 0.08
-    text_line_height_ratio_min: float = 0.05
-    text_line_height_ratio_max: float = 0.175
+    text_line_height_ratio_min: float = 0.1
+    text_line_height_ratio_max: float = 0.2
     weight_text_line_mode_one: float = 1
     weight_text_line_mode_two: float = 1
     text_line_mode_one_gap_ratio_min: float = 0.1
-    text_line_mode_one_gap_ratio_max: float = 0.7
+    text_line_mode_one_gap_ratio_max: float = 0.55
     text_line_mode_two_gap_ratio_min: float = 0.1
     text_line_mode_two_gap_ratio_max: float = 0.4
     angle_step_ratio_min: float = 1.2
@@ -68,13 +59,7 @@ class EllipseSealImpressionEngineConfig:
     weight_color_green: float = 1
     weight_color_blue: float = 1
     alpha_min: float = 0.25
-    alpha_max: float = 0.7
-
-
-@unique
-class EllipseSealImpressionShapeType(Enum):
-    CIRCLE = 'circle'
-    GENERAL_ELLIPSE = 'general_ellipse'
+    alpha_max: float = 0.75
 
 
 @unique
@@ -102,7 +87,7 @@ class EllipseSealImpressionEngine(
         EllipseSealImpressionEngineConfig,
         NoneTypeEngineResource,
         SealImpressionEngineRunConfig,
-        SealImpressionLayout,
+        SealImpression,
     ]
 ):  # yapf: disable
 
@@ -117,10 +102,6 @@ class EllipseSealImpressionEngine(
     ):
         super().__init__(config, resource)
 
-        # self.shape_types, self.shape_types_probs = normalize_to_keys_and_probs([
-        #     (EllipseSealImpressionShapeType.CIRCLE, self.config.weight_circle),
-        #     (EllipseSealImpressionShapeType.GENERAL_ELLIPSE, self.config.weight_general_ellipse),
-        # ])
         self.border_styles, self.border_styles_probs = normalize_to_keys_and_probs([
             (
                 EllipseSealImpressionBorderStyle.SOLID_LINE,
@@ -166,43 +147,6 @@ class EllipseSealImpressionEngine(
                 'target_kind_image': ImageKind.GRAYSCALE,
                 'force_resize': True,
             })
-
-    # def sample_shape(self, reference_height: int, rng: RandomGenerator):
-    #     # Sample height.
-    #     height_ratio = float(
-    #         rng.uniform(
-    #             self.config.height_ratio_min,
-    #             self.config.height_ratio_max,
-    #         )
-    #     )
-    #     height = round(height_ratio * reference_height)
-
-    #     # Make sure even.
-    #     if height % 2 != 0:
-    #         height += 1
-
-    #     # Sample width.
-    #     shape_type = rng_choice(rng, self.shape_types, probs=self.shape_types_probs)
-    #     if shape_type == EllipseSealImpressionShapeType.CIRCLE:
-    #         width = height
-
-    #     elif shape_type == EllipseSealImpressionShapeType.GENERAL_ELLIPSE:
-    #         aspect_ratio = float(
-    #             rng.uniform(
-    #                 self.config.general_ellipse_aspect_ratio_min,
-    #                 self.config.general_ellipse_aspect_ratio_max,
-    #             )
-    #         )
-    #         width = round(aspect_ratio * height)
-
-    #     else:
-    #         raise NotImplementedError()
-
-    #     # Make sure even.
-    #     if width % 2 != 0:
-    #         width += 1
-
-    #     return height, width
 
     def sample_alpha_and_color(self, rng: RandomGenerator):
         alpha = float(rng.uniform(
@@ -544,7 +488,7 @@ class EllipseSealImpressionEngine(
             ellipse_inner_shape=ellipse_inner_shape,
             rng=rng,
         )
-        return SealImpressionLayout(
+        return SealImpression(
             alpha=alpha,
             color=color,
             background_mask=background_mask,
