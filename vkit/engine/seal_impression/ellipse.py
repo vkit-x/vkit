@@ -7,11 +7,10 @@ import numpy as np
 import cv2 as cv
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
-from vkit.element import Point, Mask, ImageKind
-from vkit.engine.interface import Engine
+from vkit.element import Point, Box, Mask, ImageKind
+from vkit.engine.interface import Engine, NoneTypeEngineResource
 from vkit.engine.image import selector_image_factory
 from .type import (
-    SealImpressionEngineResource,
     SealImpressionEngineRunConfig,
     CharSlot,
     SealImpressionLayout,
@@ -31,18 +30,19 @@ class EllipseSealImpressionEngineConfig:
 
     # Border.
     border_thickness_ratio_min: float = 0.0
-    border_thickness_ratio_max: float = 0.02
-    border_thickness_min: int = 1
+    border_thickness_ratio_max: float = 0.03
+    border_thickness_min: int = 2
     weight_border_style_solid_line = 3
     weight_border_style_double_lines = 1
 
     # Icon.
     icon_image_folder: Optional[str] = None
+    icon_image_grayscale_min: int = 127
     prob_add_icon: float = 0.9
-    icon_height_ratio_min: float = 0.5
-    icon_height_ratio_min: float = 0.8
-    icon_width_ratio_min: float = 0.5
-    icon_width_ratio_min: float = 0.8
+    icon_height_ratio_min: float = 0.25
+    icon_height_ratio_max: float = 0.75
+    icon_width_ratio_min: float = 0.25
+    icon_width_ratio_max: float = 0.75
 
     # Char slots.
     # NOTE: the ratio is relative to the height of seal impression.
@@ -100,7 +100,7 @@ class EllipseSealImpressionColorMode(Enum):
 class EllipseSealImpressionEngine(
     Engine[
         EllipseSealImpressionEngineConfig,
-        SealImpressionEngineResource,
+        NoneTypeEngineResource,
         SealImpressionEngineRunConfig,
         SealImpressionLayout,
     ]
@@ -113,7 +113,7 @@ class EllipseSealImpressionEngine(
     def __init__(
         self,
         config: EllipseSealImpressionEngineConfig,
-        resource: Optional[SealImpressionEngineResource] = None
+        resource: Optional[NoneTypeEngineResource] = None
     ):
         super().__init__(config, resource)
 
@@ -164,6 +164,7 @@ class EllipseSealImpressionEngine(
             self.icon_image_selector = selector_image_factory.create({
                 'image_folder': self.config.icon_image_folder,
                 'target_kind_image': ImageKind.GRAYSCALE,
+                'force_resize': True,
             })
 
     # def sample_shape(self, reference_height: int, rng: RandomGenerator):
@@ -203,56 +204,30 @@ class EllipseSealImpressionEngine(
 
     #     return height, width
 
-    def generate_background_mask(
-        self,
-        height: int,
-        width: int,
-        rng: RandomGenerator,
-    ):
-        background_mask = Mask.from_shape((height, width))
+    def sample_alpha_and_color(self, rng: RandomGenerator):
+        alpha = float(rng.uniform(
+            self.config.alpha_min,
+            self.config.alpha_max,
+        ))
 
-        border_style = rng_choice(rng, self.border_styles, probs=self.border_styles_probs)
+        color_mode = rng_choice(rng, self.color_modes, probs=self.color_modes_probs)
+        rgb_value = int(rng.integers(
+            self.config.color_rgb_min,
+            self.config.color_rgb_max + 1,
+        ))
+        if color_mode == EllipseSealImpressionColorMode.GRAYSCALE:
+            color = (rgb_value,) * 3
+        else:
+            if color_mode == EllipseSealImpressionColorMode.RED:
+                color = (rgb_value, 0, 0)
+            elif color_mode == EllipseSealImpressionColorMode.GREEN:
+                color = (0, rgb_value, 0)
+            elif color_mode == EllipseSealImpressionColorMode.BLUE:
+                color = (0, 0, rgb_value)
+            else:
+                raise NotImplementedError()
 
-        # Will generate solid line first.
-        border_thickness_ratio = float(
-            rng.uniform(
-                self.config.border_thickness_ratio_min,
-                self.config.border_thickness_ratio_max,
-            )
-        )
-        border_thickness = round(height * border_thickness_ratio)
-        border_thickness = max(self.config.border_thickness_min, border_thickness)
-
-        center = (width // 2, height // 2)
-        # NOTE: minus 1 to make sure the border is inbound.
-        axes = (width // 2 - border_thickness - 1, height // 2 - border_thickness - 1)
-        cv.ellipse(
-            background_mask.mat,
-            center=center,
-            axes=axes,
-            angle=0,
-            startAngle=0,
-            endAngle=360,
-            color=1,
-            thickness=border_thickness,
-        )
-
-        if border_thickness >= 4 and border_style == EllipseSealImpressionBorderStyle.DOUBLE_LINES:
-            # Remove the middle part to generate double lines.
-            border_thickness_empty = int(rng.integers(1, border_thickness - 1))
-            cv.ellipse(
-                background_mask.mat,
-                center=center,
-                # NOTE: I don't know why, but this works as expected.
-                axes=axes,
-                angle=0,
-                startAngle=0,
-                endAngle=360,
-                color=0,
-                thickness=border_thickness_empty,
-            )
-
-        return background_mask
+        return alpha, color
 
     @staticmethod
     def sample_ellipse_points(
@@ -281,7 +256,6 @@ class EllipseSealImpressionEngine(
         points: List[Point] = []
         half_ellipse_height = ellipse_height / 2
         half_ellipse_width = ellipse_width / 2
-
         for x, y in unit_circle_xy_pairs:
             points.append(
                 Point.create(
@@ -450,49 +424,126 @@ class EllipseSealImpressionEngine(
         else:
             raise NotImplementedError()
 
-        return text_line_height, char_slots
+        return text_line_height, char_slots, (ellipse_inner_height, ellipse_inner_width)
 
-    def sample_alpha_and_color(self, rng: RandomGenerator):
-        alpha = float(rng.uniform(
-            self.config.alpha_min,
-            self.config.alpha_max,
-        ))
+    def sample_icon_box(
+        self,
+        height: int,
+        width: int,
+        ellipse_inner_shape: Tuple[int, int],
+        rng: RandomGenerator,
+    ):
+        ellipse_inner_height, ellipse_inner_width = ellipse_inner_shape
 
-        color_mode = rng_choice(rng, self.color_modes, probs=self.color_modes_probs)
-        rgb_value = int(rng.integers(
-            self.config.color_rgb_min,
-            self.config.color_rgb_max + 1,
-        ))
-        if color_mode == EllipseSealImpressionColorMode.GRAYSCALE:
-            color = (rgb_value,) * 3
-        else:
-            if color_mode == EllipseSealImpressionColorMode.RED:
-                color = (rgb_value, 0, 0)
-            elif color_mode == EllipseSealImpressionColorMode.GREEN:
-                color = (0, rgb_value, 0)
-            elif color_mode == EllipseSealImpressionColorMode.BLUE:
-                color = (0, 0, rgb_value)
-            else:
-                raise NotImplementedError()
+        box_height_ratio = rng.uniform(
+            self.config.icon_height_ratio_min,
+            self.config.icon_height_ratio_max,
+        )
+        box_height = round(ellipse_inner_height * box_height_ratio)
 
-        return alpha, color
+        box_width_ratio = rng.uniform(
+            self.config.icon_width_ratio_min,
+            self.config.icon_width_ratio_max,
+        )
+        box_width = round(ellipse_inner_width * box_width_ratio)
+
+        up = (height - box_height) // 2
+        down = up + box_height - 1
+        left = (width - box_width) // 2
+        right = left + box_width - 1
+        return Box(up=up, down=down, left=left, right=right)
+
+    def generate_background_mask(
+        self,
+        height: int,
+        width: int,
+        ellipse_inner_shape: Tuple[int, int],
+        rng: RandomGenerator,
+    ):
+        background_mask = Mask.from_shape((height, width))
+
+        border_style = rng_choice(rng, self.border_styles, probs=self.border_styles_probs)
+
+        # Will generate solid line first.
+        border_thickness_ratio = float(
+            rng.uniform(
+                self.config.border_thickness_ratio_min,
+                self.config.border_thickness_ratio_max,
+            )
+        )
+        border_thickness = round(height * border_thickness_ratio)
+        border_thickness = max(self.config.border_thickness_min, border_thickness)
+
+        center = (width // 2, height // 2)
+        # NOTE: minus 1 to make sure the border is inbound.
+        axes = (width // 2 - border_thickness - 1, height // 2 - border_thickness - 1)
+        cv.ellipse(
+            background_mask.mat,
+            center=center,
+            axes=axes,
+            angle=0,
+            startAngle=0,
+            endAngle=360,
+            color=1,
+            thickness=border_thickness,
+        )
+
+        if border_thickness > 2 * self.config.border_thickness_min + 1 \
+                and border_style == EllipseSealImpressionBorderStyle.DOUBLE_LINES:
+            # Remove the middle part to generate double lines.
+            border_thickness_empty = int(
+                rng.integers(
+                    1,
+                    border_thickness - 2 * self.config.border_thickness_min,
+                )
+            )
+            cv.ellipse(
+                background_mask.mat,
+                center=center,
+                # NOTE: I don't know why, but this works as expected.
+                # Probably `axes` points to the center of border.
+                axes=axes,
+                angle=0,
+                startAngle=0,
+                endAngle=360,
+                color=0,
+                thickness=border_thickness_empty,
+            )
+
+        if self.icon_image_selector:
+            icon_box = self.sample_icon_box(
+                height=height,
+                width=width,
+                ellipse_inner_shape=ellipse_inner_shape,
+                rng=rng,
+            )
+            icon_grayscale_image = self.icon_image_selector.run(
+                {
+                    'height': icon_box.height,
+                    'width': icon_box.width
+                },
+                rng,
+            )
+            icon_mask_mat = (icon_grayscale_image.mat > self.config.icon_image_grayscale_min)
+            icon_mask = Mask(mat=icon_mask_mat.astype(np.uint8))
+            icon_box.fill_mask(background_mask, icon_mask)
+
+        return background_mask
 
     def run(self, config: SealImpressionEngineRunConfig, rng: RandomGenerator):
         # TODO: rename all to run_config.
         alpha, color = self.sample_alpha_and_color(rng)
-
-        text_line_height, char_slots = self.generate_char_slots(
+        text_line_height, char_slots, ellipse_inner_shape = self.generate_char_slots(
             height=config.height,
             width=config.width,
             rng=rng,
         )
-
         background_mask = self.generate_background_mask(
             height=config.height,
             width=config.width,
+            ellipse_inner_shape=ellipse_inner_shape,
             rng=rng,
         )
-
         return SealImpressionLayout(
             alpha=alpha,
             color=color,

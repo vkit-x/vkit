@@ -15,6 +15,7 @@ from .type import ImageEngineRunConfig
 class SelectorImageEngineConfig:
     image_folder: str
     target_kind_image: ImageKind = ImageKind.RGB
+    force_resize: bool = False
 
 
 class SelectorImageEngine(
@@ -49,7 +50,7 @@ class SelectorImageEngine(
 
         height = config.height
         width = config.width
-        if height <= image.height and width <= image.width:
+        if not self.config.force_resize and height <= image.height and width <= image.width:
             # Select a part of image.
             up = rng.integers(0, image.height - height + 1)
             left = rng.integers(0, image.width - width + 1)

@@ -5,7 +5,9 @@ from tests.opt import write_image
 
 
 def test_ellipse():
-    engine = ellipse_seal_impression_engine_factory.create(resource=SealImpressionEngineResource())
+    engine = ellipse_seal_impression_engine_factory.create({
+        'icon_image_folder': '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
+    })
 
     for rng_seed in range(10):
         # for rng_seed in (8,):

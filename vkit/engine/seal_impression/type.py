@@ -41,8 +41,3 @@ class SealImpressionLayout:
 class SealImpressionEngineRunConfig:
     height: int
     width: int
-
-
-@attrs.define
-class SealImpressionEngineResource:
-    pass

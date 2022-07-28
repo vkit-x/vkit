@@ -2,7 +2,6 @@ from vkit.engine.interface import EngineFactory, EngineRunnerAggregatorFactory
 from .type import (
     CharSlot,
     SealImpressionLayout,
-    SealImpressionEngineResource,
     SealImpressionEngineRunConfig,
 )
 from .ellipse import EllipseSealImpressionEngine
