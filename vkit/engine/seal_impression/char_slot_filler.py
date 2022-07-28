@@ -24,6 +24,7 @@ def fill_text_line_to_seal_impression_layout(
         # Extract char-level score map.
         box = char_box.box
 
+        # TODO: don't extract from the final text line due to glyph overlapping.
         if text_line.score_map:
             char_score_map = box.extract_score_map(text_line.score_map)
             assert char_score_map.box == box
@@ -33,24 +34,25 @@ def fill_text_line_to_seal_impression_layout(
             char_score_map_mat = char_mask.np_mask.astype(np.float32)
             char_score_map = ScoreMap(mat=char_score_map_mat)
 
-        point_up = Point(y=0, x=box.get_center_point().x)
+        point_up = Point(y=0, x=char_score_map.width // 2)
 
         # Rotate.
         rotated_result = rotate.distort(
-            {'angle': char_slot.angle},
+            # Horizontal text line has angle 270.
+            {'angle': char_slot.angle - 270},
             score_map=char_score_map,
             point=point_up,
         )
-        rotated_score_map = rotated_result.score_map
-        assert rotated_score_map
+        rotated_char_score_map = rotated_result.score_map
+        assert rotated_char_score_map
         rotated_point_up = rotated_result.point
         assert rotated_point_up
 
         # Shift bounding box based on point_up.
         dst_up = char_slot.point_up.y - rotated_point_up.y
-        dst_down = char_slot.point_up.y + (rotated_score_map.height - 1 - rotated_point_up.y)
+        dst_down = char_slot.point_up.y + (rotated_char_score_map.height - 1 - rotated_point_up.y)
         dst_left = char_slot.point_up.x - rotated_point_up.x
-        dst_right = char_slot.point_up.x + (rotated_score_map.width - 1 - rotated_point_up.x)
+        dst_right = char_slot.point_up.x + (rotated_char_score_map.width - 1 - rotated_point_up.x)
 
         # Corner case: out-of-bound.
         src_up = 0
@@ -58,7 +60,7 @@ def fill_text_line_to_seal_impression_layout(
             src_up = abs(dst_up)
             dst_up = 0
 
-        src_down = rotated_score_map.height - 1
+        src_down = rotated_char_score_map.height - 1
         if dst_down >= score_map.height:
             src_down -= dst_down + 1 - score_map.height
             dst_down = score_map.height - 1
@@ -71,7 +73,7 @@ def fill_text_line_to_seal_impression_layout(
             src_left = abs(dst_left)
             dst_left = 0
 
-        src_right = rotated_score_map.width - 1
+        src_right = rotated_char_score_map.width - 1
         if dst_right >= score_map.width:
             src_right -= dst_right + 1 - score_map.width
             dst_right = score_map.width - 1
@@ -84,8 +86,12 @@ def fill_text_line_to_seal_impression_layout(
         dst_box = Box(up=dst_up, down=dst_down, left=dst_left, right=dst_right)
         dst_box.fill_score_map(
             score_map,
-            src_box.extract_score_map(rotated_score_map),
+            src_box.extract_score_map(rotated_char_score_map),
             keep_max_value=True,
         )
+
+    # Adjust alpha.
+    score_map_max = score_map.mat.max()
+    score_map.mat = score_map.mat * seal_impression_layout.alpha / score_map_max
 
     return score_map
