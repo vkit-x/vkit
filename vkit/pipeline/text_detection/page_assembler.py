@@ -105,17 +105,10 @@ class PageAssemblerStep(
 
         # Page text lines.
         for text_line in page_text_line_collection.text_lines:
-            # Fill only the masked pixels.
             if text_line.score_map:
-                text_line.score_map.fill_image(
-                    assembled_image,
-                    text_line.glyph_color,
-                )
+                text_line.score_map.fill_image(assembled_image, text_line.glyph_color)
             else:
-                text_line.mask.fill_image(
-                    assembled_image,
-                    text_line.image,
-                )
+                text_line.mask.fill_image(assembled_image, text_line.image)
 
         page = Page(
             image=assembled_image,
