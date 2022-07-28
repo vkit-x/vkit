@@ -33,6 +33,7 @@ class CharAndFontSamplerEngineRunConfig:
     glyph_sequence: FontEngineRunConfigGlyphSequence = \
         FontEngineRunConfigGlyphSequence.HORI_DEFAULT
     num_chars_factor: float = 1.1
+    num_chars: Optional[int] = None
 
 
 @attrs.define
@@ -79,6 +80,9 @@ class CharAndFontSamplerEngine(
 
     @staticmethod
     def estimate_num_chars(config: CharAndFontSamplerEngineRunConfig):
+        if config.num_chars:
+            return config.num_chars
+
         if config.glyph_sequence == FontEngineRunConfigGlyphSequence.HORI_DEFAULT:
             num_chars = config.width / config.height
         elif config.glyph_sequence == FontEngineRunConfigGlyphSequence.VERT_DEFAULT:

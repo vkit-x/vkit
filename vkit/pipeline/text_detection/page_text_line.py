@@ -5,7 +5,7 @@ import logging
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.element import LexiconCollection
+from vkit.element import Box, LexiconCollection
 from vkit.utility import (
     normalize_to_keys_and_probs,
     rng_choice,
@@ -19,12 +19,14 @@ from vkit.engine.font import (
 )
 from vkit.engine.char_sampler import char_sampler_factory
 from vkit.engine.char_and_font_sampler import char_and_font_sampler_factory
+from vkit.engine.seal_impression import SealImpression
 from ..interface import (
     PipelineStep,
     PipelineStepFactory,
     PipelineState,
 )
 from .page_layout import PageLayoutStep
+from .page_seal_impression import PageSealImpresssionStep
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +75,18 @@ class PageTextLineCollection:
 
 
 @attrs.define
+class PageSealImpressionTextLineCollection:
+    height: int
+    width: int
+    text_lines: Sequence[TextLine]
+    seal_impressions: Sequence[SealImpression]
+    boxes: Sequence[Box]
+
+
+@attrs.define
 class PageTextLineStepOutput:
     page_text_line_collection: PageTextLineCollection
+    page_seal_impression_text_line_collection: PageSealImpressionTextLineCollection
 
 
 class PageTextLineStep(
@@ -146,6 +158,7 @@ class PageTextLineStep(
         page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
         page_layout = page_layout_step_output.page_layout
 
+        # Text lines to be recognized.
         text_lines: List[TextLine] = []
         short_text_line_flags: List[bool] = []
 
@@ -255,14 +268,71 @@ class PageTextLineStep(
 
         assert text_lines
         assert len(text_lines) == len(short_text_line_flags)
+        page_text_line_collection = PageTextLineCollection(
+            height=page_layout.height,
+            width=page_layout.width,
+            text_lines=text_lines,
+            short_text_line_flags=short_text_line_flags,
+        )
+
+        # Text lines for seal impressions.
+        page_seal_impresssion_step_output = state.get_pipeline_step_output(PageSealImpresssionStep)
+
+        seal_impression_text_lines: List[TextLine] = []
+        seal_impressions: List[SealImpression] = []
+        boxes: List[Box] = []
+
+        for seal_impression, box in zip(
+            page_seal_impresssion_step_output.seal_impressions,
+            page_seal_impresssion_step_output.boxes,
+        ):
+            char_and_font = None
+            is_short_text_line = False
+
+            num_retries = 3
+            while num_retries > 0:
+                char_and_font = self.char_and_font_sampler.run(
+                    config={
+                        'height': seal_impression.text_line_height,
+                        'width': 2**32 - 1,
+                        'num_chars': len(seal_impression.char_slots),
+                    },
+                    rng=rng,
+                )
+                if char_and_font:
+                    break
+                num_retries -= 1
+
+            if num_retries <= 0:
+                logger.warning(f'Cannot sample char_and_font for seal_impression={seal_impression}')
+                continue
+            assert char_and_font
+
+            text_line = self.font_aggregator.run(
+                config={
+                    'height': seal_impression.text_line_height,
+                    'width': 2**32 - 1,
+                    'chars': char_and_font.chars,
+                    'font_variant': char_and_font.font_variant,
+                },
+                rng=rng,
+            )
+            if text_line:
+                seal_impression_text_lines.append(text_line)
+                seal_impressions.append(seal_impression)
+                boxes.append(box)
+
+        page_seal_impression_text_line_collection = PageSealImpressionTextLineCollection(
+            height=page_layout.height,
+            width=page_layout.width,
+            text_lines=seal_impression_text_lines,
+            seal_impressions=seal_impressions,
+            boxes=boxes,
+        )
 
         return PageTextLineStepOutput(
-            page_text_line_collection=PageTextLineCollection(
-                height=page_layout.height,
-                width=page_layout.width,
-                text_lines=text_lines,
-                short_text_line_flags=short_text_line_flags,
-            )
+            page_text_line_collection=page_text_line_collection,
+            page_seal_impression_text_line_collection=page_seal_impression_text_line_collection,
         )
 
 

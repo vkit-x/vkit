@@ -199,8 +199,8 @@ def ellipse_streak_image(
     for box in boxes:
         mask.mat = cv.ellipse(
             mask.mat,
-            center,
-            (box.width // 2, box.height // 2),
+            center=center,
+            axes=(box.width // 2, box.height // 2),
             angle=0,
             startAngle=0,
             endAngle=360,

@@ -6,7 +6,7 @@ from numpy.random import Generator as RandomGenerator
 import iolite as io
 
 from vkit.utility import rng_choice
-from vkit.element import Image, Box
+from vkit.element import Image, ImageKind, Box
 from vkit.engine.interface import Engine, NoneTypeEngineResource
 from .type import ImageEngineRunConfig
 
@@ -14,6 +14,8 @@ from .type import ImageEngineRunConfig
 @attrs.define
 class SelectorImageEngineConfig:
     image_folder: str
+    target_kind_image: ImageKind = ImageKind.RGB
+    force_resize: bool = False
 
 
 class SelectorImageEngine(
@@ -44,11 +46,11 @@ class SelectorImageEngine(
 
     def run(self, config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
         image_file = rng_choice(rng, self.image_files)
-        image = Image.from_file(image_file).to_rgb_image()
+        image = Image.from_file(image_file).to_target_kind_image(self.config.target_kind_image)
 
         height = config.height
         width = config.width
-        if height <= image.height and width <= image.width:
+        if not self.config.force_resize and height <= image.height and width <= image.width:
             # Select a part of image.
             up = rng.integers(0, image.height - height + 1)
             left = rng.integers(0, image.width - width + 1)

@@ -194,6 +194,18 @@ def test_page():
                 'name': 'text_detection.page_barcode_step',
             },
             {
+                'name': 'text_detection.page_seal_impresssion_step',
+                'config': {
+                    'seal_impression_configs': [{
+                        'type': 'ellipse',
+                        'config': {
+                            'icon_image_folder':
+                                '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
+                        }
+                    }]
+                },
+            },
+            {
                 'name': 'text_detection.page_text_line_step',
                 'config': {
                     'lexicon_collection_json':

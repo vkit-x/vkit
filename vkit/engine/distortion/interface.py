@@ -541,13 +541,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             )
 
         elif self.func_points:
-            return self.func_points(
+            distorted_points = self.func_points(
                 internals.config,
                 internals.state,
                 internals.shape,
                 [point],
                 internals.rng,
-            )[0]
+            )
+            return distorted_points[0]
 
         else:
             # NOP.
@@ -633,13 +634,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             )
 
         elif self.func_polygons:
-            return self.func_polygons(
+            distorted_polygons = self.func_polygons(
                 internals.config,
                 internals.state,
                 internals.shape,
                 [polygon],
                 internals.rng,
-            )[0]
+            )
+            return distorted_polygons[0]
 
         else:
             new_points = self.distort_points(
