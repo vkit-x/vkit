@@ -1,4 +1,5 @@
 from numpy.random import default_rng
+import pytest
 
 from vkit.element import Painter, Image
 from vkit.element import LexiconCollection
@@ -9,6 +10,7 @@ from vkit.engine.seal_impression import *
 from tests.opt import write_image
 
 
+@pytest.mark.local
 def test_ellipse_layout():
     engine = ellipse_seal_impression_factory.create({
         'icon_image_folder': '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
@@ -33,6 +35,7 @@ def test_ellipse_layout():
         write_image(f'layout_{rng_seed}.jpg', painter.image)
 
 
+@pytest.mark.local
 def test_ellipse_filling():
     lexicon_collection = LexiconCollection.from_file(
         '$VKIT_ARTIFACT_PACK/lexicon_collection/chinese.json'

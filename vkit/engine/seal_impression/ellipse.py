@@ -30,9 +30,9 @@ class EllipseSealImpressionEngineConfig:
     icon_image_folder: Optional[str] = None
     icon_image_grayscale_min: int = 127
     prob_add_icon: float = 0.9
-    icon_height_ratio_min: float = 0.20
+    icon_height_ratio_min: float = 0.35
     icon_height_ratio_max: float = 0.75
-    icon_width_ratio_min: float = 0.20
+    icon_width_ratio_min: float = 0.35
     icon_width_ratio_max: float = 0.75
 
     # Char slots.
