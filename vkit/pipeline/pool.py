@@ -160,7 +160,7 @@ class PipelinePool(Generic[_T_OUTPUT]):
         num_runs_per_process: int,
         num_runs_reset_rng: Optional[int] = None,
         num_queues: int = 2,
-        get_timeout: int = 20,
+        get_timeout: int = 60,
     ):
         assert num_processes > 0
         assert num_runs_per_process > 0
