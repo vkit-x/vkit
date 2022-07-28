@@ -260,6 +260,9 @@ class TextLine:
     text: str
     is_hori: bool
 
+    # Shifted text line is bound to a page.
+    shifted: bool = False
+
     # For debugging.
     font_variant: Optional[FontVariant] = None
 
@@ -269,6 +272,8 @@ class TextLine:
         return self.mask.box
 
     def to_shifted_text_line(self, y_offset: int = 0, x_offset: int = 0):
+        self.shifted = True
+
         shifted_image = self.image.to_shifted_image(y_offset=y_offset, x_offset=x_offset)
         shifted_mask = self.mask.to_shifted_mask(y_offset=y_offset, x_offset=x_offset)
 
