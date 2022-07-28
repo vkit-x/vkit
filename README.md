@@ -80,6 +80,7 @@ pip install vkit-nightly
   - [ ] Support dataset pipeline for OCR text detection
   - [ ] Support dataset pipeline for OCR text recognition
 * 22.3.1
+  - [ ] Refactoring
   - [ ] Improve documentation
   - [ ] Release resources for pipelines
 
