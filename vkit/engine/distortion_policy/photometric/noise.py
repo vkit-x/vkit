@@ -63,7 +63,7 @@ poisson_noise_policy_factory = DistortionPolicyFactory(
 
 @attrs.define
 class ImpulseNoiseConfigGeneratorConfig:
-    prob_presv_min: float = 0.85
+    prob_presv_min: float = 0.95
     prob_presv_max: float = 1.0
 
 

@@ -1,8 +1,9 @@
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.element import Image, Shapable
+from vkit.element import Shapable, Box, Image
 from vkit.engine.seal_impression import fill_text_line_to_seal_impression
+from vkit.engine.distortion import rotate
 from ..interface import (
     PipelineStep,
     NoneTypePipelineStepConfig,
@@ -125,21 +126,75 @@ class PageAssemblerStep(
         ):
             alpha = seal_impression.alpha
             color = seal_impression.color
+
+            # Prepare foreground (text) and background.
             background_mask = seal_impression.background_mask
-
-            background_mask.to_box_attached(seal_impression_resource.box).fill_image(
-                assembled_image,
-                color,
-                alpha=alpha,
-            )
-
             text_line_filled_score_map = fill_text_line_to_seal_impression(
                 seal_impression,
                 seal_impression_resource.text_line_slot_indices,
                 seal_impression_resource.text_lines,
                 seal_impression_resource.internal_text_line,
             )
-            text_line_filled_score_map.to_box_attached(seal_impression_resource.box).fill_image(
+
+            # Rotate, shift, and trim.
+            rotated_result = rotate.distort(
+                {'angle': seal_impression_resource.angle},
+                mask=background_mask,
+                score_map=text_line_filled_score_map,
+            )
+            assert rotated_result.mask
+            background_mask = rotated_result.mask
+            assert rotated_result.score_map
+            text_line_filled_score_map = rotated_result.score_map
+            assert background_mask.shape == text_line_filled_score_map.shape
+
+            box_center_point = seal_impression_resource.box.get_center_point()
+            up = box_center_point.y - background_mask.height // 2
+            down = up + background_mask.height - 1
+            left = box_center_point.x - background_mask.width // 2
+            right = left + background_mask.width - 1
+
+            if up < 0 or down >= assembled_image.height \
+                    or left < 0 or right >= assembled_image.width:
+                extract_up = 0
+                if up < 0:
+                    extract_up = abs(up)
+                    up = 0
+
+                extract_down = background_mask.height - 1
+                if down >= assembled_image.height:
+                    extract_down = background_mask.height - 1 - (assembled_image.height + 1 - down)
+                    down = assembled_image.height - 1
+
+                extract_left = 0
+                if left < 0:
+                    extract_left = abs(left)
+                    left = 0
+
+                extract_right = background_mask.width - 1
+                if right >= assembled_image.width:
+                    extract_right = background_mask.width - 1 - (assembled_image.width + 1 - right)
+                    right = assembled_image.width - 1
+
+                extract_box = Box(
+                    up=extract_up,
+                    down=extract_down,
+                    left=extract_left,
+                    right=extract_right,
+                )
+                background_mask = extract_box.extract_mask(background_mask)
+                text_line_filled_score_map = extract_box.extract_score_map(
+                    text_line_filled_score_map
+                )
+
+            # Rendering.
+            box = Box(up=up, down=down, left=left, right=right)
+            background_mask.to_box_attached(box).fill_image(
+                assembled_image,
+                color,
+                alpha=alpha,
+            )
+            text_line_filled_score_map.to_box_attached(box).fill_image(
                 assembled_image,
                 color,
             )

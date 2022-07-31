@@ -80,6 +80,8 @@ class PageLayoutStepConfig:
     # Seal impression.
     num_seal_impressions_min: int = 1
     num_seal_impressions_max: int = 3
+    seal_impression_angle_min: int = -45
+    seal_impression_angle_max: int = 45
     seal_impression_height_ratio_min: float = 0.1
     seal_impression_height_ratio_max: float = 0.2
     seal_impression_weight_circle: float = 1
@@ -97,6 +99,7 @@ class LayoutTextLine:
 @attrs.define
 class LayoutSealImpression:
     box: Box
+    angle: int
 
 
 @attrs.define
@@ -977,6 +980,14 @@ class PageLayoutStep(
             ))
             seal_impression_right = seal_impression_left + seal_impression_width - 1
 
+            angle = int(
+                rng.integers(
+                    self.config.seal_impression_angle_min,
+                    self.config.seal_impression_angle_max + 1,
+                )
+            )
+            angle = angle % 360
+
             layout_seal_impressions.append(
                 LayoutSealImpression(
                     box=Box(
@@ -984,7 +995,8 @@ class PageLayoutStep(
                         down=seal_impression_down,
                         left=seal_impression_left,
                         right=seal_impression_right,
-                    )
+                    ),
+                    angle=angle,
                 )
             )
 

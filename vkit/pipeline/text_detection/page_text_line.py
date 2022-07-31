@@ -77,6 +77,7 @@ class PageTextLineCollection:
 @attrs.define
 class SealImpressionResource:
     box: Box
+    angle: int
     text_line_slot_indices: Sequence[int]
     text_lines: Sequence[TextLine]
     internal_text_line: Optional[TextLine]
@@ -288,9 +289,10 @@ class PageTextLineStep(
         seal_impressions: List[SealImpression] = []
         seal_impression_resources: List[SealImpressionResource] = []
 
-        for seal_impression, box in zip(
+        for seal_impression, box, angle in zip(
             page_seal_impresssion_step_output.seal_impressions,
             page_seal_impresssion_step_output.boxes,
+            page_seal_impresssion_step_output.angles,
         ):
             text_line_slot_indices: List[int] = []
             text_lines: List[TextLine] = []
@@ -371,6 +373,7 @@ class PageTextLineStep(
                 seal_impression_resources.append(
                     SealImpressionResource(
                         box=box,
+                        angle=angle,
                         text_line_slot_indices=text_line_slot_indices,
                         text_lines=text_lines,
                         internal_text_line=internal_text_line,
