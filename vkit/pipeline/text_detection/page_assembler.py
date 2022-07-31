@@ -119,16 +119,15 @@ class PageAssemblerStep(
                 text_line.mask.fill_image(assembled_image, text_line.image)
 
         # Page seal impressions.
-        for seal_impression, text_line, box in zip(
+        for seal_impression, seal_impression_resource in zip(
             page_seal_impression_text_line_collection.seal_impressions,
-            page_seal_impression_text_line_collection.text_lines,
-            page_seal_impression_text_line_collection.boxes,
+            page_seal_impression_text_line_collection.seal_impression_resources,
         ):
             alpha = seal_impression.alpha
             color = seal_impression.color
             background_mask = seal_impression.background_mask
 
-            background_mask.to_box_attached(box).fill_image(
+            background_mask.to_box_attached(seal_impression_resource.box).fill_image(
                 assembled_image,
                 color,
                 alpha=alpha,
@@ -136,9 +135,11 @@ class PageAssemblerStep(
 
             text_line_filled_score_map = fill_text_line_to_seal_impression(
                 seal_impression,
-                text_line,
+                seal_impression_resource.text_line_slot_indices,
+                seal_impression_resource.text_lines,
+                seal_impression_resource.internal_text_line,
             )
-            text_line_filled_score_map.to_box_attached(box).fill_image(
+            text_line_filled_score_map.to_box_attached(seal_impression_resource.box).fill_image(
                 assembled_image,
                 color,
             )
