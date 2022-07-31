@@ -163,7 +163,7 @@ class PageAssemblerStep(
 
                 extract_down = background_mask.height - 1
                 if down >= assembled_image.height:
-                    extract_down = background_mask.height - 1 - (assembled_image.height + 1 - down)
+                    extract_down -= down + 1 - assembled_image.height
                     down = assembled_image.height - 1
 
                 extract_left = 0
@@ -173,7 +173,7 @@ class PageAssemblerStep(
 
                 extract_right = background_mask.width - 1
                 if right >= assembled_image.width:
-                    extract_right = background_mask.width - 1 - (assembled_image.width + 1 - right)
+                    extract_right -= right + 1 - assembled_image.width
                     right = assembled_image.width - 1
 
                 extract_box = Box(
