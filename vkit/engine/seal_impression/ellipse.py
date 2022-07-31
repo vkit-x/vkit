@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Sequence
 from enum import Enum, unique
 
 import attrs
@@ -13,18 +13,47 @@ from vkit.engine.image import selector_image_factory
 from .type import (
     SealImpressionEngineRunConfig,
     CharSlot,
+    TextLineSlot,
     SealImpression,
 )
 
 
 @attrs.define
 class EllipseSealImpressionEngineConfig:
+    # Color & Transparency.
+    color_rgb_min: int = 128
+    color_rgb_max: int = 255
+    weight_color_grayscale: float = 5
+    weight_color_red: float = 10
+    weight_color_green: float = 1
+    weight_color_blue: float = 1
+    alpha_min: float = 0.25
+    alpha_max: float = 0.8
+
     # Border.
     border_thickness_ratio_min: float = 0.0
     border_thickness_ratio_max: float = 0.03
     border_thickness_min: int = 2
     weight_border_style_solid_line = 3
     weight_border_style_double_lines = 1
+
+    # Char slots.
+    # NOTE: the ratio is relative to the height of seal impression.
+    pad_ratio_min: float = 0.03
+    pad_ratio_max: float = 0.08
+    text_line_height_ratio_min: float = 0.075
+    text_line_height_ratio_max: float = 0.2
+    weight_text_line_mode_one: float = 1
+    weight_text_line_mode_two: float = 1
+    text_line_mode_one_gap_ratio_min: float = 0.1
+    text_line_mode_one_gap_ratio_max: float = 0.55
+    text_line_mode_two_gap_ratio_min: float = 0.1
+    text_line_mode_two_gap_ratio_max: float = 0.4
+    char_aspect_ratio_min: float = 0.4
+    char_aspect_ratio_max: float = 0.9
+    char_space_ratio_min: float = 0.05
+    char_space_ratio_max: float = 0.25
+    angle_step_min: int = 10
 
     # Icon.
     icon_image_folder: Optional[str] = None
@@ -35,31 +64,12 @@ class EllipseSealImpressionEngineConfig:
     icon_width_ratio_min: float = 0.35
     icon_width_ratio_max: float = 0.75
 
-    # Char slots.
-    # NOTE: the ratio is relative to the height of seal impression.
-    pad_ratio_min: float = 0.03
-    pad_ratio_max: float = 0.08
-    text_line_height_ratio_min: float = 0.1
-    text_line_height_ratio_max: float = 0.2
-    weight_text_line_mode_one: float = 1
-    weight_text_line_mode_two: float = 1
-    text_line_mode_one_gap_ratio_min: float = 0.1
-    text_line_mode_one_gap_ratio_max: float = 0.55
-    text_line_mode_two_gap_ratio_min: float = 0.1
-    text_line_mode_two_gap_ratio_max: float = 0.4
-    angle_step_ratio_min: float = 1.2
-    angle_step_ratio_max: float = 2.0
-    angle_step_min: int = 10
-
-    # Color & Transparency.
-    color_rgb_min: int = 128
-    color_rgb_max: int = 255
-    weight_color_grayscale: float = 5
-    weight_color_red: float = 10
-    weight_color_green: float = 1
-    weight_color_blue: float = 1
-    alpha_min: float = 0.25
-    alpha_max: float = 0.75
+    # Internal text line.
+    prob_add_internal_text_line: float = 0.5
+    internal_text_line_height_ratio_min: float = 0.075
+    internal_text_line_height_ratio_max: float = 0.15
+    internal_text_line_width_ratio_min: float = 0.22
+    internal_text_line_width_ratio_max: float = 0.5
 
 
 @unique
@@ -80,6 +90,18 @@ class EllipseSealImpressionColorMode(Enum):
     RED = 'red'
     GREEN = 'green'
     BLUE = 'blue'
+
+
+@attrs.define
+class TextLineRoughPlacement:
+    ellipse_outer_height: int
+    ellipse_outer_width: int
+    ellipse_inner_height: int
+    ellipse_inner_width: int
+    text_line_height: int
+    angle_begin: int
+    angle_end: int
+    clockwise: bool
 
 
 class EllipseSealImpressionEngine(
@@ -255,45 +277,28 @@ class EllipseSealImpressionEngine(
 
         return char_slots
 
-    def generate_char_slots(self, height: int, width: int, rng: RandomGenerator):
-        # 1. Sample text line borders.
+    def sample_curved_text_line_rough_placements(
+        self,
+        height: int,
+        width: int,
+        rng: RandomGenerator,
+    ):
+        # Shared outer ellipse.
         pad_ratio = float(rng.uniform(
             self.config.pad_ratio_min,
             self.config.pad_ratio_max,
         ))
-        text_line_height_ratio = float(
-            rng.uniform(
-                self.config.text_line_height_ratio_min,
-                self.config.text_line_height_ratio_max,
-            )
-        )
-        assert pad_ratio + text_line_height_ratio < 0.5
 
         pad = round(pad_ratio * height)
         ellipse_outer_height = height - 2 * pad
         ellipse_outer_width = width - 2 * pad
         assert ellipse_outer_height > 0 and ellipse_outer_width > 0
 
-        text_line_height = round(text_line_height_ratio * height)
-        assert text_line_height > 0
-        ellipse_inner_height = ellipse_outer_height - 2 * text_line_height
-        ellipse_inner_width = ellipse_outer_width - 2 * text_line_height
-        assert ellipse_inner_height > 0 and ellipse_inner_width > 0
+        # Rough placements.
+        rough_placements: List[TextLineRoughPlacement] = []
 
-        ellipse_y_offset = height // 2
-        ellipse_x_offset = width // 2
-
-        # 2. Sample char slots.
-        char_slots: List[CharSlot] = []
-
-        radius_ref = ellipse_y_offset
-        angle_step_ref = 360 * text_line_height / (2 * np.pi * radius_ref)
-        angle_step_ratio = rng.uniform(
-            self.config.angle_step_ratio_min,
-            self.config.angle_step_ratio_max,
-        )
-        angle_step = max(self.config.angle_step_min, round(angle_step_ref * angle_step_ratio))
-
+        # Place text line one.
+        half_gap = None
         text_line_mode = rng_choice(rng, self.text_line_modes, probs=self.text_line_modes_probs)
 
         if text_line_mode == EllipseSealImpressionTextLineMode.ONE:
@@ -305,23 +310,8 @@ class EllipseSealImpressionEngine(
             )
             angle_gap = round(gap_ratio * 360)
             angle_range = 360 - angle_gap
-            angle_begin = 90 + angle_gap // 2
-            angle_end = angle_begin + angle_range - 1
-
-            char_slots.extend(
-                self.sample_char_slots(
-                    ellipse_up_height=ellipse_outer_height,
-                    ellipse_up_width=ellipse_outer_width,
-                    ellipse_down_height=ellipse_inner_height,
-                    ellipse_down_width=ellipse_inner_width,
-                    ellipse_y_offset=ellipse_y_offset,
-                    ellipse_x_offset=ellipse_x_offset,
-                    angle_begin=angle_begin,
-                    angle_end=angle_end,
-                    angle_step=angle_step,
-                    rng=rng,
-                )
-            )
+            text_line_one_angle_begin = 90 + angle_gap // 2
+            text_line_one_angle_end = text_line_one_angle_begin + angle_range - 1
 
         elif text_line_mode == EllipseSealImpressionTextLineMode.TWO:
             gap_ratio = float(
@@ -332,43 +322,162 @@ class EllipseSealImpressionEngine(
             )
             half_gap = round(gap_ratio * 360 / 2)
 
-            # Up line.
-            char_slots.extend(
-                self.sample_char_slots(
-                    ellipse_up_height=ellipse_outer_height,
-                    ellipse_up_width=ellipse_outer_width,
-                    ellipse_down_height=ellipse_inner_height,
-                    ellipse_down_width=ellipse_inner_width,
-                    ellipse_y_offset=ellipse_y_offset,
-                    ellipse_x_offset=ellipse_x_offset,
-                    angle_begin=180 + half_gap,
-                    angle_end=360 - half_gap,
-                    angle_step=angle_step,
-                    rng=rng,
-                )
-            )
-
-            # Down line.
-            char_slots.extend(
-                self.sample_char_slots(
-                    ellipse_up_height=ellipse_inner_height,
-                    ellipse_up_width=ellipse_inner_width,
-                    ellipse_down_height=ellipse_outer_height,
-                    ellipse_down_width=ellipse_outer_width,
-                    ellipse_y_offset=ellipse_y_offset,
-                    ellipse_x_offset=ellipse_x_offset,
-                    angle_begin=half_gap,
-                    angle_end=180 - half_gap,
-                    angle_step=angle_step,
-                    rng=rng,
-                    reverse=True,
-                )
-            )
+            text_line_one_angle_begin = 180 + half_gap
+            text_line_one_angle_end = 360 - half_gap
 
         else:
             raise NotImplementedError()
 
-        return text_line_height, char_slots, (ellipse_inner_height, ellipse_inner_width)
+        text_line_one_height_ratio = float(
+            rng.uniform(
+                self.config.text_line_height_ratio_min,
+                self.config.text_line_height_ratio_max,
+            )
+        )
+        text_line_one_height = round(text_line_one_height_ratio * height)
+        assert text_line_one_height > 0
+        ellipse_inner_one_height = ellipse_outer_height - 2 * text_line_one_height
+        ellipse_inner_one_width = ellipse_outer_width - 2 * text_line_one_height
+        assert ellipse_inner_one_height > 0 and ellipse_inner_one_width > 0
+
+        rough_placements.append(
+            TextLineRoughPlacement(
+                ellipse_outer_height=ellipse_outer_height,
+                ellipse_outer_width=ellipse_outer_width,
+                ellipse_inner_height=ellipse_inner_one_height,
+                ellipse_inner_width=ellipse_inner_one_width,
+                text_line_height=text_line_one_height,
+                angle_begin=text_line_one_angle_begin,
+                angle_end=text_line_one_angle_end,
+                clockwise=True,
+            )
+        )
+
+        # Now for the text line two.
+        if text_line_mode == EllipseSealImpressionTextLineMode.TWO:
+            assert half_gap
+
+            text_line_two_height_ratio = float(
+                rng.uniform(
+                    self.config.text_line_height_ratio_min,
+                    self.config.text_line_height_ratio_max,
+                )
+            )
+            text_line_two_height = round(text_line_two_height_ratio * height)
+            assert text_line_two_height > 0
+            ellipse_inner_two_height = ellipse_outer_height - 2 * text_line_two_height
+            ellipse_inner_two_width = ellipse_outer_width - 2 * text_line_two_height
+            assert ellipse_inner_two_height > 0 and ellipse_inner_two_width > 0
+
+            text_line_two_angle_begin = half_gap
+            text_line_two_angle_end = 180 - half_gap
+
+            rough_placements.append(
+                TextLineRoughPlacement(
+                    ellipse_outer_height=ellipse_outer_height,
+                    ellipse_outer_width=ellipse_outer_width,
+                    ellipse_inner_height=ellipse_inner_two_height,
+                    ellipse_inner_width=ellipse_inner_two_width,
+                    text_line_height=text_line_two_height,
+                    angle_begin=text_line_two_angle_begin,
+                    angle_end=text_line_two_angle_end,
+                    clockwise=False,
+                )
+            )
+
+        return rough_placements
+
+    def generate_text_line_slots_based_on_rough_placements(
+        self,
+        height: int,
+        width: int,
+        rough_placements: Sequence[TextLineRoughPlacement],
+        rng: RandomGenerator,
+    ):
+        ellipse_y_offset = height // 2
+        ellipse_x_offset = width // 2
+
+        text_line_slots: List[TextLineSlot] = []
+
+        for rough_placement in rough_placements:
+            char_aspect_ratio = float(
+                rng.uniform(
+                    self.config.char_aspect_ratio_min,
+                    self.config.char_aspect_ratio_max,
+                )
+            )
+            char_width_ref = max(1, round(rough_placement.text_line_height * char_aspect_ratio))
+
+            char_space_ratio = float(
+                rng.uniform(
+                    self.config.char_space_ratio_min,
+                    self.config.char_space_ratio_max,
+                )
+            )
+            char_space_ref = max(1, round(rough_placement.text_line_height * char_space_ratio))
+
+            radius_ref = max(1, ellipse_y_offset)
+            angle_step = max(
+                self.config.angle_step_min,
+                round(360 * (char_width_ref + char_space_ref) / (2 * np.pi * radius_ref)),
+            )
+
+            if rough_placement.clockwise:
+                char_slots = self.sample_char_slots(
+                    ellipse_up_height=rough_placement.ellipse_outer_height,
+                    ellipse_up_width=rough_placement.ellipse_outer_width,
+                    ellipse_down_height=rough_placement.ellipse_inner_height,
+                    ellipse_down_width=rough_placement.ellipse_inner_width,
+                    ellipse_y_offset=ellipse_y_offset,
+                    ellipse_x_offset=ellipse_x_offset,
+                    angle_begin=rough_placement.angle_begin,
+                    angle_end=rough_placement.angle_end,
+                    angle_step=angle_step,
+                    rng=rng,
+                )
+
+            else:
+                char_slots = self.sample_char_slots(
+                    ellipse_up_height=rough_placement.ellipse_inner_height,
+                    ellipse_up_width=rough_placement.ellipse_inner_width,
+                    ellipse_down_height=rough_placement.ellipse_outer_height,
+                    ellipse_down_width=rough_placement.ellipse_outer_width,
+                    ellipse_y_offset=ellipse_y_offset,
+                    ellipse_x_offset=ellipse_x_offset,
+                    angle_begin=rough_placement.angle_begin,
+                    angle_end=rough_placement.angle_end,
+                    angle_step=angle_step,
+                    rng=rng,
+                    reverse=True,
+                )
+
+            text_line_slots.append(
+                TextLineSlot(
+                    text_line_height=rough_placement.text_line_height,
+                    char_aspect_ratio=char_aspect_ratio,
+                    char_slots=char_slots,
+                )
+            )
+
+        return text_line_slots
+
+    def generate_text_line_slots(self, height: int, width: int, rng: RandomGenerator):
+        rough_placements = self.sample_curved_text_line_rough_placements(
+            height=height,
+            width=width,
+            rng=rng,
+        )
+        text_line_slots = self.generate_text_line_slots_based_on_rough_placements(
+            height=height,
+            width=width,
+            rough_placements=rough_placements,
+            rng=rng,
+        )
+        ellipse_inner_shape = (
+            min(rough_placement.ellipse_inner_height for rough_placement in rough_placements),
+            min(rough_placement.ellipse_inner_width for rough_placement in rough_placements),
+        )
+        return text_line_slots, ellipse_inner_shape
 
     def sample_icon_box(
         self,
@@ -397,7 +506,61 @@ class EllipseSealImpressionEngine(
         right = left + box_width - 1
         return Box(up=up, down=down, left=left, right=right)
 
-    def generate_background_mask(
+    def sample_internal_text_line_box(
+        self,
+        height: int,
+        width: int,
+        ellipse_inner_shape: Tuple[int, int],
+        icon_box_down: Optional[int],
+        rng: RandomGenerator,
+    ):
+        ellipse_inner_height, ellipse_inner_width = ellipse_inner_shape
+        if ellipse_inner_height > ellipse_inner_width:
+            # Not supported yet.
+            return None
+
+        # Vert.
+        box_height_ratio = rng.uniform(
+            self.config.internal_text_line_height_ratio_min,
+            self.config.internal_text_line_height_ratio_max,
+        )
+        box_height = round(ellipse_inner_height * box_height_ratio)
+
+        half_height = height // 2
+        up = half_height
+        if icon_box_down:
+            up = icon_box_down + 1
+        down = min(
+            height - 1,
+            half_height + ellipse_inner_height // 2 - 1,
+            up + box_height - 1,
+        )
+
+        if up > down:
+            return None
+
+        # Hori.
+        ellipse_h = down + 1 - half_height
+        ellipse_a = ellipse_inner_width / 2
+        ellipse_b = ellipse_inner_height / 2
+        box_width_max = round(2 * ellipse_b * np.sqrt(ellipse_a**2 - ellipse_h**2) / ellipse_a)
+
+        box_width_ratio = rng.uniform(
+            self.config.internal_text_line_width_ratio_min,
+            self.config.internal_text_line_width_ratio_max,
+        )
+        box_width = round(ellipse_inner_width * box_width_ratio)
+        box_width = max(box_width_max, box_width)
+
+        left = (width - box_width) // 2
+        right = left + box_width - 1
+
+        if left > right:
+            return None
+
+        return Box(up=up, down=down, left=left, right=right)
+
+    def generate_background(
         self,
         height: int,
         width: int,
@@ -454,6 +617,7 @@ class EllipseSealImpressionEngine(
                 thickness=border_thickness_empty,
             )
 
+        icon_box_down = None
         if self.icon_image_selector and rng.random() < self.config.prob_add_icon:
             icon_box = self.sample_icon_box(
                 height=height,
@@ -461,6 +625,7 @@ class EllipseSealImpressionEngine(
                 ellipse_inner_shape=ellipse_inner_shape,
                 rng=rng,
             )
+            icon_box_down = icon_box.down
             icon_grayscale_image = self.icon_image_selector.run(
                 {
                     'height': icon_box.height,
@@ -472,17 +637,27 @@ class EllipseSealImpressionEngine(
             icon_mask = Mask(mat=icon_mask_mat.astype(np.uint8))
             icon_box.fill_mask(background_mask, icon_mask)
 
-        return background_mask
+        internal_text_line_box = None
+        if rng.random() < self.config.prob_add_internal_text_line:
+            internal_text_line_box = self.sample_internal_text_line_box(
+                height=height,
+                width=width,
+                ellipse_inner_shape=ellipse_inner_shape,
+                icon_box_down=icon_box_down,
+                rng=rng,
+            )
+
+        return background_mask, internal_text_line_box
 
     def run(self, config: SealImpressionEngineRunConfig, rng: RandomGenerator):
         # TODO: rename all to run_config.
         alpha, color = self.sample_alpha_and_color(rng)
-        text_line_height, char_slots, ellipse_inner_shape = self.generate_char_slots(
+        text_line_slots, ellipse_inner_shape = self.generate_text_line_slots(
             height=config.height,
             width=config.width,
             rng=rng,
         )
-        background_mask = self.generate_background_mask(
+        background_mask, internal_text_line_box = self.generate_background(
             height=config.height,
             width=config.width,
             ellipse_inner_shape=ellipse_inner_shape,
@@ -492,6 +667,6 @@ class EllipseSealImpressionEngine(
             alpha=alpha,
             color=color,
             background_mask=background_mask,
-            text_line_height=text_line_height,
-            char_slots=char_slots,
+            text_line_slots=text_line_slots,
+            internal_text_line_box=internal_text_line_box,
         )

@@ -1,9 +1,11 @@
+from typing import List
+
 from numpy.random import default_rng
 import pytest
 
 from vkit.element import Painter, Image
 from vkit.element import LexiconCollection
-from vkit.engine.font import font_factory, FontCollection
+from vkit.engine.font import font_factory, FontCollection, TextLine
 from vkit.engine.char_sampler import char_sampler_factory
 from vkit.engine.char_and_font_sampler import char_and_font_sampler_factory
 from vkit.engine.seal_impression import *
@@ -18,20 +20,30 @@ def test_ellipse_layout():
 
     for rng_seed in range(10):
         # for rng_seed in (8,):
-        seal_impression_layout = engine.run({'height': 400, 'width': 400}, default_rng(rng_seed))
+        seal_impression = engine.run({'height': 400, 'width': 400}, default_rng(rng_seed))
 
-        painter = Painter.create(seal_impression_layout.shape)
-        painter.paint_mask(seal_impression_layout.background_mask)
+        painter = Painter.create(seal_impression.shape)
+        painter.paint_mask(seal_impression.background_mask)
         painter.paint_points(
-            [char_slot.point_up for char_slot in seal_impression_layout.char_slots],
+            [
+                char_slot.point_up
+                for tls in seal_impression.text_line_slots
+                for char_slot in tls.char_slots
+            ],
             color='green',
             radius=3,
         )
         painter.paint_points(
-            [char_slot.point_down for char_slot in seal_impression_layout.char_slots],
+            [
+                char_slot.point_down
+                for tls in seal_impression.text_line_slots
+                for char_slot in tls.char_slots
+            ],
             color='blue',
             radius=3,
         )
+        if seal_impression.internal_text_line_box:
+            painter.paint_boxes([seal_impression.internal_text_line_box])
         write_image(f'layout_{rng_seed}.jpg', painter.image)
 
 
@@ -84,30 +96,56 @@ def test_ellipse_filling():
         width = int(rng.integers(200, 600 + 1))
         seal_impression = engine.run({'height': 400, 'width': width}, rng)
 
-        char_and_font = char_and_font_sampler.run(
-            config={
-                'height': seal_impression.text_line_height,
-                'width': 2**32 - 1,
-                'num_chars': len(seal_impression.char_slots),
-            },
-            rng=rng,
-        )
-        assert char_and_font
+        text_lines: List[TextLine] = []
+        for text_line_slot in seal_impression.text_line_slots:
+            char_and_font = char_and_font_sampler.run(
+                config={
+                    'height': text_line_slot.text_line_height,
+                    'width': 2**32 - 1,
+                    'num_chars': len(text_line_slot.char_slots),
+                },
+                rng=rng,
+            )
+            assert char_and_font
 
-        text_line = font_aggregator.run(
-            config={
-                'height': seal_impression.text_line_height,
-                'width': 2**32 - 1,
-                'chars': char_and_font.chars,
-                'font_variant': char_and_font.font_variant,
-            },
-            rng=rng,
-        )
-        assert text_line
+            text_line = font_aggregator.run(
+                config={
+                    'height': text_line_slot.text_line_height,
+                    'width': 2**32 - 1,
+                    'chars': char_and_font.chars,
+                    'font_variant': char_and_font.font_variant,
+                },
+                rng=rng,
+            )
+            assert text_line
+            text_lines.append(text_line)
+
+        internal_text_line = None
+        if seal_impression.internal_text_line_box:
+            char_and_font = char_and_font_sampler.run(
+                config={
+                    'height': seal_impression.internal_text_line_box.height,
+                    'width': seal_impression.internal_text_line_box.width,
+                },
+                rng=rng,
+            )
+            assert char_and_font
+
+            internal_text_line = font_aggregator.run(
+                config={
+                    'height': seal_impression.internal_text_line_box.height,
+                    'width': seal_impression.internal_text_line_box.width,
+                    'chars': char_and_font.chars,
+                    'font_variant': char_and_font.font_variant,
+                },
+                rng=rng,
+            )
 
         filled_score_map = fill_text_line_to_seal_impression(
             seal_impression,
-            text_line,
+            list(range(len(text_lines))),
+            text_lines,
+            internal_text_line,
         )
 
         image = Image.from_shape(seal_impression.shape)

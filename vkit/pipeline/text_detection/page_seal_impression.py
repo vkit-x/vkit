@@ -23,6 +23,7 @@ class PageSealImpresssionStepConfig:
 class PageSealImpresssionStepOutput:
     seal_impressions: Sequence[SealImpression]
     boxes: Sequence[Box]
+    angles: Sequence[int]
 
 
 class PageSealImpresssionStep(
@@ -45,6 +46,7 @@ class PageSealImpresssionStep(
 
         seal_impressions: List[SealImpression] = []
         boxes: List[Box] = []
+        angles: List[int] = []
         for layout_seal_impression in page_layout.layout_seal_impressions:
             box = layout_seal_impression.box
             seal_impressions.append(
@@ -57,10 +59,12 @@ class PageSealImpresssionStep(
                 )
             )
             boxes.append(box)
+            angles.append(layout_seal_impression.angle)
 
         return PageSealImpresssionStepOutput(
             seal_impressions=seal_impressions,
             boxes=boxes,
+            angles=angles,
         )
 
 

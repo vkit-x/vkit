@@ -75,12 +75,20 @@ class PageTextLineCollection:
 
 
 @attrs.define
+class SealImpressionResource:
+    box: Box
+    angle: int
+    text_line_slot_indices: Sequence[int]
+    text_lines: Sequence[TextLine]
+    internal_text_line: Optional[TextLine]
+
+
+@attrs.define
 class PageSealImpressionTextLineCollection:
     height: int
     width: int
-    text_lines: Sequence[TextLine]
     seal_impressions: Sequence[SealImpression]
-    boxes: Sequence[Box]
+    seal_impression_resources: Sequence[SealImpressionResource]
 
 
 @attrs.define
@@ -278,56 +286,105 @@ class PageTextLineStep(
         # Text lines for seal impressions.
         page_seal_impresssion_step_output = state.get_pipeline_step_output(PageSealImpresssionStep)
 
-        seal_impression_text_lines: List[TextLine] = []
         seal_impressions: List[SealImpression] = []
-        boxes: List[Box] = []
+        seal_impression_resources: List[SealImpressionResource] = []
 
-        for seal_impression, box in zip(
+        for seal_impression, box, angle in zip(
             page_seal_impresssion_step_output.seal_impressions,
             page_seal_impresssion_step_output.boxes,
+            page_seal_impresssion_step_output.angles,
         ):
-            char_and_font = None
-            is_short_text_line = False
+            text_line_slot_indices: List[int] = []
+            text_lines: List[TextLine] = []
 
-            num_retries = 3
-            while num_retries > 0:
-                char_and_font = self.char_and_font_sampler.run(
+            for text_line_slot_idx, text_line_slot in enumerate(seal_impression.text_line_slots):
+                char_and_font = None
+
+                num_retries = 3
+                while num_retries > 0:
+                    char_and_font = self.char_and_font_sampler.run(
+                        config={
+                            'height': text_line_slot.text_line_height,
+                            'width': 2**32 - 1,
+                            'num_chars': len(text_line_slot.char_slots),
+                        },
+                        rng=rng,
+                    )
+                    if char_and_font:
+                        break
+                    num_retries -= 1
+
+                if num_retries <= 0:
+                    logger.warning(
+                        f'Cannot sample char_and_font for seal_impression={seal_impression}'
+                    )
+                    continue
+                assert char_and_font
+
+                text_line = self.font_aggregator.run(
                     config={
-                        'height': seal_impression.text_line_height,
+                        'height': text_line_slot.text_line_height,
                         'width': 2**32 - 1,
-                        'num_chars': len(seal_impression.char_slots),
+                        'chars': char_and_font.chars,
+                        'font_variant': char_and_font.font_variant,
                     },
                     rng=rng,
                 )
-                if char_and_font:
-                    break
-                num_retries -= 1
+                if text_line:
+                    text_line_slot_indices.append(text_line_slot_idx)
+                    text_lines.append(text_line)
 
-            if num_retries <= 0:
-                logger.warning(f'Cannot sample char_and_font for seal_impression={seal_impression}')
-                continue
-            assert char_and_font
+            internal_text_line = None
+            if seal_impression.internal_text_line_box:
+                char_and_font = None
 
-            text_line = self.font_aggregator.run(
-                config={
-                    'height': seal_impression.text_line_height,
-                    'width': 2**32 - 1,
-                    'chars': char_and_font.chars,
-                    'font_variant': char_and_font.font_variant,
-                },
-                rng=rng,
-            )
-            if text_line:
-                seal_impression_text_lines.append(text_line)
+                num_retries = 3
+                while num_retries > 0:
+                    char_and_font = self.char_and_font_sampler.run(
+                        config={
+                            'height': seal_impression.internal_text_line_box.height,
+                            'width': seal_impression.internal_text_line_box.width,
+                        },
+                        rng=rng,
+                    )
+                    if char_and_font:
+                        break
+                    num_retries -= 1
+
+                if num_retries <= 0:
+                    logger.warning(
+                        f'Cannot sample char_and_font for seal_impression={seal_impression}'
+                    )
+                else:
+                    assert char_and_font
+
+                    internal_text_line = self.font_aggregator.run(
+                        config={
+                            'height': seal_impression.internal_text_line_box.height,
+                            'width': seal_impression.internal_text_line_box.width,
+                            'chars': char_and_font.chars,
+                            'font_variant': char_and_font.font_variant,
+                        },
+                        rng=rng,
+                    )
+
+            if text_lines:
                 seal_impressions.append(seal_impression)
-                boxes.append(box)
+                seal_impression_resources.append(
+                    SealImpressionResource(
+                        box=box,
+                        angle=angle,
+                        text_line_slot_indices=text_line_slot_indices,
+                        text_lines=text_lines,
+                        internal_text_line=internal_text_line,
+                    )
+                )
 
         page_seal_impression_text_line_collection = PageSealImpressionTextLineCollection(
             height=page_layout.height,
             width=page_layout.width,
-            text_lines=seal_impression_text_lines,
             seal_impressions=seal_impressions,
-            boxes=boxes,
+            seal_impression_resources=seal_impression_resources,
         )
 
         return PageTextLineStepOutput(
