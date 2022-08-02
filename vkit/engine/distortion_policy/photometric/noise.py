@@ -11,7 +11,7 @@ from ..opt import sample_float
 @attrs.define
 class GaussionNoiseConfigGeneratorConfig:
     std_min: float = 1.0
-    std_max: float = 50.0
+    std_max: float = 35.0
 
 
 class GaussionNoiseConfigGenerator(
@@ -104,7 +104,7 @@ impulse_noise_policy_factory = DistortionPolicyFactory(
 @attrs.define
 class SpeckleNoiseConfigGeneratorConfig:
     std_min: float = 0.0
-    std_max: float = 0.5
+    std_max: float = 0.3
 
 
 class SpeckleNoiseConfigGenerator(

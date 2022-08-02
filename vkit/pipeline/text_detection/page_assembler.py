@@ -20,6 +20,7 @@ from .page_text_line import (
     PageTextLineCollection,
     PageSealImpressionTextLineCollection,
 )
+from .page_non_text_symbol import PageNonTextSymbolStep
 from .page_text_line_label import (
     PageTextLineLabelStep,
     PageCharPolygonCollection,
@@ -76,6 +77,8 @@ class PageAssemblerStep(
         page_seal_impression_text_line_collection = \
             page_text_line_step_output.page_seal_impression_text_line_collection
 
+        page_non_text_symbol_step_output = state.get_pipeline_step_output(PageNonTextSymbolStep)
+
         page_text_line_bounding_box_step_output = \
             state.get_pipeline_step_output(PageTextLineBoundingBoxStep)
         text_line_bounding_box_score_maps = page_text_line_bounding_box_step_output.score_maps
@@ -118,6 +121,14 @@ class PageAssemblerStep(
                 text_line.score_map.fill_image(assembled_image, text_line.glyph_color)
             else:
                 text_line.mask.fill_image(assembled_image, text_line.image)
+
+        # Page non-text symbols.
+        for image, box, alpha in zip(
+            page_non_text_symbol_step_output.images,
+            page_non_text_symbol_step_output.boxes,
+            page_non_text_symbol_step_output.alphas,
+        ):
+            box.fill_image(assembled_image, value=image, alpha=alpha)
 
         # Page seal impressions.
         for seal_impression, seal_impression_resource in zip(

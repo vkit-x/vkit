@@ -15,7 +15,10 @@ from tests.opt import write_image
 @pytest.mark.local
 def test_ellipse_layout():
     engine = ellipse_seal_impression_factory.create({
-        'icon_image_folder': '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
+        'icon_image_folders': [
+            '$VKIT_ARTIFACT_PACK/non_text_symbol_image/material-design-icon',
+            '$VKIT_ARTIFACT_PACK/non_text_symbol_image/noto-regular-emoji',
+        ],
     })
 
     for rng_seed in range(10):
@@ -88,7 +91,10 @@ def test_ellipse_filling():
     ])
 
     engine = ellipse_seal_impression_factory.create({
-        'icon_image_folder': '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
+        'icon_image_folders': [
+            '$VKIT_ARTIFACT_PACK/non_text_symbol_image/material-design-icon',
+            '$VKIT_ARTIFACT_PACK/non_text_symbol_image/noto-regular-emoji',
+        ],
     })
 
     for rng_seed in range(10):

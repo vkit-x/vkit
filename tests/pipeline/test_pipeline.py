@@ -181,8 +181,9 @@ def test_page():
                     'image_configs': [{
                         'type': 'selector',
                         'config': {
-                            'image_folder':
+                            'image_folders': [
                                 '$VKIT_PRIVATE_DATA/dataset_synthetext/bg_data/no_background_text_images'  # noqa
+                            ],
                         }
                     }]
                 },
@@ -199,8 +200,10 @@ def test_page():
                     'seal_impression_configs': [{
                         'type': 'ellipse',
                         'config': {
-                            'icon_image_folder':
-                                '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
+                            'icon_image_folders': [
+                                '$VKIT_ARTIFACT_PACK/non_text_symbol_image/material-design-icon',
+                                '$VKIT_ARTIFACT_PACK/non_text_symbol_image/noto-regular-emoji',
+                            ],
                         }
                     }]
                 },
@@ -228,6 +231,12 @@ def test_page():
                     }],
                     'return_font_variant':
                         False,
+                },
+            },
+            {
+                'name': 'text_detection.page_non_text_symbol_step',
+                'config': {
+                    'symbol_image_folders': ['$VKIT_ARTIFACT_PACK/non_text_symbol_image']
                 },
             },
             {

@@ -64,6 +64,12 @@ from .text_detection.page_text_line import (
     PageTextLineStepOutput,
     PageTextLineCollection,
 )
+from .text_detection.page_non_text_symbol import (
+    page_non_text_symbol_step_factory,
+    PageNonTextSymbolStep,
+    PageNonTextSymbolStepConfig,
+    PageNonTextSymbolStepOutput,
+)
 from .text_detection.page_text_line_bounding_box import (
     page_text_line_bounding_box_step_factory,
     PageTextLineBoundingBoxStep,
@@ -118,6 +124,7 @@ pipeline_step_collection_factory.register_step_factories(
         page_barcode_step_factory,
         page_seal_impresssion_step_factory,
         page_text_line_step_factory,
+        page_non_text_symbol_step_factory,
         page_text_line_bounding_box_step_factory,
         page_text_line_label_step_factory,
         page_assembler_step_factory,

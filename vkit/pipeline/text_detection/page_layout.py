@@ -47,6 +47,19 @@ class PageLayoutStepConfig:
     normal_text_line_height_ratio_max: float = 0.045
     force_add_normal_text_line_height_ratio_min: bool = True
 
+    # Non-text symbol.
+    num_non_text_symbols_min: int = 0
+    num_non_text_symbols_max: int = 10
+    num_retries_to_get_non_overlapped_non_text_symbol: int = 5
+    non_text_symbol_height_ratio_min: float = 0.0085
+    non_text_symbol_height_ratio_max: float = 0.09
+    non_text_symbol_aspect_ratio_min: float = 0.9
+    non_text_symbol_aspect_ratio_max: float = 1.111
+    non_text_symbol_non_overlapped_alpha_min: float = 0.8
+    non_text_symbol_non_overlapped_alpha_max: float = 1.0
+    non_text_symbol_overlapped_alpha_min: float = 0.15
+    non_text_symbol_overlapped_alpha_max: float = 0.55
+
     prob_normal_text_line_diff_heights_gap: float = 0.5
     prob_normal_text_line_gap: float = 0.5
     normal_text_line_gap_ratio_min: float = 0.05
@@ -97,6 +110,12 @@ class LayoutTextLine:
 
 
 @attrs.define
+class LayoutNonTextSymbol:
+    box: Box
+    alpha: float
+
+
+@attrs.define
 class LayoutSealImpression:
     box: Box
     angle: int
@@ -130,6 +149,7 @@ class PageLayout:
     height: int
     width: int
     layout_text_lines: Sequence[LayoutTextLine]
+    layout_non_text_symbols: Sequence[LayoutNonTextSymbol]
     layout_seal_impressions: Sequence[LayoutSealImpression]
     layout_images: Sequence[LayoutImage]
     layout_qrcodes: Sequence[LayoutQrcode]
@@ -900,6 +920,104 @@ class PageLayoutStep(
 
         return layout_qrcodes, layout_barcodes, layout_text_lines
 
+    @staticmethod
+    def get_text_line_area(layout_text_lines: Sequence[LayoutTextLine]):
+        # Sample within the text line area.
+        text_line_up = min(layout_text_line.box.up for layout_text_line in layout_text_lines)
+        text_line_down = max(layout_text_line.box.down for layout_text_line in layout_text_lines)
+        text_line_left = min(layout_text_line.box.left for layout_text_line in layout_text_lines)
+        text_line_right = max(layout_text_line.box.right for layout_text_line in layout_text_lines)
+        return (
+            text_line_up,
+            text_line_down,
+            text_line_left,
+            text_line_right,
+        )
+
+    def sample_layout_non_text_symbols(
+        self,
+        height: int,
+        width: int,
+        layout_text_lines: Sequence[LayoutTextLine],
+        rng: RandomGenerator,
+    ):
+        reference_height = self.get_reference_height(height=height, width=width)
+
+        text_line_up = 0
+        text_line_down = height - 1
+        text_line_left = 0
+        text_line_right = width - 1
+
+        layout_non_text_symbols: List[LayoutNonTextSymbol] = []
+
+        num_non_text_symbols = int(
+            rng.integers(
+                self.config.num_non_text_symbols_min,
+                self.config.num_non_text_symbols_max + 1,
+            )
+        )
+        for _ in range(num_non_text_symbols):
+            non_text_symbol_height_ratio = rng.uniform(
+                self.config.non_text_symbol_height_ratio_min,
+                self.config.non_text_symbol_height_ratio_max,
+            )
+            non_text_symbol_height = round(non_text_symbol_height_ratio * reference_height)
+
+            non_text_symbol_aspect_ratio = rng.uniform(
+                self.config.non_text_symbol_aspect_ratio_min,
+                self.config.non_text_symbol_aspect_ratio_max,
+            )
+            non_text_symbol_width = round(non_text_symbol_aspect_ratio * non_text_symbol_height)
+
+            box = None
+            overlapped = True
+            for _ in range(self.config.num_retries_to_get_non_overlapped_non_text_symbol):
+                up_max = text_line_down + 1 - non_text_symbol_height
+                up = int(rng.integers(text_line_up, up_max + 1))
+                down = up + non_text_symbol_height - 1
+                assert up < down
+
+                left_max = text_line_right + 1 - non_text_symbol_width
+                left = int(rng.integers(text_line_left, left_max + 1))
+                right = left + non_text_symbol_width - 1
+                assert left < right
+
+                box = Box(up=up, down=down, left=left, right=right)
+
+                cur_overlapped = False
+                for layout_text_line in layout_text_lines:
+                    if self.boxes_are_overlapped(box, layout_text_line.box):
+                        cur_overlapped = True
+                        break
+
+                if not cur_overlapped:
+                    overlapped = False
+                    break
+
+            assert box
+
+            if not overlapped:
+                alpha = float(
+                    rng.uniform(
+                        self.config.non_text_symbol_non_overlapped_alpha_min,
+                        self.config.non_text_symbol_non_overlapped_alpha_max,
+                    )
+                )
+            else:
+                alpha = float(
+                    rng.uniform(
+                        self.config.non_text_symbol_overlapped_alpha_min,
+                        self.config.non_text_symbol_overlapped_alpha_max,
+                    )
+                )
+
+            layout_non_text_symbols.append(LayoutNonTextSymbol(
+                box=box,
+                alpha=alpha,
+            ))
+
+        return layout_non_text_symbols
+
     def sample_layout_seal_impressions(
         self,
         height: int,
@@ -909,11 +1027,12 @@ class PageLayoutStep(
     ):
         reference_height = self.get_reference_height(height=height, width=width)
 
-        # Sample within the text line area.
-        text_line_up = min(layout_text_line.box.up for layout_text_line in layout_text_lines)
-        text_line_down = max(layout_text_line.box.down for layout_text_line in layout_text_lines)
-        text_line_left = min(layout_text_line.box.left for layout_text_line in layout_text_lines)
-        text_line_right = max(layout_text_line.box.right for layout_text_line in layout_text_lines)
+        (
+            text_line_up,
+            text_line_down,
+            text_line_left,
+            text_line_right,
+        ) = self.get_text_line_area(layout_text_lines)
 
         # Place seal impressions.
         layout_seal_impressions: List[LayoutSealImpression] = []
@@ -1018,11 +1137,20 @@ class PageLayoutStep(
         layout_images = self.sample_layout_images(height=height, width=width, rng=rng)
 
         # QR codes & Bar codes.
+        # NOTE: Some layout_text_lines could be dropped.
         (
             layout_qrcodes,
             layout_barcodes,
             layout_text_lines,
         ) = self.sample_layout_qrcodes_and_layout_barcodes(
+            height=height,
+            width=width,
+            layout_text_lines=layout_text_lines,
+            rng=rng,
+        )
+
+        # Non-text symbols.
+        layout_non_text_symbols = self.sample_layout_non_text_symbols(
             height=height,
             width=width,
             layout_text_lines=layout_text_lines,
@@ -1042,6 +1170,7 @@ class PageLayoutStep(
                 height=height,
                 width=width,
                 layout_text_lines=layout_text_lines,
+                layout_non_text_symbols=layout_non_text_symbols,
                 layout_seal_impressions=layout_seal_impressions,
                 layout_images=layout_images,
                 layout_qrcodes=layout_qrcodes,
