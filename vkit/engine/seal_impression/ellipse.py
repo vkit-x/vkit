@@ -56,7 +56,7 @@ class EllipseSealImpressionEngineConfig:
     angle_step_min: int = 10
 
     # Icon.
-    icon_image_folder: Optional[str] = None
+    icon_image_folders: Optional[Sequence[str]] = None
     icon_image_grayscale_min: int = 127
     prob_add_icon: float = 0.9
     icon_height_ratio_min: float = 0.35
@@ -163,9 +163,9 @@ class EllipseSealImpressionEngine(
             ),
         ])
         self.icon_image_selector = None
-        if self.config.icon_image_folder:
+        if self.config.icon_image_folders:
             self.icon_image_selector = selector_image_factory.create({
-                'image_folder': self.config.icon_image_folder,
+                'image_folders': self.config.icon_image_folders,
                 'target_kind_image': ImageKind.GRAYSCALE,
                 'force_resize': True,
             })

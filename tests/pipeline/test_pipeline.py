@@ -90,67 +90,67 @@ def test_page_layout():
         write_image(f'grids_{seed}.jpg', painter.image)
 
 
-@pytest.mark.local
-def test_page_text_line():
-    pipeline = Pipeline(
-        steps=[
-            page_shape_step_factory.create(),
-            page_layout_step_factory.create(),
-            page_text_line_step_factory.create({
-                'lexicon_collection_json':
-                    '$VKIT_PRIVATE_DATA/vkit_lexicon/lexicon_collection_combined/chinese.json',
-                'font_collection_folder':
-                    '$VKIT_PRIVATE_DATA/vkit_font/font_collection',
-                'char_sampler_configs': [{
-                    "weight": 1,
-                    "type": "corpus",
-                    "config": {
-                        "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/corp-address-debug.txt"]
-                    }
-                }, {
-                    "weight": 1,
-                    "type": "corpus",
-                    "config": {
-                        "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/corp-name-debug.txt"]
-                    }
-                }],
-                'font_configs': [{
-                    "type": "freetype_default",
-                    "weight": 1
-                }, {
-                    "type": "freetype_lcd",
-                    "weight": 1
-                }, {
-                    "type": "freetype_monochrome",
-                    "weight": 1
-                }],
-            })
-        ],
-        post_processor=bypass_post_processor_factory.create(),
-    )
+# @pytest.mark.local
+# def test_page_text_line():
+#     pipeline = Pipeline(
+#         steps=[
+#             page_shape_step_factory.create(),
+#             page_layout_step_factory.create(),
+#             page_text_line_step_factory.create({
+#                 'lexicon_collection_json':
+#                     '$VKIT_PRIVATE_DATA/vkit_lexicon/lexicon_collection_combined/chinese.json',
+#                 'font_collection_folder':
+#                     '$VKIT_PRIVATE_DATA/vkit_font/font_collection',
+#                 'char_sampler_configs': [{
+#                     "weight": 1,
+#                     "type": "corpus",
+#                     "config": {
+#                         "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/corp-address-debug.txt"]
+#                     }
+#                 }, {
+#                     "weight": 1,
+#                     "type": "corpus",
+#                     "config": {
+#                         "txt_files": ["$VKIT_PRIVATE_DATA/char_sampler/corp-name-debug.txt"]
+#                     }
+#                 }],
+#                 'font_configs': [{
+#                     "type": "freetype_default",
+#                     "weight": 1
+#                 }, {
+#                     "type": "freetype_lcd",
+#                     "weight": 1
+#                 }, {
+#                     "type": "freetype_monochrome",
+#                     "weight": 1
+#                 }],
+#             })
+#         ],
+#         post_processor=bypass_post_processor_factory.create(),
+#     )
 
-    for seed in range(3):
-        rng = default_rng(seed)
-        result = pipeline.run(rng)
-        page_text_line_collection: PageTextLineCollection = result.key_to_value[
-            'page_text_line_step'].page_text_line_collection
+#     for seed in range(3):
+#         rng = default_rng(seed)
+#         result = pipeline.run(rng)
+#         page_text_line_collection: PageTextLineCollection = result.key_to_value[
+#             'page_text_line_step'].page_text_line_collection
 
-        image = Image.from_shape(
-            (page_text_line_collection.height, page_text_line_collection.width),
-            num_channels=3,
-        )
-        for text_line in page_text_line_collection.text_lines:
-            text_line.box.fill_image(image, text_line.image)
-        write_image(f'text_line_{seed}.jpg', image)
+#         image = Image.from_shape(
+#             (page_text_line_collection.height, page_text_line_collection.width),
+#             num_channels=3,
+#         )
+#         for text_line in page_text_line_collection.text_lines:
+#             text_line.box.fill_image(image, text_line.image)
+#         write_image(f'text_line_{seed}.jpg', image)
 
-        image = Image.from_shape(
-            (page_text_line_collection.height, page_text_line_collection.width),
-            num_channels=3,
-        )
-        for text_line in page_text_line_collection.text_lines:
-            for char_box in text_line.char_boxes:
-                char_box.box.fill_image(image, (255, 0, 0))
-        write_image(f'char_mask_{seed}.jpg', image)
+#         image = Image.from_shape(
+#             (page_text_line_collection.height, page_text_line_collection.width),
+#             num_channels=3,
+#         )
+#         for text_line in page_text_line_collection.text_lines:
+#             for char_box in text_line.char_boxes:
+#                 char_box.box.fill_image(image, (255, 0, 0))
+#         write_image(f'char_mask_{seed}.jpg', image)
 
 
 @pytest.mark.local
@@ -181,8 +181,9 @@ def test_page():
                     'image_configs': [{
                         'type': 'selector',
                         'config': {
-                            'image_folder':
+                            'image_folders': [
                                 '$VKIT_PRIVATE_DATA/dataset_synthetext/bg_data/no_background_text_images'  # noqa
+                            ],
                         }
                     }]
                 },
@@ -199,8 +200,10 @@ def test_page():
                     'seal_impression_configs': [{
                         'type': 'ellipse',
                         'config': {
-                            'icon_image_folder':
-                                '$VKIT_ARTIFACT_PACK/icon_image_for_seal_impression',
+                            'icon_image_folders': [
+                                '$VKIT_ARTIFACT_PACK/non_text_symbol_image/material-design-icon',
+                                '$VKIT_ARTIFACT_PACK/non_text_symbol_image/noto-regular-emoji',
+                            ],
                         }
                     }]
                 },
@@ -228,6 +231,12 @@ def test_page():
                     }],
                     'return_font_variant':
                         False,
+                },
+            },
+            {
+                'name': 'text_detection.page_non_text_symbol_step',
+                'config': {
+                    'symbol_image_folders': ['$VKIT_ARTIFACT_PACK/non_text_symbol_image']
                 },
             },
             {

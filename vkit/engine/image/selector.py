@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Sequence
 from os import PathLike
 
 import attrs
@@ -13,8 +13,8 @@ from .type import ImageEngineRunConfig
 
 @attrs.define
 class SelectorImageEngineConfig:
-    image_folder: str
-    target_kind_image: ImageKind = ImageKind.RGB
+    image_folders: Sequence[str]
+    target_kind_image: Optional[ImageKind] = ImageKind.RGB
     force_resize: bool = False
 
 
@@ -39,14 +39,18 @@ class SelectorImageEngine(
         super().__init__(config, resource)
 
         self.image_files: List[PathLike] = []
-        image_fd = io.folder(self.config.image_folder, expandvars=True, exists=True)
-        for ext in ['jpg', 'jpeg', 'png']:
-            for new_ext in [ext, ext.upper()]:
-                self.image_files.extend(image_fd.glob(f'**/*.{new_ext}'))
+        for image_folder in self.config.image_folders:
+            image_fd = io.folder(image_folder, expandvars=True, exists=True)
+            for ext in ['jpg', 'jpeg', 'png']:
+                for new_ext in [ext, ext.upper()]:
+                    self.image_files.extend(image_fd.glob(f'**/*.{new_ext}'))
 
     def run(self, config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
         image_file = rng_choice(rng, self.image_files)
-        image = Image.from_file(image_file).to_target_kind_image(self.config.target_kind_image)
+        image = Image.from_file(image_file)
+
+        if self.config.target_kind_image:
+            image = image.to_target_kind_image(self.config.target_kind_image)
 
         height = config.height
         width = config.width
