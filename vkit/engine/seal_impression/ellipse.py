@@ -649,17 +649,16 @@ class EllipseSealImpressionEngine(
 
         return background_mask, internal_text_line_box
 
-    def run(self, config: SealImpressionEngineRunConfig, rng: RandomGenerator):
-        # TODO: rename all to run_config.
+    def run(self, run_config: SealImpressionEngineRunConfig, rng: RandomGenerator):
         alpha, color = self.sample_alpha_and_color(rng)
         text_line_slots, ellipse_inner_shape = self.generate_text_line_slots(
-            height=config.height,
-            width=config.width,
+            height=run_config.height,
+            width=run_config.width,
             rng=rng,
         )
         background_mask, internal_text_line_box = self.generate_background(
-            height=config.height,
-            width=config.width,
+            height=run_config.height,
+            width=run_config.width,
             ellipse_inner_shape=ellipse_inner_shape,
             rng=rng,
         )

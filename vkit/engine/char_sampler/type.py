@@ -11,3 +11,4 @@ class CharSamplerEngineResource:
 @attrs.define
 class CharSamplerEngineRunConfig:
     num_chars: int
+    enable_aggregator_mode: bool = False

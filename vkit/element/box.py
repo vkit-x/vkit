@@ -250,6 +250,7 @@ class Box(Shapable):
         self,
         image: 'Image',
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        mask: Optional[Union['Mask', np.ndarray]] = None,
         alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
         if isinstance(value, Image):
@@ -257,8 +258,19 @@ class Box(Shapable):
         if isinstance(alpha, ScoreMap):
             assert alpha.is_prob
             alpha = alpha.mat
+        np_mask = None
+        if mask:
+            if isinstance(mask, Mask):
+                np_mask = mask.np_mask
+            else:
+                np_mask = mask
 
-        self.fill_np_array(image.mat, value, alpha=alpha)
+        self.fill_np_array(
+            image.mat,
+            value,
+            np_mask=np_mask,
+            alpha=alpha,
+        )
 
     def fill_mask(
         self,

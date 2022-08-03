@@ -184,7 +184,7 @@ class PageTextLineStep(
                     char_and_font_sampler = self.char_and_font_sampler
 
                 char_and_font = char_and_font_sampler.run(
-                    config={
+                    run_config={
                         'height': layout_text_line.box.height,
                         'width': layout_text_line.box.width,
                     },
@@ -254,7 +254,7 @@ class PageTextLineStep(
                 glyph_color=glyph_color,
             )
             text_line = self.font_aggregator.run(
-                config={
+                run_config={
                     'height': layout_text_line.box.height,
                     'width': layout_text_line.box.width,
                     'chars': char_and_font.chars,
@@ -303,7 +303,7 @@ class PageTextLineStep(
                 num_retries = 3
                 while num_retries > 0:
                     char_and_font = self.char_and_font_sampler.run(
-                        config={
+                        run_config={
                             'height': text_line_slot.text_line_height,
                             'width': 2**32 - 1,
                             'num_chars': len(text_line_slot.char_slots),
@@ -322,7 +322,7 @@ class PageTextLineStep(
                 assert char_and_font
 
                 text_line = self.font_aggregator.run(
-                    config={
+                    run_config={
                         'height': text_line_slot.text_line_height,
                         'width': 2**32 - 1,
                         'chars': char_and_font.chars,
@@ -341,7 +341,7 @@ class PageTextLineStep(
                 num_retries = 3
                 while num_retries > 0:
                     char_and_font = self.char_and_font_sampler.run(
-                        config={
+                        run_config={
                             'height': seal_impression.internal_text_line_box.height,
                             'width': seal_impression.internal_text_line_box.width,
                         },
@@ -359,7 +359,7 @@ class PageTextLineStep(
                     assert char_and_font
 
                     internal_text_line = self.font_aggregator.run(
-                        config={
+                        run_config={
                             'height': seal_impression.internal_text_line_box.height,
                             'width': seal_impression.internal_text_line_box.width,
                             'chars': char_and_font.chars,

@@ -105,7 +105,7 @@ def test_ellipse_filling():
         text_lines: List[TextLine] = []
         for text_line_slot in seal_impression.text_line_slots:
             char_and_font = char_and_font_sampler.run(
-                config={
+                run_config={
                     'height': text_line_slot.text_line_height,
                     'width': 2**32 - 1,
                     'num_chars': len(text_line_slot.char_slots),
@@ -115,7 +115,7 @@ def test_ellipse_filling():
             assert char_and_font
 
             text_line = font_aggregator.run(
-                config={
+                run_config={
                     'height': text_line_slot.text_line_height,
                     'width': 2**32 - 1,
                     'chars': char_and_font.chars,
@@ -129,7 +129,7 @@ def test_ellipse_filling():
         internal_text_line = None
         if seal_impression.internal_text_line_box:
             char_and_font = char_and_font_sampler.run(
-                config={
+                run_config={
                     'height': seal_impression.internal_text_line_box.height,
                     'width': seal_impression.internal_text_line_box.width,
                 },
@@ -138,7 +138,7 @@ def test_ellipse_filling():
             assert char_and_font
 
             internal_text_line = font_aggregator.run(
-                config={
+                run_config={
                     'height': seal_impression.internal_text_line_box.height,
                     'width': seal_impression.internal_text_line_box.width,
                     'chars': char_and_font.chars,

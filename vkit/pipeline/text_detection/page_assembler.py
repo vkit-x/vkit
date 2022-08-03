@@ -200,15 +200,8 @@ class PageAssemblerStep(
 
             # Rendering.
             box = Box(up=up, down=down, left=left, right=right)
-            background_mask.to_box_attached(box).fill_image(
-                assembled_image,
-                color,
-                alpha=alpha,
-            )
-            text_line_filled_score_map.to_box_attached(box).fill_image(
-                assembled_image,
-                color,
-            )
+            box.fill_image(assembled_image, value=color, mask=background_mask, alpha=alpha)
+            box.fill_image(assembled_image, value=color, alpha=text_line_filled_score_map)
 
         page = Page(
             image=assembled_image,

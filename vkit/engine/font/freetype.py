@@ -56,17 +56,17 @@ def get_ref_char_width(config: FontEngineRunConfig):
 
 
 def load_freetype_font_face(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     lcd_compression_factor: Optional[int] = None,
 ):
-    font_variant = config.font_variant
+    font_variant = run_config.font_variant
     if font_variant.is_ttc:
         assert font_variant.ttc_font_index is not None
         font_face = freetype.Face(str(font_variant.font_file), index=font_variant.ttc_font_index)
     else:
         font_face = freetype.Face(str(font_variant.font_file))
 
-    font_size = estimate_font_size(config)
+    font_size = estimate_font_size(run_config)
 
     # 1. "The nominal width, in 26.6 fractional points" and "The 26.6 fixed float format
     #    used to define fractional pixel coordinates. Here, 1 unit = 1/64 pixel", hence
@@ -212,7 +212,7 @@ def build_char_glyph(
 
 
 def render_char_glyphs_from_text(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     font_face: freetype.Face,
     func_render_char_glyph: Callable[[FontEngineRunConfig, freetype.Face, str], CharGlyph],
     chars: Sequence[str],
@@ -225,7 +225,7 @@ def render_char_glyphs_from_text(
             num_spaces += 1
             continue
 
-        char_glyphs.append(func_render_char_glyph(config, font_face, char))
+        char_glyphs.append(func_render_char_glyph(run_config, font_face, char))
 
         if idx == 0 and num_spaces > 0:
             raise RuntimeError('Leading space(s) detected.')
@@ -371,13 +371,13 @@ def render_char_glyphs_in_text_line(
 
 
 def place_char_glyphs_in_text_line_hori_default(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     char_glyphs: Sequence[CharGlyph],
     prev_num_spaces_for_char_glyphs: Sequence[int],
     kerning_limits: Sequence[int],
     rng: RandomGenerator,
 ):
-    style = config.style
+    style = run_config.style
 
     assert char_glyphs
     char_widths_avg = np.mean([char_glyph.width for char_glyph in char_glyphs])
@@ -395,9 +395,9 @@ def place_char_glyphs_in_text_line_hori_default(
     ascent_plus_pad_up_max = max(
         char_glyph.ascent + char_glyph.pad_up for char_glyph in char_glyphs
     )
-    ascent_plus_pad_up_max = max(ascent_plus_pad_up_max, get_ref_ascent_plus_pad_up_min(config))
+    ascent_plus_pad_up_max = max(ascent_plus_pad_up_max, get_ref_ascent_plus_pad_up_min(run_config))
 
-    text_line_height = get_ref_char_height(config)
+    text_line_height = get_ref_char_height(run_config)
 
     char_boxes: List[CharBox] = []
     hori_offset = 0
@@ -479,12 +479,12 @@ def place_char_glyphs_in_text_line_hori_default(
 
 
 def place_char_glyphs_in_text_line_vert_default(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     char_glyphs: Sequence[CharGlyph],
     prev_num_spaces_for_char_glyphs: Sequence[int],
     rng: RandomGenerator,
 ):
-    style = config.style
+    style = run_config.style
 
     assert char_glyphs
     char_widths_avg = np.mean([char_glyph.width for char_glyph in char_glyphs])
@@ -502,7 +502,7 @@ def place_char_glyphs_in_text_line_vert_default(
     text_line_width = max(
         char_glyph.pad_left + char_glyph.width + char_glyph.pad_right for char_glyph in char_glyphs
     )
-    text_line_width = max(text_line_width, get_ref_char_width(config))
+    text_line_width = max(text_line_width, get_ref_char_width(run_config))
 
     text_line_width_mid = text_line_width // 2
 
@@ -578,7 +578,7 @@ def place_char_glyphs_in_text_line_vert_default(
 
 
 def resize_and_trim_text_line_hori_default(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     cv_resize_interpolation_enlarge: int,
     cv_resize_interpolation_shrink: int,
     image: Image,
@@ -588,8 +588,8 @@ def resize_and_trim_text_line_hori_default(
     char_glyphs: Sequence[CharGlyph],
 ):
     # Resize if image height too small or too large.
-    is_too_small = (image.height / config.height < 0.8)
-    is_too_large = (image.height > config.height)
+    is_too_small = (image.height / run_config.height < 0.8)
+    is_too_large = (image.height > run_config.height)
 
     cv_resize_interpolation = cv_resize_interpolation_enlarge
     if is_too_large:
@@ -597,17 +597,17 @@ def resize_and_trim_text_line_hori_default(
 
     if is_too_small or is_too_large:
         resized_image = image.to_resized_image(
-            resized_height=config.height,
+            resized_height=run_config.height,
             cv_resize_interpolation=cv_resize_interpolation,
         )
         resized_mask = mask.to_resized_mask(
-            resized_height=config.height,
+            resized_height=run_config.height,
             cv_resize_interpolation=cv_resize_interpolation,
         )
         resized_char_boxes = [
             char_box.to_conducted_resized_char_box(
                 shapable_or_shape=image,
-                resized_height=config.height,
+                resized_height=run_config.height,
             ) for char_box in char_boxes
         ]
 
@@ -617,22 +617,22 @@ def resize_and_trim_text_line_hori_default(
 
         if score_map:
             score_map = score_map.to_resized_score_map(
-                resized_height=config.height,
+                resized_height=run_config.height,
                 cv_resize_interpolation=cv_resize_interpolation,
             )
 
     # Pad vertically.
-    if image.height != config.height:
-        pad_vert = config.height - image.height
+    if image.height != run_config.height:
+        pad_vert = run_config.height - image.height
         assert pad_vert > 0
         pad_up = pad_vert // 2
         pad_down = pad_vert - pad_up
 
-        np_image = np.full((config.height, image.width, 3), 255, dtype=np.uint8)
+        np_image = np.full((run_config.height, image.width, 3), 255, dtype=np.uint8)
         np_image[pad_up:-pad_down] = image.mat
         image.mat = np_image
 
-        np_mask = np.zeros((config.height, image.width), dtype=np.uint8)
+        np_mask = np.zeros((run_config.height, image.width), dtype=np.uint8)
         np_mask[pad_up:-pad_down] = mask.mat
         mask.mat = np_mask
 
@@ -647,14 +647,14 @@ def resize_and_trim_text_line_hori_default(
         char_boxes = padded_char_boxes
 
         if score_map:
-            padded_score_map = ScoreMap.from_shape((config.height, image.width))
+            padded_score_map = ScoreMap.from_shape((run_config.height, image.width))
             padded_score_map.mat[pad_up:-pad_down] = score_map.mat
             score_map = padded_score_map
 
     # Trim.
-    if image.width > config.width:
+    if image.width > run_config.width:
         last_char_box_idx = len(char_boxes) - 1
-        while last_char_box_idx >= 0 and char_boxes[last_char_box_idx].right >= config.width:
+        while last_char_box_idx >= 0 and char_boxes[last_char_box_idx].right >= run_config.width:
             last_char_box_idx -= 1
 
         if last_char_box_idx == len(char_boxes) - 1:
@@ -662,7 +662,7 @@ def resize_and_trim_text_line_hori_default(
             # This is caused by glyph padding. The solution is to drop this char.
             last_char_box_idx -= 1
 
-        if last_char_box_idx < 0 or char_boxes[last_char_box_idx].right >= config.width:
+        if last_char_box_idx < 0 or char_boxes[last_char_box_idx].right >= run_config.width:
             # Cannot trim.
             return None, None, None, None, -1
 
@@ -720,7 +720,7 @@ def resize_and_trim_text_line_hori_default(
 
 
 def resize_and_trim_text_line_vert_default(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     cv_resize_interpolation_enlarge: int,
     cv_resize_interpolation_shrink: int,
     image: Image,
@@ -729,8 +729,8 @@ def resize_and_trim_text_line_vert_default(
     char_boxes: Sequence[CharBox],
 ):
     # Resize if image width too small or too large.
-    is_too_small = (image.width / config.width < 0.8)
-    is_too_large = (image.width > config.width)
+    is_too_small = (image.width / run_config.width < 0.8)
+    is_too_large = (image.width > run_config.width)
 
     cv_resize_interpolation = cv_resize_interpolation_enlarge
     if is_too_large:
@@ -738,17 +738,17 @@ def resize_and_trim_text_line_vert_default(
 
     if is_too_small or is_too_large:
         resized_image = image.to_resized_image(
-            resized_width=config.width,
+            resized_width=run_config.width,
             cv_resize_interpolation=cv_resize_interpolation,
         )
         resized_mask = mask.to_resized_mask(
-            resized_width=config.width,
+            resized_width=run_config.width,
             cv_resize_interpolation=cv_resize_interpolation,
         )
         resized_char_boxes = [
             char_box.to_conducted_resized_char_box(
                 shapable_or_shape=image,
-                resized_width=config.width,
+                resized_width=run_config.width,
             ) for char_box in char_boxes
         ]
 
@@ -758,22 +758,22 @@ def resize_and_trim_text_line_vert_default(
 
         if score_map:
             score_map = score_map.to_resized_score_map(
-                resized_width=config.width,
+                resized_width=run_config.width,
                 cv_resize_interpolation=cv_resize_interpolation,
             )
 
     # Pad horizontally.
-    if image.width != config.width:
-        pad_hori = config.width - image.width
+    if image.width != run_config.width:
+        pad_hori = run_config.width - image.width
         assert pad_hori > 0
         pad_left = pad_hori // 2
         pad_right = pad_hori - pad_left
 
-        np_image = np.full((image.height, config.width, 3), 255, dtype=np.uint8)
+        np_image = np.full((image.height, run_config.width, 3), 255, dtype=np.uint8)
         np_image[:, pad_left:-pad_right] = image.mat
         image.mat = np_image
 
-        np_mask = np.zeros((image.height, config.width), dtype=np.uint8)
+        np_mask = np.zeros((image.height, run_config.width), dtype=np.uint8)
         np_mask[:, pad_left:-pad_right] = mask.mat
         mask.mat = np_mask
 
@@ -788,20 +788,20 @@ def resize_and_trim_text_line_vert_default(
         char_boxes = padded_char_boxes
 
         if score_map:
-            padded_score_map = ScoreMap.from_shape((image.height, config.width))
+            padded_score_map = ScoreMap.from_shape((image.height, run_config.width))
             padded_score_map.mat[:, pad_left:-pad_right] = score_map.mat
             score_map = padded_score_map
 
     # Trim.
-    if image.height > config.height:
+    if image.height > run_config.height:
         last_char_box_idx = len(char_boxes) - 1
-        while last_char_box_idx >= 0 and char_boxes[last_char_box_idx].down >= config.height:
+        while last_char_box_idx >= 0 and char_boxes[last_char_box_idx].down >= run_config.height:
             last_char_box_idx -= 1
 
         if last_char_box_idx == len(char_boxes) - 1:
             last_char_box_idx -= 1
 
-        if last_char_box_idx < 0 or char_boxes[last_char_box_idx].down >= config.height:
+        if last_char_box_idx < 0 or char_boxes[last_char_box_idx].down >= run_config.height:
             # Cannot trim.
             return None, None, None, None, -1
 
@@ -817,7 +817,7 @@ def resize_and_trim_text_line_vert_default(
 
 
 def render_text_line_meta(
-    config: FontEngineRunConfig,
+    run_config: FontEngineRunConfig,
     font_face: freetype.Face,
     func_render_char_glyph: Callable[[FontEngineRunConfig, freetype.Face, str], CharGlyph],
     rng: RandomGenerator,
@@ -828,15 +828,15 @@ def render_text_line_meta(
         char_glyphs,
         prev_num_spaces_for_char_glyphs,
     ) = render_char_glyphs_from_text(
-        config=config,
+        run_config=run_config,
         font_face=font_face,
         func_render_char_glyph=func_render_char_glyph,
-        chars=config.chars,
+        chars=run_config.chars,
     )
     if not char_glyphs:
         return None
 
-    if config.glyph_sequence == FontEngineRunConfigGlyphSequence.HORI_DEFAULT:
+    if run_config.glyph_sequence == FontEngineRunConfigGlyphSequence.HORI_DEFAULT:
         kerning_limits = get_kerning_limits_hori_default(
             char_glyphs,
             prev_num_spaces_for_char_glyphs,
@@ -847,7 +847,7 @@ def render_text_line_meta(
             score_map,
             char_boxes,
         ) = place_char_glyphs_in_text_line_hori_default(
-            config=config,
+            run_config=run_config,
             char_glyphs=char_glyphs,
             prev_num_spaces_for_char_glyphs=prev_num_spaces_for_char_glyphs,
             kerning_limits=kerning_limits,
@@ -860,7 +860,7 @@ def render_text_line_meta(
             char_boxes,
             cv_resize_interpolation,
         ) = resize_and_trim_text_line_hori_default(
-            config=config,
+            run_config=run_config,
             cv_resize_interpolation_enlarge=cv_resize_interpolation_enlarge,
             cv_resize_interpolation_shrink=cv_resize_interpolation_shrink,
             image=image,
@@ -871,7 +871,7 @@ def render_text_line_meta(
         )
         is_hori = True
 
-    elif config.glyph_sequence == FontEngineRunConfigGlyphSequence.VERT_DEFAULT:
+    elif run_config.glyph_sequence == FontEngineRunConfigGlyphSequence.VERT_DEFAULT:
         # NOTE: No kerning limit detection for VERT_DEFAULT mode.
         (
             image,
@@ -879,7 +879,7 @@ def render_text_line_meta(
             score_map,
             char_boxes,
         ) = place_char_glyphs_in_text_line_vert_default(
-            config=config,
+            run_config=run_config,
             char_glyphs=char_glyphs,
             prev_num_spaces_for_char_glyphs=prev_num_spaces_for_char_glyphs,
             rng=rng,
@@ -891,7 +891,7 @@ def render_text_line_meta(
             char_boxes,
             cv_resize_interpolation,
         ) = resize_and_trim_text_line_vert_default(
-            config=config,
+            run_config=run_config,
             cv_resize_interpolation_enlarge=cv_resize_interpolation_enlarge,
             cv_resize_interpolation_shrink=cv_resize_interpolation_shrink,
             image=image,
@@ -912,8 +912,8 @@ def render_text_line_meta(
 
         char_idx = 0
         non_space_count = 0
-        while char_idx < len(config.chars) and non_space_count < len(char_boxes):
-            if not config.chars[char_idx].isspace():
+        while char_idx < len(run_config.chars) and non_space_count < len(char_boxes):
+            if not run_config.chars[char_idx].isspace():
                 non_space_count += 1
             char_idx += 1
         assert non_space_count == len(char_boxes)
@@ -931,13 +931,13 @@ def render_text_line_meta(
             char_boxes=char_boxes,
             char_glyphs=char_glyphs[:len(char_boxes)],
             cv_resize_interpolation=cv_resize_interpolation,
-            font_size=estimate_font_size(config),
-            style=config.style,
-            ref_char_height=get_ref_char_height(config),
-            ref_char_width=get_ref_char_width(config),
-            text=''.join(config.chars[:char_idx]),
+            font_size=estimate_font_size(run_config),
+            style=run_config.style,
+            ref_char_height=get_ref_char_height(run_config),
+            ref_char_width=get_ref_char_width(run_config),
+            text=''.join(run_config.chars[:char_idx]),
             is_hori=is_hori,
-            font_variant=config.font_variant if config.return_font_variant else None,
+            font_variant=run_config.font_variant if run_config.return_font_variant else None,
         )
 
 
@@ -956,12 +956,12 @@ class FreetypeDefaultFontEngine(
 
     @staticmethod
     def render_char_glyph(
-        config: FontEngineRunConfig,
+        run_config: FontEngineRunConfig,
         font_face: freetype.Face,
         char: str,
     ):
         load_char_flags = freetype.FT_LOAD_RENDER  # type: ignore
-        if config.style.freetype_force_autohint:
+        if run_config.style.freetype_force_autohint:
             load_char_flags |= freetype.FT_LOAD_FORCE_AUTOHINT  # type: ignore
         font_face.load_char(char, load_char_flags)
 
@@ -975,12 +975,12 @@ class FreetypeDefaultFontEngine(
         # (H, W), [0, 255]
         np_image = np.array(bitmap.buffer, dtype=np.uint8).reshape(height, width)
 
-        return build_char_glyph(config.style, char, glyph, np_image)
+        return build_char_glyph(run_config.style, char, glyph, np_image)
 
-    def run(self, config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
-        font_face = load_freetype_font_face(config)
+    def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
+        font_face = load_freetype_font_face(run_config)
         return render_text_line_meta(
-            config=config,
+            run_config=run_config,
             font_face=font_face,
             func_render_char_glyph=FreetypeDefaultFontEngine.render_char_glyph,
             rng=rng,
@@ -1007,13 +1007,13 @@ class FreetypeLcdFontEngine(
 
     @staticmethod
     def render_char_glyph(
-        config: FontEngineRunConfig,
+        run_config: FontEngineRunConfig,
         font_face: freetype.Face,
         lcd_hc_matrix: freetype.Matrix,
         char: str,
     ):
         load_char_flags = freetype.FT_LOAD_RENDER | freetype.FT_LOAD_TARGET_LCD  # type: ignore
-        if config.style.freetype_force_autohint:
+        if run_config.style.freetype_force_autohint:
             load_char_flags |= freetype.FT_LOAD_FORCE_AUTOHINT  # type: ignore
         font_face.set_transform(lcd_hc_matrix, freetype.Vector(0, 0))
         font_face.load_char(char, load_char_flags)
@@ -1030,7 +1030,7 @@ class FreetypeLcdFontEngine(
         np_image = np.array(bitmap.buffer, dtype=np.uint8).reshape(height, pitch)
         np_image = np_image[:, :width * 3].reshape(height, width, 3)
 
-        return build_char_glyph(config.style, char, glyph, np_image)
+        return build_char_glyph(run_config.style, char, glyph, np_image)
 
     @staticmethod
     def bind_render_char_glyph(lcd_hc_matrix: freetype.Matrix):
@@ -1041,15 +1041,15 @@ class FreetypeLcdFontEngine(
             char,
         )
 
-    def run(self, config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
+    def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
         lcd_compression_factor = 10
         font_face = load_freetype_font_face(
-            config,
+            run_config,
             lcd_compression_factor=lcd_compression_factor,
         )
         lcd_hc_matrix = build_freetype_font_face_lcd_hc_matrix(lcd_compression_factor)
         return render_text_line_meta(
-            config=config,
+            run_config=run_config,
             font_face=font_face,
             func_render_char_glyph=FreetypeLcdFontEngine.bind_render_char_glyph(lcd_hc_matrix),
             rng=rng,
@@ -1076,12 +1076,12 @@ class FreetypeMonochromeFontEngine(
 
     @staticmethod
     def render_char_glyph(
-        config: FontEngineRunConfig,
+        run_config: FontEngineRunConfig,
         font_face: freetype.Face,
         char: str,
     ):
         load_char_flags = freetype.FT_LOAD_RENDER | freetype.FT_LOAD_TARGET_MONO  # type: ignore
-        if config.style.freetype_force_autohint:
+        if run_config.style.freetype_force_autohint:
             load_char_flags |= freetype.FT_LOAD_FORCE_AUTOHINT  # type: ignore
         font_face.load_char(char, load_char_flags)
 
@@ -1110,12 +1110,12 @@ class FreetypeMonochromeFontEngine(
         np_image = np.array(data, dtype=np.uint8)
         assert np_image.shape == (height, width)
 
-        return build_char_glyph(config.style, char, glyph, np_image)
+        return build_char_glyph(run_config.style, char, glyph, np_image)
 
-    def run(self, config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
-        font_face = load_freetype_font_face(config)
+    def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
+        font_face = load_freetype_font_face(run_config)
         return render_text_line_meta(
-            config=config,
+            run_config=run_config,
             font_face=font_face,
             func_render_char_glyph=FreetypeMonochromeFontEngine.render_char_glyph,
             rng=rng,

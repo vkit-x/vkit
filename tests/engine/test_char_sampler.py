@@ -86,6 +86,16 @@ def test_lexicon_sampler():
 
 
 def test_create_char_sampler_factor_from_file():
+    temp_txt_file = tempfile.NamedTemporaryFile()
+    text = '''
+a
+b
+c
+'''
+    temp_txt_file.write(text.encode())
+    temp_txt_file.flush()
+
+    temp_config_file = tempfile.NamedTemporaryFile()
     text = '''
 [
     {
@@ -99,20 +109,35 @@ def test_create_char_sampler_factor_from_file():
                 "Europe/Athens"
             ]
         }
+    },
+    {
+        "type": "corpus",
+        "weight": 1,
+        "config": {
+            "txt_files": ["PLACEHOLDER"]
+        }
     }
 ]
 '''
-    with tempfile.NamedTemporaryFile() as temp_file:
-        temp_file.write(text.encode())
-        temp_file.flush()
+    text = text.replace('PLACEHOLDER', temp_txt_file.name)
+    temp_config_file.write(text.encode())
+    temp_config_file.flush()
 
-        lexicon_collection = LexiconCollection(
-            lexicons=[Lexicon(char=char) for char in string.printable if not char.isspace()]
-        )
-        char_sampler_aggregator = char_sampler_factory.create(
-            temp_file.name,
-            {'lexicon_collection': lexicon_collection},
-        )
-        rng = default_rng(0)
-        chars = char_sampler_aggregator.run({'num_chars': 40}, rng=rng)
-        assert ''.join(chars) == '2022-02-23 01-23-28 EET+0200 1994-05-260'
+    lexicon_collection = LexiconCollection(
+        lexicons=[Lexicon(char=char) for char in string.printable if not char.isspace()]
+    )
+    char_sampler_aggregator = char_sampler_factory.create(
+        temp_config_file.name,
+        {'lexicon_collection': lexicon_collection},
+    )
+
+    rng = default_rng(0)
+    chars = char_sampler_aggregator.run({'num_chars': 40}, rng=rng)
+    assert ''.join(chars) == 'b a a a a a a c b c b b c c b b b c a cc'
+
+    rng = default_rng(0)
+    chars = char_sampler_aggregator.run({'num_chars': 40, 'enable_aggregator_mode': True}, rng=rng)
+    assert ''.join(chars) == 'b 2007-11-26 12*32*15 EET+0200cc2015.03.'
+
+    temp_txt_file.close()
+    temp_config_file.close()

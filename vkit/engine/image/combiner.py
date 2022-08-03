@@ -103,7 +103,7 @@ class CombinerImageEngine(
 
     def sample_image_metas_based_on_random_anchor(
         self,
-        config: ImageEngineRunConfig,
+        run_config: ImageEngineRunConfig,
         rng: RandomGenerator,
     ):
         # Get candidates based on anchor.
@@ -154,12 +154,12 @@ class CombinerImageEngine(
 
     def synthesize_image(
         self,
-        config: ImageEngineRunConfig,
+        run_config: ImageEngineRunConfig,
         image_metas: Sequence[ImageMeta],
         rng: RandomGenerator,
     ):
-        height = config.height
-        width = config.width
+        height = run_config.height
+        width = run_config.width
 
         mat = np.zeros((height, width, 3), dtype=np.uint8)
         edge_mask = Mask.from_shape((height, width))
@@ -292,9 +292,9 @@ class CombinerImageEngine(
 
         return Image(mat=mat)
 
-    def run(self, config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
-        image_metas = self.sample_image_metas_based_on_random_anchor(config, rng)
-        return self.synthesize_image(config, image_metas, rng)
+    def run(self, run_config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
+        image_metas = self.sample_image_metas_based_on_random_anchor(run_config, rng)
+        return self.synthesize_image(run_config, image_metas, rng)
 
 
 def debug():

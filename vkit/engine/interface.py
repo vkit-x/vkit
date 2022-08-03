@@ -10,6 +10,7 @@ from typing import (
     List,
     Optional,
     Union,
+    Callable,
 )
 from enum import Enum, unique
 
@@ -17,6 +18,7 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import (
+    normalize_to_keys_and_probs,
     rng_choice,
     is_path_type,
     read_json_file,
@@ -41,7 +43,14 @@ class NoneTypeEngineResource:
     pass
 
 
-class Engine(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
+class Engine(
+    Generic[
+        _T_CONFIG,
+        _T_RESOURCE,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ]
+):  # yapf: disable
 
     @classmethod
     def get_type_name(cls) -> str:
@@ -55,13 +64,28 @@ class Engine(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
         self.config = config
         self.resource = resource
 
-    def run(self, config: _T_RUN_CONFIG, rng: RandomGenerator) -> _T_OUTPUT:
+    def run(self, run_config: _T_RUN_CONFIG, rng: RandomGenerator) -> _T_OUTPUT:
         raise NotImplementedError()
 
 
-class EngineRunner(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
+class EngineRunner(
+    Generic[
+        _T_CONFIG,
+        _T_RESOURCE,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ]
+):  # yapf: disable
 
-    def __init__(self, engine: Engine[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]) -> None:
+    def __init__(
+        self,
+        engine: Engine[
+            _T_CONFIG,
+            _T_RESOURCE,
+            _T_RUN_CONFIG,
+            _T_OUTPUT,
+        ],
+    ):  # yapf: disable
         self.engine = engine
 
     def get_run_config_cls(self) -> Type[_T_RUN_CONFIG]:
@@ -69,18 +93,36 @@ class EngineRunner(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
 
     def run(
         self,
-        config: Union[Mapping[str, Any], _T_RUN_CONFIG],
+        run_config: Union[
+            Mapping[str, Any],
+            _T_RUN_CONFIG,
+        ],
         rng: RandomGenerator,
-    ) -> _T_OUTPUT:
-        config = dyn_structure(config, self.get_run_config_cls())
-        return self.engine.run(config, rng)
+    ) -> _T_OUTPUT:  # yapf: disable
+        run_config = dyn_structure(run_config, self.get_run_config_cls())
+        return self.engine.run(run_config, rng)
 
 
-class EngineFactory(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
+class EngineFactory(
+    Generic[
+        _T_CONFIG,
+        _T_RESOURCE,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ]
+):  # yapf: disable
 
     def __init__(
-        self, engine_cls: Type[Engine[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]]
-    ) -> None:
+        self,
+        engine_cls: Type[
+            Engine[
+                _T_CONFIG,
+                _T_RESOURCE,
+                _T_RUN_CONFIG,
+                _T_OUTPUT,
+            ]
+        ],
+    ):  # yapf: disable
         self.engine_cls = engine_cls
 
     def get_type_name(self):
@@ -94,9 +136,20 @@ class EngineFactory(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
 
     def create(
         self,
-        config: Optional[Union[Mapping[str, Any], PathType, _T_CONFIG]] = None,
-        resource: Optional[Union[Mapping[str, Any], _T_RESOURCE]] = None,
-    ):
+        config: Optional[
+            Union[
+                Mapping[str, Any],
+                PathType,
+                _T_CONFIG,
+            ]
+        ] = None,
+        resource: Optional[
+            Union[
+                Mapping[str, Any],
+                _T_RESOURCE,
+            ]
+        ] = None,
+    ):  # yapf: disable
         config = dyn_structure(
             config,
             self.get_config_cls(),
@@ -115,27 +168,94 @@ class EngineFactory(Generic[_T_CONFIG, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
         return EngineRunner(self.engine_cls(config, resource))
 
 
-class EngineRunnerAggregator(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
+class EngineRunnerAggregatorSelector(
+    Generic[
+        _T_RESOURCE,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ]
+):  # yapf: disable
 
     def __init__(
         self,
-        pairs: Sequence[Tuple[EngineRunner[Any, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT], float]],
-    ):
-        self.engine_runners: List[EngineRunner[Any, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]] = []
-        weights = []
-        for engine_runner, weight in pairs:
-            self.engine_runners.append(engine_runner)
-            weights.append(weight)
-        total = sum(weights)
-        self.probs = [weight / total for weight in weights]
+        pairs: Sequence[
+            Tuple[
+                EngineRunner[
+                    Any,
+                    _T_RESOURCE,
+                    _T_RUN_CONFIG,
+                    _T_OUTPUT,
+                ],
+                float,
+            ]
+        ],
+    ):  # yapf: disable
+        self.engine_runners, self.probs = normalize_to_keys_and_probs(pairs)
+
+    def get_run_config_cls(self):
+        return self.engine_runners[0].get_run_config_cls()
+
+    def select_engine_runner(self, rng: RandomGenerator):
+        return rng_choice(rng, self.engine_runners, probs=self.probs)
+
+
+def engine_runner_aggregator_default_func_collate(
+    selector: EngineRunnerAggregatorSelector[
+        Any,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ],
+    run_config: _T_RUN_CONFIG,
+    rng: RandomGenerator,
+) -> _T_OUTPUT:  # yapf: disable
+    engine_runner = selector.select_engine_runner(rng)
+    return engine_runner.run(run_config, rng)
+
+
+class EngineRunnerAggregator(
+    Generic[
+        _T_RESOURCE,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ]
+):  # yapf: disable
+
+    def get_run_config_cls(self):
+        return self.selector.get_run_config_cls()
+
+    def __init__(
+        self,
+        selector: EngineRunnerAggregatorSelector[
+            _T_RESOURCE,
+            _T_RUN_CONFIG,
+            _T_OUTPUT,
+        ],
+        func_collate: Callable[
+            [
+                EngineRunnerAggregatorSelector[
+                    _T_RESOURCE,
+                    _T_RUN_CONFIG,
+                    _T_OUTPUT,
+                ],
+                _T_RUN_CONFIG,
+                RandomGenerator,
+            ],
+            _T_OUTPUT,
+        ] = engine_runner_aggregator_default_func_collate,
+    ):  # yapf: disable
+        self.selector = selector
+        self.func_collate = func_collate
 
     def run(
         self,
-        config: Union[Mapping[str, Any], _T_RUN_CONFIG],
+        run_config: Union[
+            Mapping[str, Any],
+            _T_RUN_CONFIG,
+        ],
         rng: RandomGenerator,
-    ) -> _T_OUTPUT:
-        engine_runner = rng_choice(rng, self.engine_runners, probs=self.probs)
-        return engine_runner.run(config, rng)
+    ) -> _T_OUTPUT:  # yapf: disable
+        run_config = dyn_structure(run_config, self.get_run_config_cls())
+        return self.func_collate(self.selector, run_config, rng)
 
 
 @unique
@@ -145,14 +265,41 @@ class EngineRunnerAggregatorFactoryConfigKey(Enum):
     CONFIG = 'config'
 
 
-class EngineRunnerAggregatorFactory(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]):
+class EngineRunnerAggregatorFactory(
+    Generic[
+        _T_RESOURCE,
+        _T_RUN_CONFIG,
+        _T_OUTPUT,
+    ]
+):  # yapf: disable
 
     def __init__(
-        self, engine_factories: Sequence[EngineFactory[Any, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT]]
-    ):
+        self,
+        engine_factories: Sequence[
+            EngineFactory[
+                Any,
+                _T_RESOURCE,
+                _T_RUN_CONFIG,
+                _T_OUTPUT,
+            ]
+        ],
+        func_collate: Callable[
+            [
+                EngineRunnerAggregatorSelector[
+                    _T_RESOURCE,
+                    _T_RUN_CONFIG,
+                    _T_OUTPUT,
+                ],
+                _T_RUN_CONFIG,
+                RandomGenerator,
+            ],
+            _T_OUTPUT,
+        ] = engine_runner_aggregator_default_func_collate,
+    ):  # yapf: disable
         self.type_name_to_engine_factory = {
             engine_factory.get_type_name(): engine_factory for engine_factory in engine_factories
         }
+        self.func_collate = func_collate
 
     def get_resource_cls(self) -> Type[_T_RESOURCE]:
         engine_cls = next(iter(self.type_name_to_engine_factory.values()))
@@ -160,9 +307,18 @@ class EngineRunnerAggregatorFactory(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPU
 
     def create(
         self,
-        configs: Union[Sequence[Mapping[str, Any]], PathType],
-        resource: Optional[Union[Mapping[str, Any], _T_RESOURCE]] = None,
-    ):
+        configs: Union[
+            Sequence[Mapping[str, Any]],
+            PathType,
+        ],
+        resource: Optional[
+            Union[
+                Mapping[str, Any],
+                _T_RESOURCE,
+            ]
+        ] = None,
+
+    ):  # yapf: disable
         resource_cls = self.get_resource_cls()
         if resource_cls is NoneTypeEngineResource:
             assert resource is None
@@ -192,4 +348,6 @@ class EngineRunnerAggregatorFactory(Generic[_T_RESOURCE, _T_RUN_CONFIG, _T_OUTPU
                 weight = config[EngineRunnerAggregatorFactoryConfigKey.WEIGHT.value]
 
             pairs.append((engine_runner, weight))
-        return EngineRunnerAggregator(pairs)
+        selector = EngineRunnerAggregatorSelector(pairs)
+
+        return EngineRunnerAggregator(selector, func_collate=self.func_collate)
