@@ -60,28 +60,32 @@ class CorpusCharSamplerEngine(
             if segments:
                 return ' '.join(segments)
 
-    def run(self, config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
-        num_chars = config.num_chars
-        if num_chars <= 0:
-            return []
+    def run(self, run_config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
+        if not run_config.enable_aggregator_mode:
+            num_chars = run_config.num_chars
+            if num_chars <= 0:
+                return []
 
-        # Uniform selection.
-        texts: List[str] = []
-        num_chars_in_texts = 0
-        while num_chars_in_texts + len(texts) - 1 < num_chars:
-            text = self.sample_and_prep_text(rng)
-            texts.append(text)
-            num_chars_in_texts += len(text)
+            # Uniform selection.
+            texts: List[str] = []
+            num_chars_in_texts = 0
+            while num_chars_in_texts + len(texts) - 1 < num_chars:
+                text = self.sample_and_prep_text(rng)
+                texts.append(text)
+                num_chars_in_texts += len(text)
 
-        chars = list(' '.join(texts))
+            chars = list(' '.join(texts))
 
-        # Trim and make sure the last char is not space.
-        if len(chars) > num_chars:
-            rest = chars[num_chars:]
-            chars = chars[:num_chars]
-            if chars[-1].isspace():
-                chars.pop()
-                assert not rest[0].isspace()
-                chars.append(rest[0])
+            # Trim and make sure the last char is not space.
+            if len(chars) > num_chars:
+                rest = chars[num_chars:]
+                chars = chars[:num_chars]
+                if chars[-1].isspace():
+                    chars.pop()
+                    assert not rest[0].isspace()
+                    chars.append(rest[0])
 
-        return chars
+            return chars
+
+        else:
+            return self.sample_and_prep_text(rng)

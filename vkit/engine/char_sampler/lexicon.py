@@ -60,8 +60,11 @@ class LexiconCharSamplerEngine(
             total += space_weight
         self.probs = [val / total for val in weights]
 
-    def run(self, config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
-        num_chars = config.num_chars
+    def run(self, run_config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
+        num_chars = run_config.num_chars
+
+        if run_config.enable_aggregator_mode:
+            num_chars = int(rng.integers(1, run_config.num_chars + 1))
 
         chars: List[str] = []
         for char_idx in range(num_chars):

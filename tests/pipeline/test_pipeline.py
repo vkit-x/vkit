@@ -328,12 +328,12 @@ def test_page():
                 vis_image = distortion_images[-2]
             else:
                 vis_image = meta['image']
-            Box.from_shapable(vis_image).fill_image(vis_image, src_grid_image, 0.5)
+            Box.from_shapable(vis_image).fill_image(vis_image, src_grid_image, alpha=0.5)
             write_image(f'page_{seed}_src_grid_image_debug.jpg', vis_image)
 
             vis_image = image.copy()
             dst_grid_image = visualize_image_grid(distortion_state.dst_image_grid)
-            Box.from_shapable(vis_image).fill_image(vis_image, dst_grid_image, 0.5)
+            Box.from_shapable(vis_image).fill_image(vis_image, dst_grid_image, alpha=0.5)
             write_image(f'page_{seed}_dst_grid_image_debug.jpg', vis_image)
 
         output2: PageResizingStepOutput = result.key_to_value['page_resizing_step']

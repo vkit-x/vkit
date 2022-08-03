@@ -79,29 +79,32 @@ class CharAndFontSamplerEngine(
         self.char_sampler_aggregator = resource.char_sampler_aggregator
 
     @staticmethod
-    def estimate_num_chars(config: CharAndFontSamplerEngineRunConfig):
-        if config.num_chars:
-            return config.num_chars
+    def estimate_num_chars(run_config: CharAndFontSamplerEngineRunConfig):
+        if run_config.num_chars:
+            return run_config.num_chars
 
-        if config.glyph_sequence == FontEngineRunConfigGlyphSequence.HORI_DEFAULT:
-            num_chars = config.width / config.height
-        elif config.glyph_sequence == FontEngineRunConfigGlyphSequence.VERT_DEFAULT:
-            num_chars = config.height / config.width
+        if run_config.glyph_sequence == FontEngineRunConfigGlyphSequence.HORI_DEFAULT:
+            num_chars = run_config.width / run_config.height
+        elif run_config.glyph_sequence == FontEngineRunConfigGlyphSequence.VERT_DEFAULT:
+            num_chars = run_config.height / run_config.width
         else:
             raise NotImplementedError()
 
-        num_chars *= config.num_chars_factor
+        num_chars *= run_config.num_chars_factor
         return math.ceil(num_chars)
 
     def run(
         self,
-        config: CharAndFontSamplerEngineRunConfig,
+        run_config: CharAndFontSamplerEngineRunConfig,
         rng: RandomGenerator,
     ) -> Optional[CharAndFont]:
         # Sample chars.
-        num_chars = CharAndFontSamplerEngine.estimate_num_chars(config)
+        num_chars = CharAndFontSamplerEngine.estimate_num_chars(run_config)
         chars = self.char_sampler_aggregator.run(
-            CharSamplerEngineRunConfig(num_chars=num_chars),
+            CharSamplerEngineRunConfig(
+                num_chars=num_chars,
+                enable_aggregator_mode=True,
+            ),
             rng,
         )
         logger.debug(f'chars={chars}')

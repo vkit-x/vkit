@@ -45,15 +45,15 @@ class SelectorImageEngine(
                 for new_ext in [ext, ext.upper()]:
                     self.image_files.extend(image_fd.glob(f'**/*.{new_ext}'))
 
-    def run(self, config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
+    def run(self, run_config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
         image_file = rng_choice(rng, self.image_files)
         image = Image.from_file(image_file)
 
         if self.config.target_kind_image:
             image = image.to_target_kind_image(self.config.target_kind_image)
 
-        height = config.height
-        width = config.width
+        height = run_config.height
+        width = run_config.width
         if not self.config.force_resize and height <= image.height and width <= image.width:
             # Select a part of image.
             up = rng.integers(0, image.height - height + 1)
