@@ -28,7 +28,7 @@ class EllipseSealImpressionEngineConfig:
     weight_color_green: float = 1
     weight_color_blue: float = 1
     alpha_min: float = 0.25
-    alpha_max: float = 0.8
+    alpha_max: float = 0.75
 
     # Border.
     border_thickness_ratio_min: float = 0.0

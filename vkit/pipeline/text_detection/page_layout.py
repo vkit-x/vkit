@@ -49,7 +49,7 @@ class PageLayoutStepConfig:
 
     # Non-text symbol.
     num_non_text_symbols_min: int = 0
-    num_non_text_symbols_max: int = 10
+    num_non_text_symbols_max: int = 5
     num_retries_to_get_non_overlapped_non_text_symbol: int = 5
     non_text_symbol_height_ratio_min: float = 0.0085
     non_text_symbol_height_ratio_max: float = 0.09
