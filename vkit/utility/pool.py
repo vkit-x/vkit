@@ -183,8 +183,9 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
         output: _T_OUTPUT = self.mp_pool_iter.next(timeout=self.config.timeout)
 
         # Update inventory.
-        with self.state.cond, self.mp_pool_iter._cond:  # type: ignore
-            new_inventory = len(self.mp_pool_iter._items)  # type: ignore
+        with self.state.cond:
+            with self.mp_pool_iter._cond:  # type: ignore
+                new_inventory = len(self.mp_pool_iter._items)  # type: ignore
             logger.debug(f'inventory: {self.state.inventory} -> {new_inventory}')
 
             # NOTE: We have just get one output, hence need to minus one.

@@ -88,7 +88,7 @@ class PipelinePool(Generic[_T_OUTPUT]):
         num_processes: int,
         rng_seed: int,
         num_runs_reset_rng: Optional[int] = None,
-        timeout: int = 10,
+        timeout: int = 60,
     ):
         self.pool = Pool(
             config=PoolConfig(
