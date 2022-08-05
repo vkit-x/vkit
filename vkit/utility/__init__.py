@@ -13,3 +13,4 @@ from .opt import (
     get_config_class_snake_case_name,
     get_generic_classes,
 )
+from .pool import Pool, PoolConfig
