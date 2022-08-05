@@ -81,18 +81,14 @@ def test_pool():
         num_processes=2,
         rng_seed=1234,
     )
+    time.sleep(2.5)
+
     shapes = []
     for _ in range(8):
         state = pipeline_pool.run()
         page_shape_step = state.key_to_value['page_shape_step']
         shapes.append((page_shape_step.height, page_shape_step.width))
     assert len(set(shapes)) == 8
-
-    for _ in range(4):
-        state = pipeline_pool.run()
-        page_shape_step = state.key_to_value['page_shape_step']
-        shapes.append((page_shape_step.height, page_shape_step.width))
-    assert len(set(shapes)) > 8
 
     print('!!!!!! cleanup')
     pipeline_pool.cleanup()
@@ -105,6 +101,7 @@ def test_pool():
         num_processes=2,
         num_runs_reset_rng=1,
     )
+    time.sleep(2.5)
 
     shapes0 = []
     for _ in range(8):
@@ -112,8 +109,16 @@ def test_pool():
         page_shape_step = state.key_to_value['page_shape_step']
         shapes0.append((page_shape_step.height, page_shape_step.width))
 
-    print('!!!!!! reset')
-    pipeline_pool.reset()
+    pipeline_pool.cleanup()
+
+    pipeline_pool = PipelinePool(
+        pipeline=pipeline,
+        inventory=4,
+        rng_seed=1234,
+        num_processes=2,
+        num_runs_reset_rng=1,
+    )
+    time.sleep(2.5)
 
     shapes1 = []
     for _ in range(8):
@@ -123,23 +128,5 @@ def test_pool():
 
     assert set(shapes0) == set(shapes1)
     assert len(set(shapes0)) == 2
-
-    print('!!!!!! cleanup')
-    pipeline_pool.cleanup()
-
-    print('!!! set num_runs_reset_rng=2 !!!')
-    pipeline_pool = PipelinePool(
-        pipeline=pipeline,
-        inventory=8,
-        rng_seed=1234,
-        num_processes=2,
-        num_runs_reset_rng=2,
-    )
-    shapes = []
-    for _ in range(8):
-        state = pipeline_pool.run()
-        page_shape_step = state.key_to_value['page_shape_step']
-        shapes.append((page_shape_step.height, page_shape_step.width))
-    assert len(set(shapes)) == 4
 
     pipeline_pool.cleanup()

@@ -1,4 +1,4 @@
-from typing import Optional, Protocol, TypeVar, Generic, Type
+from typing import Optional, Protocol, TypeVar, Generic, Type, Any
 import multiprocessing
 import multiprocessing.util
 import multiprocessing.process
@@ -48,8 +48,10 @@ class PoolWorkerState:
     logger: logging.Logger
 
 
-def pool_worker_initializer(pool_config: PoolConfig, process_identity_base: int):
-    process_idx = multiprocessing.current_process()._identity[0] - 1 - process_identity_base
+def pool_worker_initializer(pool_config: PoolConfig, process_counter: Any):
+    with process_counter.get_lock():
+        process_idx = process_counter.value
+        process_counter.value += 1
 
     # Overriding logger.
     logger = multiprocessing.get_logger()
@@ -139,12 +141,14 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
     def __init__(self, config: PoolConfig[_T_CONFIG, _T_OUTPUT]):
         self.config = config
 
-        process_identity_base = next(multiprocessing.process._process_counter)  # type: ignore
+        process_counter = multiprocessing.Value('i')
+        with process_counter.get_lock():
+            process_counter.value = 0
 
         self.mp_pool = multiprocessing.Pool(
             processes=self.config.num_processes,
             initializer=pool_worker_initializer,
-            initargs=(self.config, process_identity_base),
+            initargs=(self.config, process_counter),
         )
 
         self.state = PoolInventoryState(

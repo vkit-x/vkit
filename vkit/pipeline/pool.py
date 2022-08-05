@@ -1,6 +1,5 @@
 from typing import TypeVar, Generic, Optional
 import logging
-import time
 
 import attrs
 from numpy.random import SeedSequence, default_rng
@@ -91,7 +90,7 @@ class PipelinePool(Generic[_T_OUTPUT]):
         num_runs_reset_rng: Optional[int] = None,
         timeout: int = 10,
     ):
-        self.pool_creator = lambda: Pool(
+        self.pool = Pool(
             config=PoolConfig(
                 inventory=inventory,
                 num_processes=num_processes,
@@ -104,15 +103,9 @@ class PipelinePool(Generic[_T_OUTPUT]):
                 timeout=timeout,
             )
         )
-        self.pool = self.pool_creator()
 
     def cleanup(self):
         self.pool.cleanup()
-
-    def reset(self):
-        self.cleanup()
-        time.sleep(2.5)
-        self.pool = self.pool_creator()
 
     def run(self):
         return self.pool.run()
