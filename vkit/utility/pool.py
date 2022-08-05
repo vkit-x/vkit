@@ -50,8 +50,8 @@ class PoolWorkerState:
 
 def pool_worker_initializer(pool_config: PoolConfig, process_counter: Any):
     with process_counter.get_lock():
-        process_idx = process_counter.value
-        process_counter.value += 1
+        process_idx: int = process_counter.value  # type: ignore
+        process_counter.value += 1  # type: ignore
 
     # Overriding logger.
     logger = multiprocessing.get_logger()
@@ -143,7 +143,7 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
 
         process_counter = multiprocessing.Value('i')
         with process_counter.get_lock():
-            process_counter.value = 0
+            process_counter.value = 0  # type: ignore
 
         self.mp_pool = multiprocessing.Pool(
             processes=self.config.num_processes,
