@@ -139,3 +139,57 @@ def test_pool():
     assert len(set(shapes)) == 4
 
     pipeline_pool.cleanup()
+
+
+# class ProcState:
+#     ID: int = -1
+#     OFFSET: int = -1
+
+# def initializer():
+#     from multiprocessing import current_process
+#     proc = current_process()
+#     ProcState.ID = proc._identity[0]
+#     ProcState.OFFSET = 0
+
+# def proc_producer(_):
+#     ProcState.OFFSET += 1
+#     result = f'{ProcState.ID}-{ProcState.OFFSET}'
+#     print(f'{result} generated.')
+#     return result
+
+# class TickState:
+#     GO: bool = True
+
+# def generate_ticks():
+#     import threading
+#     import os
+#     idx = 0
+#     while True:
+#         while not TickState.GO:
+#             print('no go', threading.get_ident())
+#             time.sleep(0.5)
+#         print('go', threading.get_ident())
+#         yield idx
+#         idx += 1
+#         time.sleep(0.1)
+
+# class Ticker:
+#     pass
+
+# def debug_mp():
+#     import os
+#     import threading
+#     from multiprocessing import Pool
+
+#     print('main', os.getpid())
+#     with Pool(processes=2, initializer=initializer) as pool:
+#         it = pool.imap_unordered(proc_producer, generate_ticks())
+#         print('ok')
+#         while True:
+#             print('loop', threading.get_ident(), next(it))
+#             print('loop', threading.get_ident(), it._items)
+#             if len(it._items) > 30:
+#                 TickState.GO = False
+#             else:
+#                 TickState.GO = True
+#             time.sleep(10.0)
