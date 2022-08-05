@@ -77,9 +77,9 @@ def test_pool():
 
     pipeline_pool = PipelinePool(
         pipeline=pipeline,
-        rng_seed=1234,
+        inventory=4,
         num_processes=2,
-        num_runs_per_process=4,
+        rng_seed=1234,
     )
     shapes = []
     for _ in range(8):
@@ -94,26 +94,29 @@ def test_pool():
         shapes.append((page_shape_step.height, page_shape_step.width))
     assert len(set(shapes)) > 8
 
+    print('!!!!!! cleanup')
     pipeline_pool.cleanup()
+    print('done')
 
     pipeline_pool = PipelinePool(
         pipeline=pipeline,
+        inventory=4,
         rng_seed=1234,
         num_processes=2,
-        num_runs_per_process=2,
         num_runs_reset_rng=1,
     )
 
     shapes0 = []
-    for _ in range(4):
+    for _ in range(8):
         state = pipeline_pool.run()
         page_shape_step = state.key_to_value['page_shape_step']
         shapes0.append((page_shape_step.height, page_shape_step.width))
 
+    print('!!!!!! reset')
     pipeline_pool.reset()
 
     shapes1 = []
-    for _ in range(4):
+    for _ in range(8):
         state = pipeline_pool.run()
         page_shape_step = state.key_to_value['page_shape_step']
         shapes1.append((page_shape_step.height, page_shape_step.width))
@@ -121,14 +124,15 @@ def test_pool():
     assert set(shapes0) == set(shapes1)
     assert len(set(shapes0)) == 2
 
+    print('!!!!!! cleanup')
     pipeline_pool.cleanup()
 
-    print('!!! set num_runs_reset_rng !!!')
+    print('!!! set num_runs_reset_rng=2 !!!')
     pipeline_pool = PipelinePool(
         pipeline=pipeline,
+        inventory=8,
         rng_seed=1234,
         num_processes=2,
-        num_runs_per_process=4,
         num_runs_reset_rng=2,
     )
     shapes = []
@@ -139,57 +143,3 @@ def test_pool():
     assert len(set(shapes)) == 4
 
     pipeline_pool.cleanup()
-
-
-# class ProcState:
-#     ID: int = -1
-#     OFFSET: int = -1
-
-# def initializer():
-#     from multiprocessing import current_process
-#     proc = current_process()
-#     ProcState.ID = proc._identity[0]
-#     ProcState.OFFSET = 0
-
-# def proc_producer(_):
-#     ProcState.OFFSET += 1
-#     result = f'{ProcState.ID}-{ProcState.OFFSET}'
-#     print(f'{result} generated.')
-#     return result
-
-# class TickState:
-#     GO: bool = True
-
-# def generate_ticks():
-#     import threading
-#     import os
-#     idx = 0
-#     while True:
-#         while not TickState.GO:
-#             print('no go', threading.get_ident())
-#             time.sleep(0.5)
-#         print('go', threading.get_ident())
-#         yield idx
-#         idx += 1
-#         time.sleep(0.1)
-
-# class Ticker:
-#     pass
-
-# def debug_mp():
-#     import os
-#     import threading
-#     from multiprocessing import Pool
-
-#     print('main', os.getpid())
-#     with Pool(processes=2, initializer=initializer) as pool:
-#         it = pool.imap_unordered(proc_producer, generate_ticks())
-#         print('ok')
-#         while True:
-#             print('loop', threading.get_ident(), next(it))
-#             print('loop', threading.get_ident(), it._items)
-#             if len(it._items) > 30:
-#                 TickState.GO = False
-#             else:
-#                 TickState.GO = True
-#             time.sleep(10.0)

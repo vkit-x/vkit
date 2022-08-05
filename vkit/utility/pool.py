@@ -1,6 +1,7 @@
 from typing import Optional, Protocol, TypeVar, Generic, Type
 import multiprocessing
 import multiprocessing.util
+import multiprocessing.process
 import threading
 import logging
 
@@ -37,7 +38,7 @@ class PoolConfig(Generic[_T_CONFIG, _T_OUTPUT]):
     schedule_size_min_factor: float = 1.0
     rng_seed: int = 133700
     logging_level: int = logging.INFO
-    logging_format: str = '[%(levelname)s/%(processName)s] %(message)s'
+    logging_format: str = '[%(levelname)s/PROCESS_IDX] %(message)s'
     logging_to_stderr: bool = False
     timeout: Optional[int] = None
 
@@ -47,11 +48,15 @@ class PoolWorkerState:
     logger: logging.Logger
 
 
-def pool_worker_initializer(pool_config: PoolConfig):
+def pool_worker_initializer(pool_config: PoolConfig, process_identity_base: int):
+    process_idx = multiprocessing.current_process()._identity[0] - 1 - process_identity_base
+
     # Overriding logger.
     logger = multiprocessing.get_logger()
     logger_stream_handler = logging.StreamHandler()
-    logger_formatter = logging.Formatter(pool_config.logging_format)
+    logger_formatter = logging.Formatter(
+        pool_config.logging_format.replace('PROCESS_IDX', str(process_idx))
+    )
     logger_stream_handler.setFormatter(logger_formatter)
     logger.addHandler(logger_stream_handler)
     logger.setLevel(pool_config.logging_level)
@@ -59,8 +64,9 @@ def pool_worker_initializer(pool_config: PoolConfig):
     if pool_config.logging_to_stderr:
         multiprocessing.util._log_to_stderr = True  # type: ignore
 
+    logger.debug(f'process_idx={process_idx}, num_processes={pool_config.num_processes}')
+
     # Generate seed_sequence.
-    process_idx = multiprocessing.current_process()._identity[0] - 1
     seed_sequences = SeedSequence(pool_config.rng_seed)
     seed_sequence = seed_sequences.spawn(pool_config.num_processes)[process_idx]
 
@@ -95,9 +101,10 @@ class PoolInventoryState:
     inventory: int
     num_scheduled: int
     inventory_target: int
+    abort: bool
 
-    def should_schedule(self):
-        return self.inventory + self.num_scheduled < self.inventory_target
+    def predicate(self):
+        return self.abort or (self.inventory + self.num_scheduled < self.inventory_target)
 
     def __repr__(self):
         return (
@@ -105,7 +112,7 @@ class PoolInventoryState:
             f'inventory={self.inventory}, '
             f'num_scheduled={self.num_scheduled}, '
             f'inventory_target={self.inventory_target}, '
-            f'should_schedule={self.should_schedule()}'
+            f'should_schedule={self.predicate()}'
             ')'
         )
 
@@ -113,7 +120,10 @@ class PoolInventoryState:
 def trigger_generator(schedule_size_min: int, state: PoolInventoryState):
     while True:
         with state.cond:
-            state.cond.wait_for(state.should_schedule)
+            state.cond.wait_for(state.predicate)
+            if state.abort:
+                return
+
             schedule_size = max(
                 schedule_size_min,
                 state.inventory_target - state.inventory - state.num_scheduled,
@@ -129,10 +139,12 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
     def __init__(self, config: PoolConfig[_T_CONFIG, _T_OUTPUT]):
         self.config = config
 
+        process_identity_base = next(multiprocessing.process._process_counter)  # type: ignore
+
         self.mp_pool = multiprocessing.Pool(
             processes=self.config.num_processes,
             initializer=pool_worker_initializer,
-            initargs=(self.config,),
+            initargs=(self.config, process_identity_base),
         )
 
         self.state = PoolInventoryState(
@@ -140,6 +152,7 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
             inventory=0,
             num_scheduled=0,
             inventory_target=self.config.inventory,
+            abort=False,
         )
 
         self.mp_pool_iter = self.mp_pool.imap_unordered(
@@ -153,7 +166,14 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
         )
 
     def cleanup(self):
+        with self.state.cond:
+            self.state.abort = True
+            self.state.cond.notify()
         self.mp_pool.terminate()
+
+    def __del__(self):
+        # Best effort.
+        self.cleanup()
 
     def run(self):
         output: _T_OUTPUT = self.mp_pool_iter.next(timeout=self.config.timeout)
