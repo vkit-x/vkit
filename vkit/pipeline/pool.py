@@ -31,6 +31,10 @@ class PipelinePoolWorker(Generic[_T_OUTPUT]):
 
         self.seed_sequence = seed_sequence
         self.rng = default_rng(self.seed_sequence)
+        self.logger.info(
+            f'Set pipeline process_idx={self.process_idx} '
+            f'rng_state to {self.rng.bit_generator.state} '
+        )
         self.rng_run_idx = 0
 
         self.pipeline = config.pipeline
@@ -39,7 +43,7 @@ class PipelinePoolWorker(Generic[_T_OUTPUT]):
     def reset_rng(self):
         self.rng = default_rng(self.seed_sequence)
         self.rng_run_idx = 0
-        self.logger.debug(
+        self.logger.info(
             f'Reset pipeline process_idx={self.process_idx} '
             f'rng_state to {self.rng.bit_generator.state} '
             'and run_idx to 0'
@@ -98,7 +102,6 @@ class PipelinePool(Generic[_T_OUTPUT]):
                 ),
                 rng_seed=rng_seed,
                 timeout=timeout,
-                logging_level=logging.DEBUG,
             )
         )
         self.pool = self.pool_creator()
