@@ -55,7 +55,7 @@ def debug_joinable_queue():
         time.sleep(0.5)
 
 
-def test_pool():
+def debug_pool():
     begin = 1 / 1.4142
     end = 1.4142
     length = end - begin
