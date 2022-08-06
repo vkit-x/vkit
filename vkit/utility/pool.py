@@ -171,16 +171,18 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
         )
 
         self.cleanup_flag = False
-        # NOTE: this disables gc.
         atexit.register(self.cleanup)
 
     def cleanup(self):
         if not self.cleanup_flag:
+            self.cleanup_flag = True
+
             with self.state.cond:
                 self.state.abort = True
                 self.state.cond.notify()
             self.mp_pool.terminate()
-            self.cleanup_flag = True
+
+            atexit.unregister(self.cleanup)
 
     def run(self):
         output: _T_OUTPUT = self.mp_pool_iter.next(timeout=self.config.timeout)
