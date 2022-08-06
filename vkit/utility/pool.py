@@ -4,6 +4,7 @@ import multiprocessing.util
 import multiprocessing.process
 import threading
 import logging
+import atexit
 
 import attrs
 from numpy.random import SeedSequence
@@ -169,15 +170,17 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
             ),
         )
 
-    def cleanup(self):
-        with self.state.cond:
-            self.state.abort = True
-            self.state.cond.notify()
-        self.mp_pool.terminate()
+        self.cleanup_flag = False
+        # NOTE: this disables gc.
+        atexit.register(self.cleanup)
 
-    def __del__(self):
-        # Best effort.
-        self.cleanup()
+    def cleanup(self):
+        if not self.cleanup_flag:
+            with self.state.cond:
+                self.state.abort = True
+                self.state.cond.notify()
+            self.mp_pool.terminate()
+            self.cleanup_flag = True
 
     def run(self):
         output: _T_OUTPUT = self.mp_pool_iter.next(timeout=self.config.timeout)
