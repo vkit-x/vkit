@@ -182,6 +182,12 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
                 self.state.cond.notify()
             self.mp_pool.terminate()
 
+            # For gc.
+            self.__setattr__('mp_pool_iter', None)
+            self.__setattr__('state', None)
+            self.__setattr__('mp_pool', None)
+            self.__setattr__('config', None)
+
             atexit.unregister(self.cleanup)
 
     def run(self):

@@ -48,3 +48,52 @@ def debug_pool():
     while True:
         print(pool.run())
         time.sleep(1.0)
+
+
+def debug_pool_cleanup():
+    import os
+    print(os.getpid())
+    breakpoint()
+
+    pool = Pool(
+        PoolConfig(
+            inventory=30,
+            num_processes=3,
+            pool_worker_class=PoolWorkerDemo,
+            pool_worker_config=PoolWorkerDemoConfig(),
+            logging_level=logging.DEBUG,
+        )
+    )
+    print('pool setup.')
+    breakpoint()
+
+    pool.cleanup()
+    print('pool cleanup.')
+    breakpoint()
+
+    del pool
+    import gc
+    gc.collect()
+    print('pool gc.')
+    breakpoint()
+
+    pool = Pool(
+        PoolConfig(
+            inventory=30,
+            num_processes=3,
+            pool_worker_class=PoolWorkerDemo,
+            pool_worker_config=PoolWorkerDemoConfig(),
+            logging_level=logging.DEBUG,
+        )
+    )
+    print('pool setup again.')
+    breakpoint()
+
+    pool.cleanup()
+    print('pool cleanup again.')
+    breakpoint()
+
+    del pool
+    gc.collect()
+    print('pool gc again.')
+    breakpoint()
