@@ -5,6 +5,7 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice_with_size
 
+LEVEL_MIN = 1
 LEVEL_MAX = 10
 CHANNELS = [0, 1, 2]
 

@@ -760,6 +760,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
+            result.shape = result.image.shape
 
         if mask:
             result.mask = self.distort_mask(
@@ -768,6 +769,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
+            if not result.shape:
+                result.shape = result.mask.shape
+            assert result.shape == result.mask.shape
 
         if score_map:
             result.score_map = self.distort_score_map(
@@ -776,6 +780,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
+            if not result.shape:
+                result.shape = result.score_map.shape
+            assert result.shape == result.score_map.shape
 
         if point:
             result.point = self.distort_point(

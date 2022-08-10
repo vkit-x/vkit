@@ -16,7 +16,6 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import (
     dyn_structure,
-    rng_choice,
     rng_choice_with_size,
     normalize_to_probs,
     PathType,
@@ -31,7 +30,8 @@ from vkit.element import (
     Mask,
     ScoreMap,
 )
-from ..distortion.interface import Distortion
+from ..distortion.interface import Distortion, DistortionResult
+from .opt import LEVEL_MIN, LEVEL_MAX
 from .type import DistortionPolicy, DistortionPolicyFactory
 from .photometric import (
     color,
@@ -49,57 +49,57 @@ from .geometric import (
 logger = logging.getLogger(__name__)
 
 
-class RandomDistortion:
+@attrs.define
+class RandomDistortionDebug:
+    distortion_names: List[str] = attrs.field(factory=list)
+    distortion_levels: List[int] = attrs.field(factory=list)
+    distortion_images: List[Image] = attrs.field(factory=list)
+    distortion_configs: List[Any] = attrs.field(factory=list)
+    distortion_states: List[Any] = attrs.field(factory=list)
 
-    def __init__(
-        self,
-        photometric_policies: Sequence[DistortionPolicy],
-        photometric_policy_weights: Sequence[float],
-        num_photometric_min: int,
-        num_photometric_max: int,
-        geometric_policies: Sequence[DistortionPolicy],
-        geometric_policy_weights: Sequence[float],
-        prob_geometric: float,
-        policy_conflict_control_keyword_groups: Sequence[Sequence[str]],
-        level_min: int,
-        level_max: int,
-    ):
-        self.photometric_policies = photometric_policies
-        self.photometric_policy_probs = normalize_to_probs(photometric_policy_weights)
-        self.num_photometric_min = num_photometric_min
-        self.num_photometric_max = num_photometric_max
 
-        self.geometric_policies = geometric_policies
-        self.geometric_policy_probs = normalize_to_probs(geometric_policy_weights)
-        self.prob_geometric = prob_geometric
+@attrs.define
+class RandomDistortionStageConfig:
+    distortion_policies: Sequence[DistortionPolicy]
+    distortion_policy_weights: Sequence[float]
+    prob_enable: float
+    num_distortions_min: int
+    num_distortions_max: int
+    conflict_control_keyword_groups: Sequence[Sequence[str]] = ()
+    force_random_level: bool = False
 
-        self.policy_conflict_control_keyword_groups = policy_conflict_control_keyword_groups
 
-        self.level_min = level_min
-        self.level_max = level_max
+class RandomDistortionStage:
 
-    def sample_photometric_policies(self, rng: RandomGenerator) -> Sequence[DistortionPolicy]:
-        num_photometric = rng.integers(self.num_photometric_min, self.num_photometric_max + 1)
-        if num_photometric <= 0:
-            return []
+    def __init__(self, config: RandomDistortionStageConfig):
+        self.config = config
+        self.distortion_policy_probs = normalize_to_probs(self.config.distortion_policy_weights)
+
+    def sample_distortion_policies(self, rng: RandomGenerator) -> Sequence[DistortionPolicy]:
+        num_distortions = rng.integers(
+            self.config.num_distortions_min,
+            self.config.num_distortions_max + 1,
+        )
+        if num_distortions <= 0:
+            return ()
 
         num_retries = 5
         while num_retries > 0:
-            photometric_policies = rng_choice_with_size(
+            distortion_policies = rng_choice_with_size(
                 rng,
-                self.photometric_policies,
-                size=num_photometric,
-                probs=self.photometric_policy_probs,
+                self.config.distortion_policies,
+                size=num_distortions,
+                probs=self.distortion_policy_probs,
             )
 
             # Conflict analysis.
             conflict_idx_to_count = defaultdict(int)
-            for photometric_policy in photometric_policies:
+            for distortion_policy in distortion_policies:
                 for conflict_idx, keywords in \
-                        enumerate(self.policy_conflict_control_keyword_groups):
+                        enumerate(self.config.conflict_control_keyword_groups):
                     match = False
                     for keyword in keywords:
-                        if keyword in photometric_policy.name:
+                        if keyword in distortion_policy.name:
                             match = True
                             break
                     if match:
@@ -111,20 +111,76 @@ class RandomDistortion:
                 if count > 1:
                     no_conflict = False
                     logger.debug(
-                        'photometric policies conflict detected '
+                        'distortion policies conflict detected '
                         f'conflict_idx_to_count={conflict_idx_to_count}'
                     )
                     break
 
             if no_conflict:
-                return photometric_policies
+                return distortion_policies
             else:
                 num_retries -= 1
 
-        logger.warning(
-            f'Cannot sample photometric policies with num_photometric={num_photometric}.'
-        )
-        return []
+        logger.warning(f'Cannot sample distortion policies with num_distortion={num_distortions}.')
+        return ()
+
+    def apply_distortions(
+        self,
+        distortion_result: DistortionResult,
+        level: int,
+        rng: RandomGenerator,
+        debug: Optional[RandomDistortionDebug] = None,
+    ):
+        if rng.random() > self.config.prob_enable:
+            return distortion_result
+
+        distortion_policies = self.sample_distortion_policies(rng)
+
+        if self.config.force_random_level:
+            level = rng.integers(LEVEL_MIN, LEVEL_MAX + 1)
+
+        for distortion_policy in distortion_policies:
+            distortion_result = distortion_policy.distort(
+                level=level,
+                shapable_or_shape=distortion_result.shape,
+                image=distortion_result.image,
+                mask=distortion_result.mask,
+                score_map=distortion_result.score_map,
+                point=distortion_result.point,
+                points=distortion_result.points,
+                polygon=distortion_result.polygon,
+                polygons=distortion_result.polygons,
+                text_polygon=distortion_result.text_polygon,
+                text_polygons=distortion_result.text_polygons,
+                rng=rng,
+                debug=bool(debug),
+            )
+
+            if debug:
+                assert distortion_result.image
+                debug.distortion_images.append(distortion_result.image)
+                debug.distortion_names.append(distortion_policy.name)
+                debug.distortion_levels.append(level)
+                debug.distortion_configs.append(distortion_result.config)
+                debug.distortion_states.append(distortion_result.state)
+
+            distortion_result.config = None
+            distortion_result.state = None
+
+        return distortion_result
+
+
+class RandomDistortion:
+
+    def __init__(
+        self,
+        configs: Sequence[RandomDistortionStageConfig],
+        level_min: int,
+        level_max: int,
+    ):
+        self.stages = [RandomDistortionStage(config) for config in configs]
+        self.level_min = level_min
+        self.level_max = level_max
 
     def distort(
         self,
@@ -139,113 +195,48 @@ class RandomDistortion:
         polygons: Optional[Iterable[Polygon]] = None,
         text_polygon: Optional[TextPolygon] = None,
         text_polygons: Optional[Iterable[TextPolygon]] = None,
-        debug: bool = False,
+        debug: Optional[RandomDistortionDebug] = None,
     ):
-        result = Distortion.initialize_distortion_result(
+        # Pack.
+        distortion_result = Distortion.initialize_distortion_result(
             shapable_or_shape=shapable_or_shape,
             image=image,
             mask=mask,
             score_map=score_map,
         )
-        result.image = image
-        result.mask = mask
-        result.score_map = score_map
-        result.point = point
-        result.points = points
-        result.polygon = polygon
+        distortion_result.image = image
+        distortion_result.mask = mask
+        distortion_result.score_map = score_map
+        distortion_result.point = point
+        distortion_result.points = points
+        distortion_result.polygon = polygon
         if polygons:
-            result.polygons = tuple(polygons)
-        result.text_polygon = text_polygon
+            distortion_result.polygons = tuple(polygons)
+        distortion_result.text_polygon = text_polygon
         if text_polygons:
-            result.text_polygons = tuple(text_polygons)
+            distortion_result.text_polygons = tuple(text_polygons)
 
-        distortion_names: List[str] = []
-        distortion_images: List[Image] = []
-        distortion_configs: List[Any] = []
-        distortion_states: List[Any] = []
-
+        # Apply distortions.
         level = rng.integers(self.level_min, self.level_max + 1)
 
-        for photometric_policy in self.sample_photometric_policies(rng):
-            result = photometric_policy.distort(
+        for stage in self.stages:
+            distortion_result = stage.apply_distortions(
+                distortion_result=distortion_result,
                 level=level,
-                shapable_or_shape=result.shape,
-                image=result.image,
-                mask=result.mask,
-                score_map=result.score_map,
-                point=result.point,
-                points=result.points,
-                polygon=result.polygon,
-                polygons=result.polygons,
-                text_polygon=result.text_polygon,
-                text_polygons=result.text_polygons,
                 rng=rng,
                 debug=debug,
             )
 
-            distortion_names.append(photometric_policy.name)
-            if debug:
-                assert result.image
-                distortion_images.append(result.image)
-                distortion_configs.append(result.config)
-                distortion_states.append(result.state)
-            result.config = None
-            result.state = None
-
-        if rng.random() < self.prob_geometric:
-            geometric_policy = rng_choice(
-                rng,
-                self.geometric_policies,
-                probs=self.geometric_policy_probs,
-            )
-            result = geometric_policy.distort(
-                level=level,
-                shapable_or_shape=result.shape,
-                image=result.image,
-                mask=result.mask,
-                score_map=result.score_map,
-                point=result.point,
-                points=result.points,
-                polygon=result.polygon,
-                polygons=result.polygons,
-                text_polygon=result.text_polygon,
-                text_polygons=result.text_polygons,
-                rng=rng,
-                debug=debug
-            )
-
-            distortion_names.append(geometric_policy.name)
-            if debug:
-                assert result.image
-                distortion_images.append(result.image)
-                distortion_configs.append(result.config)
-                distortion_states.append(result.state)
-            result.config = None
-            result.state = None
-
-        result.meta = {
-            'image': image,
-            'level': level,
-            'distortion_names': distortion_names,
-        }
-        if debug:
-            # Could increase RAM consumption.
-            result.meta.update({
-                'distortion_images': distortion_images,
-                'distortion_configs': distortion_configs,
-                'distortion_states': distortion_states,
-            })
-        return result
+        return distortion_result
 
 
 @attrs.define
 class RandomDistortionFactoryConfig:
+    # Photometric.
+    prob_photometric: float = 1.0
     num_photometric_min: int = 0
     num_photometric_max: int = 2
-    prob_geometric: float = 0.75
-    level_min: int = 1
-    level_max: int = 10
-    policy_conflict_control_keyword_groups: Sequence[Sequence[str]] = attrs.field(
+    photometric_conflict_control_keyword_groups: Sequence[Sequence[str]] = attrs.field(
         factory=lambda: [
             [
                 'blur',
@@ -257,6 +248,12 @@ class RandomDistortionFactoryConfig:
             ],
         ]
     )
+    # Geometric.
+    prob_geometric: float = 0.75
+    force_post_rotate: bool = False
+    # Shared.
+    level_min: int = LEVEL_MIN
+    level_max: int = LEVEL_MAX
     disabled_policy_names: Sequence[str] = attrs.field(factory=list)
     name_to_policy_config: Mapping[str, Any] = attrs.field(factory=dict)
     name_to_policy_weight: Mapping[str, float] = attrs.field(factory=dict)
@@ -326,7 +323,10 @@ _GEOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
         ),
         1.0,
     ),
-    ((mls.similarity_mls_policy_factory,), 1.0),
+    (
+        (mls.similarity_mls_policy_factory,),
+        1.0,
+    ),
     (
         (
             camera.camera_plane_only_policy_factory,
@@ -361,31 +361,6 @@ class RandomDistortionFactory:
         assert len(flatten_policy_factories) == len(flatten_policy_default_weights)
         return flatten_policy_factories, flatten_policy_default_weights
 
-    @staticmethod
-    def create_policies_and_policy_weights(
-        policy_factories: Sequence[DistortionPolicyFactory],
-        policy_default_weights: Sequence[float],
-        config: RandomDistortionFactoryConfig,
-    ):
-        disabled_policy_names = set(config.disabled_policy_names)
-
-        policies: List[DistortionPolicy] = []
-        policy_weights: List[float] = []
-
-        for policy_factory, policy_default_weight in zip(policy_factories, policy_default_weights):
-            if policy_factory.name in disabled_policy_names:
-                continue
-
-            policy_config = config.name_to_policy_config.get(policy_factory.name)
-            policies.append(policy_factory.create(policy_config))
-
-            policy_weight = policy_default_weight
-            if policy_factory.name in config.name_to_policy_weight:
-                policy_weight = config.name_to_policy_weight[policy_factory.name]
-            policy_weights.append(policy_weight)
-
-        return policies, policy_weights
-
     def __init__(
         self,
         photometric_policy_factories_and_default_weights_sum_pairs: Sequence[
@@ -415,10 +390,41 @@ class RandomDistortionFactory:
             geometric_policy_factories_and_default_weights_sum_pairs
         )
 
+    @staticmethod
+    def create_policies_and_policy_weights(
+        policy_factories: Sequence[DistortionPolicyFactory],
+        policy_default_weights: Sequence[float],
+        config: RandomDistortionFactoryConfig,
+    ):
+        disabled_policy_names = set(config.disabled_policy_names)
+
+        policies: List[DistortionPolicy] = []
+        policy_weights: List[float] = []
+
+        for policy_factory, policy_default_weight in zip(policy_factories, policy_default_weights):
+            if policy_factory.name in disabled_policy_names:
+                continue
+
+            policy_config = config.name_to_policy_config.get(policy_factory.name)
+            policies.append(policy_factory.create(policy_config))
+
+            policy_weight = policy_default_weight
+            if policy_factory.name in config.name_to_policy_weight:
+                policy_weight = config.name_to_policy_weight[policy_factory.name]
+            policy_weights.append(policy_weight)
+
+        return policies, policy_weights
+
     def create(
         self,
-        config: Optional[Union[Mapping[str, Any], PathType, RandomDistortionFactoryConfig]] = None,
-    ):
+        config: Optional[
+            Union[
+                Mapping[str, Any],
+                PathType,
+                RandomDistortionFactoryConfig,
+            ]
+        ] = None,
+    ):  # yapf: disable
         config = dyn_structure(
             config,
             RandomDistortionFactoryConfig,
@@ -426,6 +432,9 @@ class RandomDistortionFactory:
             support_none_type=True,
         )
 
+        stage_configs: List[RandomDistortionStageConfig] = []
+
+        # Photometric.
         (
             photometric_policies,
             photometric_policy_weights,
@@ -434,7 +443,18 @@ class RandomDistortionFactory:
             self.photometric_policy_default_weights,
             config,
         )
+        stage_configs.append(
+            RandomDistortionStageConfig(
+                distortion_policies=photometric_policies,
+                distortion_policy_weights=photometric_policy_weights,
+                prob_enable=config.prob_photometric,
+                num_distortions_min=config.num_photometric_min,
+                num_distortions_max=config.num_photometric_max,
+                conflict_control_keyword_groups=config.photometric_conflict_control_keyword_groups,
+            )
+        )
 
+        # Geometric.
         (
             geometric_policies,
             geometric_policy_weights,
@@ -444,15 +464,41 @@ class RandomDistortionFactory:
             config,
         )
 
+        post_rotate_policy = None
+        if config.force_post_rotate:
+            rotate_policy_idx = -1
+            for geometric_policy_idx, geometric_policy in enumerate(geometric_policies):
+                if geometric_policy.name == 'rotate':
+                    rotate_policy_idx = geometric_policy_idx
+                    break
+            assert rotate_policy_idx >= 0
+            post_rotate_policy = geometric_policies.pop(rotate_policy_idx)
+            geometric_policy_weights.pop(rotate_policy_idx)
+
+        stage_configs.append(
+            RandomDistortionStageConfig(
+                distortion_policies=geometric_policies,
+                distortion_policy_weights=geometric_policy_weights,
+                prob_enable=config.prob_geometric,
+                num_distortions_min=1,
+                num_distortions_max=1,
+            )
+        )
+        if post_rotate_policy:
+            # TODO: need to trim inactive area.
+            stage_configs.append(
+                RandomDistortionStageConfig(
+                    distortion_policies=[post_rotate_policy],
+                    distortion_policy_weights=[1.0],
+                    prob_enable=1.0,
+                    num_distortions_min=1,
+                    num_distortions_max=1,
+                    force_random_level=True,
+                )
+            )
+
         return RandomDistortion(
-            photometric_policies=photometric_policies,
-            photometric_policy_weights=photometric_policy_weights,
-            num_photometric_min=config.num_photometric_min,
-            num_photometric_max=config.num_photometric_max,
-            geometric_policies=geometric_policies,
-            geometric_policy_weights=geometric_policy_weights,
-            prob_geometric=config.prob_geometric,
-            policy_conflict_control_keyword_groups=config.policy_conflict_control_keyword_groups,
+            configs=stage_configs,
             level_min=config.level_min,
             level_max=config.level_max,
         )
