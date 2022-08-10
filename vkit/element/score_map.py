@@ -581,6 +581,22 @@ class ScoreMap(Shapable):
             mat = np.clip(mat, 0.0, 1.0)
         return attrs.evolve(self, mat=mat)
 
+    def to_cropped_score_map(
+        self,
+        up: Optional[int] = None,
+        down: Optional[int] = None,
+        left: Optional[int] = None,
+        right: Optional[int] = None,
+    ):
+        assert not self.box
+
+        up = up or 0
+        down = down or self.height - 1
+        left = left or 0
+        right = right or self.width - 1
+
+        return attrs.evolve(self, mat=self.mat[up:down + 1, left:right + 1])
+
     def to_box_attached(self, box: 'Box'):
         assert self.height == box.height
         assert self.width == box.width

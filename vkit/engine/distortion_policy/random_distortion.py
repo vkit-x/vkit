@@ -65,6 +65,7 @@ class RandomDistortionStageConfig:
     prob_enable: float
     num_distortions_min: int
     num_distortions_max: int
+    inject_corner_points: bool = False
     conflict_control_keyword_groups: Sequence[Sequence[str]] = ()
     force_random_level: bool = False
 
@@ -134,6 +135,33 @@ class RandomDistortionStage:
         if rng.random() > self.config.prob_enable:
             return distortion_result
 
+        if self.config.inject_corner_points:
+            height, width = distortion_result.shape
+
+            step = min(height // 4, width // 4)
+            assert step > 0
+
+            ys = list(range(0, height, step))
+            if ys[-1] < height - 1:
+                ys.append(height - 1)
+
+            xs = list(range(0, width, step))
+            if xs[0] == 0:
+                xs.pop(0)
+            if xs[-1] == width - 1:
+                xs.pop()
+
+            corner_points = PointList()
+
+            for x in (0, width - 1):
+                for y in ys:
+                    corner_points.append(Point(y=y, x=x))
+            for y in (0, height - 1):
+                for x in xs:
+                    corner_points.append(Point(y=y, x=x))
+
+            distortion_result.corner_points = corner_points
+
         distortion_policies = self.sample_distortion_policies(rng)
 
         if self.config.force_random_level:
@@ -148,6 +176,7 @@ class RandomDistortionStage:
                 score_map=distortion_result.score_map,
                 point=distortion_result.point,
                 points=distortion_result.points,
+                corner_points=distortion_result.corner_points,
                 polygon=distortion_result.polygon,
                 polygons=distortion_result.polygons,
                 text_polygon=distortion_result.text_polygon,
@@ -182,6 +211,114 @@ class RandomDistortion:
         self.level_min = level_min
         self.level_max = level_max
 
+    @staticmethod
+    def trim_distortion_result(distortion_result: DistortionResult):
+        # Trim page if need.
+        if not distortion_result.corner_points:
+            return distortion_result
+
+        y_min = min(point.y for point in distortion_result.corner_points)
+        y_max = max(point.y for point in distortion_result.corner_points)
+        x_min = min(point.x for point in distortion_result.corner_points)
+        x_max = max(point.x for point in distortion_result.corner_points)
+
+        height, width = distortion_result.shape
+
+        pad_up = y_min
+        pad_down = height - 1 - y_max
+        # NOTE: accept the rounding error.
+        assert pad_up >= -1 and pad_down >= -1
+
+        pad_left = x_min
+        pad_right = width - 1 - x_max
+        assert pad_left >= -1 and pad_right >= -1
+
+        if pad_up <= 0 and pad_down <= 0 and pad_left <= 0 and pad_right <= 0:
+            return distortion_result
+
+        # Deal with rounding error.
+        y_min = max(0, y_min)
+        y_max = min(height - 1, y_max)
+        x_min = max(0, x_min)
+        x_max = min(width - 1, x_max)
+
+        pad_up = max(0, pad_up)
+        pad_down = max(0, pad_down)
+        pad_left = max(0, pad_left)
+        pad_right = max(0, pad_right)
+
+        if distortion_result.image:
+            distortion_result.image = distortion_result.image.to_cropped_image(
+                up=y_min,
+                down=y_max,
+                left=x_min,
+                right=x_max,
+            )
+
+        if distortion_result.mask:
+            distortion_result.mask = distortion_result.mask.to_cropped_mask(
+                up=y_min,
+                down=y_max,
+                left=x_min,
+                right=x_max,
+            )
+
+        if distortion_result.score_map:
+            distortion_result.score_map = distortion_result.score_map.to_cropped_score_map(
+                up=y_min,
+                down=y_max,
+                left=x_min,
+                right=x_max,
+            )
+
+        if distortion_result.point:
+            distortion_result.point = distortion_result.point.to_shifted_point(
+                y_offset=pad_up,
+                x_offset=pad_left,
+            )
+
+        if distortion_result.points:
+            distortion_result.points = distortion_result.points.to_shifted_points(
+                y_offset=pad_up,
+                x_offset=pad_left,
+            )
+
+        if distortion_result.polygon:
+            distortion_result.polygon = distortion_result.polygon.to_shifted_polygon(
+                y_offset=pad_up,
+                x_offset=pad_left,
+            )
+
+        if distortion_result.polygons:
+            distortion_result.polygons = [
+                polygon.to_shifted_polygon(
+                    y_offset=pad_up,
+                    x_offset=pad_left,
+                ) for polygon in distortion_result.polygons
+            ]
+
+        if distortion_result.text_polygon:
+            distortion_result.text_polygon = attrs.evolve(
+                distortion_result.text_polygon,
+                polygon=distortion_result.text_polygon.polygon.to_shifted_points(
+                    y_offset=pad_up,
+                    x_offset=pad_left,
+                )
+            )
+
+        if distortion_result.text_polygons:
+            distortion_result.text_polygons = [
+                attrs.evolve(
+                    text_polygon,
+                    polygon=text_polygon.polygon.to_shifted_points(
+                        y_offset=pad_up,
+                        x_offset=pad_left,
+                    )
+                ) for text_polygon in distortion_result.text_polygons
+            ]
+
+        return distortion_result
+
     def distort(
         self,
         rng: RandomGenerator,
@@ -198,12 +335,13 @@ class RandomDistortion:
         debug: Optional[RandomDistortionDebug] = None,
     ):
         # Pack.
-        distortion_result = Distortion.initialize_distortion_result(
+        shape = Distortion.get_shape(
             shapable_or_shape=shapable_or_shape,
             image=image,
             mask=mask,
             score_map=score_map,
         )
+        distortion_result = DistortionResult(shape=shape)
         distortion_result.image = image
         distortion_result.mask = mask
         distortion_result.score_map = score_map
@@ -226,6 +364,8 @@ class RandomDistortion:
                 rng=rng,
                 debug=debug,
             )
+
+        distortion_result = self.trim_distortion_result(distortion_result)
 
         return distortion_result
 
@@ -482,10 +622,10 @@ class RandomDistortionFactory:
                 prob_enable=config.prob_geometric,
                 num_distortions_min=1,
                 num_distortions_max=1,
+                inject_corner_points=config.force_post_rotate,
             )
         )
         if post_rotate_policy:
-            # TODO: need to trim inactive area.
             stage_configs.append(
                 RandomDistortionStageConfig(
                     distortion_policies=[post_rotate_policy],
