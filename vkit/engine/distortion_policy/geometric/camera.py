@@ -13,6 +13,7 @@ def sample_camera_model_config(
     level: int,
     level_1_max: int,
     rotation_theta_max: int,
+    vec_z_max: float,
     rng: RandomGenerator,
 ):
     rotation_theta = sample_int(
@@ -29,8 +30,11 @@ def sample_camera_model_config(
     vec_z = 0.0
 
     if level > level_1_max:
-        vec_z = rng.uniform(0, 1)
-        # NOTE: will be normalized to unit vector in CameraModel.prep_rotation_unit_vec.
+        # NOTE:
+        # 1. rotation_unit_vec will be normalized to unit vector in
+        #    CameraModel.prep_rotation_unit_vec.
+        # 2. If vec_z is 1.0, the camera model is equivalent to affine rotation.
+        vec_z = rng.uniform(0, vec_z_max)
         vec_x = (1 - vec_z) * vec_x
         vec_y = (1 - vec_z) * vec_y
 
@@ -44,6 +48,7 @@ def sample_camera_model_config(
 class CameraPlaneOnlyConfigGeneratorConfig:
     level_1_max: int = 5
     rotation_theta_max: int = 40
+    vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
 
@@ -59,6 +64,7 @@ class CameraPlaneOnlyConfigGenerator(
         camera_model_config = sample_camera_model_config(
             level=self.level,
             level_1_max=self.config.level_1_max,
+            vec_z_max=self.config.vec_z_max,
             rotation_theta_max=self.config.rotation_theta_max,
             rng=rng,
         )
@@ -86,6 +92,7 @@ class CameraCubicCurveConfigGeneratorConfig:
     curve_slope_max: float = 45
     level_1_max: int = 5
     rotation_theta_max: int = 40
+    vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
 
@@ -124,6 +131,7 @@ class CameraCubicCurveConfigGenerator(
             level=self.level,
             level_1_max=self.config.level_1_max,
             rotation_theta_max=self.config.rotation_theta_max,
+            vec_z_max=self.config.vec_z_max,
             rng=rng,
         )
         grid_size = generate_grid_size(
@@ -153,6 +161,7 @@ class CameraPlaneLineFoldConfigGeneratorConfig:
     fold_alpha_max: float = 1.25
     level_1_max: int = 5
     rotation_theta_max: int = 40
+    vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
 
@@ -188,6 +197,7 @@ class CameraPlaneLineFoldConfigGenerator(
             level=self.level,
             level_1_max=self.config.level_1_max,
             rotation_theta_max=self.config.rotation_theta_max,
+            vec_z_max=self.config.vec_z_max,
             rng=rng,
         )
         grid_size = generate_grid_size(
@@ -217,6 +227,7 @@ class CameraPlaneLineCurveConfigGeneratorConfig:
     curve_alpha_max: float = 2.0
     level_1_max: int = 5
     rotation_theta_max: int = 40
+    vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
 
@@ -252,6 +263,7 @@ class CameraPlaneLineCurveConfigGenerator(
             level=self.level,
             level_1_max=self.config.level_1_max,
             rotation_theta_max=self.config.rotation_theta_max,
+            vec_z_max=self.config.vec_z_max,
             rng=rng,
         )
         grid_size = generate_grid_size(

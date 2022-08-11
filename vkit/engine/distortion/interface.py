@@ -87,6 +87,7 @@ class DistortionResult:
     active_mask: Optional[Mask] = None
     point: Optional[Point] = None
     points: Optional[PointList] = None
+    corner_points: Optional[PointList] = None
     polygon: Optional[Polygon] = None
     polygons: Optional[Sequence[Polygon]] = None
     text_polygon: Optional[TextPolygon] = None
@@ -699,7 +700,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             return new_polygons
 
     @staticmethod
-    def initialize_distortion_result(
+    def get_shape(
         shapable_or_shape: Optional[Union[Shapable, Tuple[int, int]]] = None,
         image: Optional[Image] = None,
         mask: Optional[Mask] = None,
@@ -709,9 +710,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             shapable_or_shape = image or mask or score_map
         assert shapable_or_shape
 
-        return DistortionResult(
-            shape=Distortion.get_shape_from_shapable_or_shape(shapable_or_shape),
-        )
+        return Distortion.get_shape_from_shapable_or_shape(shapable_or_shape)
 
     # yapf: disable
     def distort(
@@ -729,6 +728,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         score_map: Optional[ScoreMap] = None,
         point: Optional[Point] = None,
         points: Optional[PointList] = None,
+        corner_points: Optional[PointList] = None,
         polygon: Optional[Polygon] = None,
         polygons: Optional[Iterable[Polygon]] = None,
         text_polygon: Optional[TextPolygon] = None,
@@ -739,7 +739,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
-        result = Distortion.initialize_distortion_result(
+        shape = Distortion.get_shape(
             shapable_or_shape=shapable_or_shape,
             image=image,
             mask=mask,
@@ -749,9 +749,13 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         config, state = self.generate_config_and_state(
             config_or_config_generator=config_or_config_generator,
             state=None,
-            shapable_or_shape=result.shape,
+            shapable_or_shape=shape,
             rng=rng,
         )
+
+        # If is geometric distortion, the shape will be updated.
+        result = DistortionResult(shape=shape)
+        result_shape = None
 
         if image:
             result.image = self.distort_image(
@@ -760,6 +764,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
+            result_shape = result.image.shape
 
         if mask:
             result.mask = self.distort_mask(
@@ -768,6 +773,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
+            if not result_shape:
+                result_shape = result.mask.shape
+            assert result_shape == result.mask.shape
 
         if score_map:
             result.score_map = self.distort_score_map(
@@ -776,11 +784,14 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
+            if not result_shape:
+                result_shape = result.score_map.shape
+            assert result_shape == result.score_map.shape
 
         if point:
             result.point = self.distort_point(
                 config,
-                result.shape,
+                shape,
                 point,
                 state=state,
                 rng=rng,
@@ -789,8 +800,17 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if points:
             result.points = self.distort_points(
                 config,
-                result.shape,
+                shape,
                 points,
+                state=state,
+                rng=rng,
+            )
+
+        if corner_points:
+            result.corner_points = self.distort_points(
+                config,
+                shape,
+                corner_points,
                 state=state,
                 rng=rng,
             )
@@ -798,7 +818,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if polygon:
             result.polygon = self.distort_polygon(
                 config,
-                result.shape,
+                shape,
                 polygon,
                 state=state,
                 rng=rng,
@@ -807,7 +827,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if polygons:
             result.polygons = self.distort_polygons(
                 config,
-                result.shape,
+                shape,
                 polygons,
                 state=state,
                 rng=rng,
@@ -818,7 +838,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 text_polygon,
                 polygon=self.distort_polygon(
                     config,
-                    result.shape,
+                    shape,
                     text_polygon.polygon,
                     state=state,
                     rng=rng,
@@ -829,7 +849,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             text_polygons = tuple(text_polygons)
             distorted_polygons = self.distort_polygons(
                 config,
-                result.shape,
+                shape,
                 [text_polygon.polygon for text_polygon in text_polygons],
                 state=state,
                 rng=rng,
@@ -842,7 +862,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if get_active_mask:
             result.active_mask = self.get_active_mask(
                 config,
-                result.shape,
+                shape,
                 state=state,
                 rng=rng,
             )
@@ -852,5 +872,8 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         if get_state:
             result.state = state
+
+        # Fallback to shape for photometric distortion.
+        result.shape = result_shape or shape
 
         return result

@@ -184,27 +184,20 @@ def test_camera_plane_line_curve_policy_factory():
 
 
 def test_random_distortion():
-    random_distortion = random_distortion_factory.create()
+    random_distortion = random_distortion_factory.create({'force_post_uniform_rotate': True})
 
-    print('photometric:')
-    for policy, policy_prob in zip(
-        random_distortion.photometric_policies, random_distortion.photometric_policy_probs
-    ):
-        print(policy.name, policy_prob)
-    print('geometric:')
-    for policy, policy_prob in zip(
-        random_distortion.geometric_policies, random_distortion.geometric_policy_probs
-    ):
-        print(policy.name, policy_prob)
+    for stage in random_distortion.stages:
+        print('config:', stage.config)
+        print('probs:', stage.distortion_policy_probs)
 
     image = read_image('Lenna.png').to_rgb_image()
     rng = default_rng(0)
 
     for idx in range(50):
-        result = random_distortion.distort(image=image, rng=rng)
+        debug = debug = RandomDistortionDebug()
+        result = random_distortion.distort(image=image, rng=rng, debug=debug)
         assert result.image
-        assert result.meta
-        level = result.meta['level']
-        distortion_names = result.meta['distortion_names']
+        level = min(debug.distortion_levels or (0,))
+        distortion_names = debug.distortion_names
         tag = '-'.join(distortion_names) or 'none'
         write_image(f'{idx}-{level}-{len(distortion_names)}-{tag}.jpg', result.image)

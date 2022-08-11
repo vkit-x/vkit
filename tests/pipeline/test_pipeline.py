@@ -251,9 +251,16 @@ def test_page():
             {
                 'name': 'text_detection.page_distortion_step',
                 'config': {
+                    'random_distortion_factory_config': {
+                        'disabled_policy_names': [
+                            'defocus_blur',
+                            'zoom_in_blur',
+                        ],
+                        'force_post_uniform_rotate': True,
+                    },
                     'enable_distorted_char_heights_debug': True,
                     'enable_distorted_text_line_heights_debug': True,
-                    'debug_random_distortion': True,
+                    # 'debug_random_distortion': True,
                 },
             },
             {
@@ -270,8 +277,8 @@ def test_page():
         post_processor=bypass_post_processor_factory.create(),
     )
 
+    # for seed in (3,):
     for seed in range(10):
-        # for seed in [1]:
         print(seed)
         rng = default_rng(seed)
         result = pipeline.run(rng)
@@ -316,25 +323,25 @@ def test_page():
         from vkit.engine.distortion.geometric.grid_rendering.interface import DistortionStateImageGridBased
         from vkit.engine.distortion.geometric.grid_rendering.visualization import visualize_image_grid
         from vkit.element import Box
-        meta = output.page_random_distortion_debug_meta
-        assert meta
-        distortion_images = meta['distortion_images']
-        distortion_state = None
-        if meta['distortion_states']:
-            distortion_state = meta['distortion_states'][-1]
-        if isinstance(distortion_state, DistortionStateImageGridBased):
-            src_grid_image = visualize_image_grid(distortion_state.src_image_grid)
-            if len(distortion_images) > 1:
-                vis_image = distortion_images[-2]
-            else:
-                vis_image = meta['image']
-            Box.from_shapable(vis_image).fill_image(vis_image, src_grid_image, alpha=0.5)
-            write_image(f'page_{seed}_src_grid_image_debug.jpg', vis_image)
+        # debug = output.page_random_distortion_debug
+        # assert debug
+        # distortion_images = debug.distortion_images
+        # distortion_state = None
+        # if debug.distortion_states:
+        #     distortion_state = debug.distortion_states[-1]
+        # if isinstance(distortion_state, DistortionStateImageGridBased):
+        #     src_grid_image = visualize_image_grid(distortion_state.src_image_grid)
+        #     if len(distortion_images) > 1:
+        #         vis_image = distortion_images[-2]
+        #     else:
+        #         vis_image = debug['image']
+        #     Box.from_shapable(vis_image).fill_image(vis_image, src_grid_image, alpha=0.5)
+        #     write_image(f'page_{seed}_src_grid_image_debug.jpg', vis_image)
 
-            vis_image = image.copy()
-            dst_grid_image = visualize_image_grid(distortion_state.dst_image_grid)
-            Box.from_shapable(vis_image).fill_image(vis_image, dst_grid_image, alpha=0.5)
-            write_image(f'page_{seed}_dst_grid_image_debug.jpg', vis_image)
+        #     vis_image = image.copy()
+        #     dst_grid_image = visualize_image_grid(distortion_state.dst_image_grid)
+        #     Box.from_shapable(vis_image).fill_image(vis_image, dst_grid_image, alpha=0.5)
+        #     write_image(f'page_{seed}_dst_grid_image_debug.jpg', vis_image)
 
         output2: PageResizingStepOutput = result.key_to_value['page_resizing_step']
         image = output2.page_image

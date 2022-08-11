@@ -34,25 +34,25 @@ class PageLayoutStepConfig:
     grid_hori_gap_ratio_max: float = 1.15
 
     # Large text line.
-    prob_add_large_text_line: float = 0.5
-    large_text_line_height_ratio_min: float = 0.085
-    large_text_line_height_ratio_max: float = 0.17
+    prob_add_large_text_line: float = 0.25
+    large_text_line_height_ratio_min: float = 0.05
+    large_text_line_height_ratio_max: float = 0.075
     large_text_line_length_ratio_min: float = 0.5
     large_text_line_length_ratio_max: float = 1.0
 
     # Normal text line.
     num_normal_text_line_heights_min: int = 2
     num_normal_text_line_heights_max: int = 4
-    normal_text_line_height_ratio_min: float = 0.0085
-    normal_text_line_height_ratio_max: float = 0.045
+    normal_text_line_height_ratio_min: float = 0.006
+    normal_text_line_height_ratio_max: float = 0.036
     force_add_normal_text_line_height_ratio_min: bool = True
 
     # Non-text symbol.
     num_non_text_symbols_min: int = 0
     num_non_text_symbols_max: int = 5
     num_retries_to_get_non_overlapped_non_text_symbol: int = 5
-    non_text_symbol_height_ratio_min: float = 0.0085
-    non_text_symbol_height_ratio_max: float = 0.09
+    non_text_symbol_height_ratio_min: float = 0.018
+    non_text_symbol_height_ratio_max: float = 0.064
     non_text_symbol_aspect_ratio_min: float = 0.9
     non_text_symbol_aspect_ratio_max: float = 1.111
     non_text_symbol_non_overlapped_alpha_min: float = 0.8
@@ -452,13 +452,13 @@ class PageLayoutStep(
     @staticmethod
     def calculate_normal_text_line_heights_probs(
         normal_text_line_heights_expected_probs: Sequence[float],
-        normal_text_line_heights_acc_lengths: List[int],
+        normal_text_line_heights_acc_areas: List[int],
     ):
-        if sum(normal_text_line_heights_acc_lengths) == 0:
-            normal_text_line_heights_cur_probs = [0.0] * len(normal_text_line_heights_acc_lengths)
+        if sum(normal_text_line_heights_acc_areas) == 0:
+            normal_text_line_heights_cur_probs = [0.0] * len(normal_text_line_heights_acc_areas)
         else:
             normal_text_line_heights_cur_probs = normalize_to_probs(
-                normal_text_line_heights_acc_lengths
+                normal_text_line_heights_acc_areas
             )
 
         probs = normalize_to_probs([
@@ -473,7 +473,7 @@ class PageLayoutStep(
         self,
         normal_text_line_heights: Sequence[int],
         normal_text_line_heights_expected_probs: Sequence[float],
-        normal_text_line_heights_acc_lengths: List[int],
+        normal_text_line_heights_acc_areas: List[int],
         normal_grid: Box,
         rng: RandomGenerator,
     ):
@@ -487,7 +487,7 @@ class PageLayoutStep(
         while up + normal_text_line_heights_max - 1 <= normal_grid.down:
             normal_text_line_heights_probs = self.calculate_normal_text_line_heights_probs(
                 normal_text_line_heights_expected_probs=normal_text_line_heights_expected_probs,
-                normal_text_line_heights_acc_lengths=normal_text_line_heights_acc_lengths,
+                normal_text_line_heights_acc_areas=normal_text_line_heights_acc_areas,
             )
             normal_text_line_height_idx = rng_choice(
                 rng=rng,
@@ -534,8 +534,8 @@ class PageLayoutStep(
             )
 
             prev_text_line_height = normal_text_line_height
-            normal_text_line_heights_acc_lengths[normal_text_line_height_idx] \
-                += normal_text_line_length
+            normal_text_line_heights_acc_areas[normal_text_line_height_idx] \
+                += normal_text_line_length * normal_text_line_height
             up = down + 1
 
         return layout_text_lines
@@ -565,7 +565,7 @@ class PageLayoutStep(
 
     def get_reference_height(self, height: int, width: int):
         area = height * width
-        reference_height = math.ceil(math.sqrt(area) / self.config.reference_aspect_ratio)
+        reference_height = math.ceil(math.sqrt(area / self.config.reference_aspect_ratio))
         return reference_height
 
     def sample_layout_text_lines(self, height: int, width: int, rng: RandomGenerator):
@@ -603,14 +603,14 @@ class PageLayoutStep(
         normal_text_line_heights_expected_probs = normalize_to_probs([
             1 / normal_text_line_height for normal_text_line_height in normal_text_line_heights
         ])
-        normal_text_line_heights_acc_lengths = [0] * len(normal_text_line_heights)
+        normal_text_line_heights_acc_areas = [0] * len(normal_text_line_heights)
         layout_text_lines: List[LayoutTextLine] = []
         for normal_grid in normal_grids:
             layout_text_lines.extend(
                 self.fill_normal_text_lines_to_grid(
                     normal_text_line_heights=normal_text_line_heights,
                     normal_text_line_heights_expected_probs=normal_text_line_heights_expected_probs,
-                    normal_text_line_heights_acc_lengths=normal_text_line_heights_acc_lengths,
+                    normal_text_line_heights_acc_areas=normal_text_line_heights_acc_areas,
                     normal_grid=normal_grid,
                     rng=rng,
                 )

@@ -74,17 +74,8 @@ shear_vert_policy_factory = DistortionPolicyFactory(
 
 @attrs.define
 class RotateConfigGeneratorConfig:
-    level_1_max: int = 6
-    level_1_angle_min: int = 1
-    level_1_angle_max: int = 45
-
-    level_2_max: int = 8
-    level_2_angle_min: int = 46
-    level_2_angle_max: int = 90
-
-    level_3_angle_min: int = 91
-    level_3_angle_max: int = 180
-
+    angle_min: int = 1
+    angle_max: int = 180
     prob_negative: float = 0.5
 
 
@@ -96,33 +87,13 @@ class RotateConfigGenerator(
 ):  # yapf: disable
 
     def __call__(self, shape: Tuple[int, int], rng: RandomGenerator):
-        if self.level <= self.config.level_1_max:
-            angle = sample_int(
-                level=self.level,
-                value_min=self.config.level_1_angle_min,
-                value_max=self.config.level_1_angle_max,
-                prob_negative=self.config.prob_negative,
-                rng=rng,
-            )
-
-        elif self.level <= self.config.level_2_max:
-            angle = sample_int(
-                level=self.level,
-                value_min=self.config.level_2_angle_min,
-                value_max=self.config.level_2_angle_max,
-                prob_negative=self.config.prob_negative,
-                rng=rng,
-            )
-
-        else:
-            angle = sample_int(
-                level=self.level,
-                value_min=self.config.level_3_angle_min,
-                value_max=self.config.level_3_angle_max,
-                prob_negative=self.config.prob_negative,
-                rng=rng,
-            )
-
+        angle = sample_int(
+            level=self.level,
+            value_min=self.config.angle_min,
+            value_max=self.config.angle_max,
+            prob_negative=self.config.prob_negative,
+            rng=rng,
+        )
         return distortion.RotateConfig(angle=angle)
 
 

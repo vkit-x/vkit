@@ -858,6 +858,22 @@ class Image(Shapable):
         resized_image = resized_image.to_box_attached(resized_box)
         return resized_image
 
+    def to_cropped_image(
+        self,
+        up: Optional[int] = None,
+        down: Optional[int] = None,
+        left: Optional[int] = None,
+        right: Optional[int] = None,
+    ):
+        assert not self.box
+
+        up = up or 0
+        down = down or self.height - 1
+        left = left or 0
+        right = right or self.width - 1
+
+        return attrs.evolve(self, mat=self.mat[up:down + 1, left:right + 1])
+
 
 # Cyclic dependency, by design.
 from .uniqueness import check_elements_uniqueness  # noqa: E402

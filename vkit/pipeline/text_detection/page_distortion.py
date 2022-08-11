@@ -5,14 +5,28 @@ from numpy.random import Generator as RandomGenerator
 import numpy as np
 
 from vkit.utility import PathType
-from vkit.element import PointList, Point, Polygon, Mask, ScoreMap, Image, Painter
-from vkit.engine.distortion_policy.random_distortion import random_distortion_factory
+from vkit.element import (
+    PointList,
+    Point,
+    Polygon,
+    Mask,
+    ScoreMap,
+    Image,
+    Painter,
+)
+from vkit.engine.distortion_policy.random_distortion import (
+    random_distortion_factory,
+    RandomDistortionDebug,
+)
 from ..interface import (
     PipelineStep,
     PipelineStepFactory,
     PipelineState,
 )
-from .page_text_line_label import PageCharPolygonCollection, PageTextLinePolygonCollection
+from .page_text_line_label import (
+    PageCharPolygonCollection,
+    PageTextLinePolygonCollection,
+)
 from .page_assembler import PageAssemblerStep
 
 
@@ -40,7 +54,7 @@ class PageDistortionStepConfig:
 @attrs.define
 class PageDistortionStepOutput:
     page_image: Image
-    page_random_distortion_debug_meta: Optional[Mapping[str, Any]]
+    page_random_distortion_debug: Optional[RandomDistortionDebug]
     page_char_polygon_collection: PageCharPolygonCollection
     page_char_mask: Optional[Mask]
     page_char_height_score_map: Optional[ScoreMap]
@@ -212,12 +226,16 @@ class PageDistortionStep(
         points.extend(page_text_line_polygon_collection.height_points_down)
 
         # Distort.
+        page_random_distortion_debug = None
+        if self.config.debug_random_distortion:
+            page_random_distortion_debug = RandomDistortionDebug()
+
         result = self.random_distortion.distort(
             image=page.image,
             polygons=polygons,
             points=points,
             rng=rng,
-            debug=self.config.debug_random_distortion,
+            debug=page_random_distortion_debug,
         )
         assert result.image
         assert result.polygons
@@ -272,7 +290,7 @@ class PageDistortionStep(
 
         return PageDistortionStepOutput(
             page_image=result.image,
-            page_random_distortion_debug_meta=result.meta,
+            page_random_distortion_debug=page_random_distortion_debug,
             page_char_polygon_collection=PageCharPolygonCollection(
                 height=result.image.height,
                 width=result.image.width,

@@ -291,6 +291,22 @@ class Mask(Shapable):
         resized_mask = resized_mask.to_box_attached(resized_box)
         return resized_mask
 
+    def to_cropped_mask(
+        self,
+        up: Optional[int] = None,
+        down: Optional[int] = None,
+        left: Optional[int] = None,
+        right: Optional[int] = None,
+    ):
+        assert not self.box
+
+        up = up or 0
+        down = down or self.height - 1
+        left = left or 0
+        right = right or self.width - 1
+
+        return attrs.evolve(self, mat=self.mat[up:down + 1, left:right + 1])
+
     def to_box_attached(self, box: 'Box'):
         assert self.height == box.height
         assert self.width == box.width
