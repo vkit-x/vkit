@@ -251,6 +251,13 @@ def test_page():
             {
                 'name': 'text_detection.page_distortion_step',
                 'config': {
+                    'random_distortion_factory_config': {
+                        'disabled_policy_names': [
+                            'defocus_blur',
+                            'zoom_in_blur',
+                        ],
+                        'force_post_uniform_rotate': True,
+                    },
                     'enable_distorted_char_heights_debug': True,
                     'enable_distorted_text_line_heights_debug': True,
                     # 'debug_random_distortion': True,
@@ -270,8 +277,8 @@ def test_page():
         post_processor=bypass_post_processor_factory.create(),
     )
 
+    # for seed in (3,):
     for seed in range(10):
-        # for seed in [1]:
         print(seed)
         rng = default_rng(seed)
         result = pipeline.run(rng)

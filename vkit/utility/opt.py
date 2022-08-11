@@ -67,8 +67,10 @@ def rng_choice_with_size(
     items: Sequence[_T_ITEM],
     size: int,
     probs: Optional[Sequence[float]] = None,
+    replace: bool = True,
 ) -> Sequence[_T_ITEM]:
-    indices = rng.choice(len(items), p=probs, size=size)
+    # NOTE: Without replacement!
+    indices = rng.choice(len(items), p=probs, size=size, replace=replace)
     return [items[idx] for idx in indices]
 
 

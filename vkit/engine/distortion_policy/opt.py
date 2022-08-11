@@ -14,7 +14,7 @@ def sample_channels(rng: RandomGenerator):
     num_channels = rng.integers(1, 4)
     channels = None
     if num_channels < 3:
-        channels = sorted(rng_choice_with_size(rng, CHANNELS, num_channels))
+        channels = sorted(rng_choice_with_size(rng, CHANNELS, num_channels, replace=False))
     return channels
 
 

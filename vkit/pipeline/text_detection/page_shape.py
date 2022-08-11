@@ -15,7 +15,8 @@ from ..interface import (
 @attrs.define
 class PageShapeStepConfig:
     aspect_ratios: Sequence[float] = attrs.field(factory=lambda: (1 / 1.4142, 1.4142))
-    area: int = 1024**2
+    # NOTE: to ensure the minimum font size >= 12 pixels.
+    area: int = 1681**2
 
 
 @attrs.define

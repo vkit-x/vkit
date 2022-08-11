@@ -184,7 +184,7 @@ def test_camera_plane_line_curve_policy_factory():
 
 
 def test_random_distortion():
-    random_distortion = random_distortion_factory.create({'force_post_rotate': True})
+    random_distortion = random_distortion_factory.create({'force_post_uniform_rotate': True})
 
     for stage in random_distortion.stages:
         print('config:', stage.config)

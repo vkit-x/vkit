@@ -755,6 +755,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         # If is geometric distortion, the shape will be updated.
         result = DistortionResult(shape=shape)
+        result_shape = None
 
         if image:
             result.image = self.distort_image(
@@ -763,7 +764,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
-            result.shape = result.image.shape
+            result_shape = result.image.shape
 
         if mask:
             result.mask = self.distort_mask(
@@ -772,9 +773,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
-            if not result.shape:
-                result.shape = result.mask.shape
-            assert result.shape == result.mask.shape
+            if not result_shape:
+                result_shape = result.mask.shape
+            assert result_shape == result.mask.shape
 
         if score_map:
             result.score_map = self.distort_score_map(
@@ -783,9 +784,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 state=state,
                 rng=rng,
             )
-            if not result.shape:
-                result.shape = result.score_map.shape
-            assert result.shape == result.score_map.shape
+            if not result_shape:
+                result_shape = result.score_map.shape
+            assert result_shape == result.score_map.shape
 
         if point:
             result.point = self.distort_point(
@@ -871,5 +872,8 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         if get_state:
             result.state = state
+
+        # Fallback to shape for photometric distortion.
+        result.shape = result_shape or shape
 
         return result
