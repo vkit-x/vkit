@@ -47,7 +47,7 @@ def sample_camera_model_config(
 @attrs.define
 class CameraPlaneOnlyConfigGeneratorConfig:
     level_1_max: int = 5
-    rotation_theta_max: int = 40
+    rotation_theta_max: int = 17
     vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
@@ -91,7 +91,7 @@ class CameraCubicCurveConfigGeneratorConfig:
     curve_slope_range_max: float = 90.0
     curve_slope_max: float = 45
     level_1_max: int = 5
-    rotation_theta_max: int = 40
+    rotation_theta_max: int = 17
     vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
@@ -160,7 +160,7 @@ class CameraPlaneLineFoldConfigGeneratorConfig:
     fold_alpha_min: float = 0.1
     fold_alpha_max: float = 1.25
     level_1_max: int = 5
-    rotation_theta_max: int = 40
+    rotation_theta_max: int = 17
     vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
@@ -226,7 +226,7 @@ class CameraPlaneLineCurveConfigGeneratorConfig:
     curve_alpha_min: float = 1.0
     curve_alpha_max: float = 2.0
     level_1_max: int = 5
-    rotation_theta_max: int = 40
+    rotation_theta_max: int = 17
     vec_z_max: float = 0.5
     grid_size_min: int = 15
     grid_size_ratio: float = 0.01
