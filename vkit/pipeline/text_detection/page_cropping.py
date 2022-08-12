@@ -287,8 +287,15 @@ class PageCroppingStep(
                 round(page_image_area / core_area * self.config.num_samples_estimation_factor),
             )
 
+        if num_samples > 1:
+            run_count_max = 2 * num_samples
+        else:
+            run_count_max = 3
+        run_count = 0
+
         cropped_pages: List[CroppedPage] = []
-        for _ in range(num_samples):
+
+        while len(cropped_pages) < num_samples and run_count < run_count_max:
             cropped_page = self.sample_cropped_page(
                 page_image=page_image,
                 page_char_mask=page_char_mask,
@@ -299,6 +306,8 @@ class PageCroppingStep(
             )
             if cropped_page:
                 cropped_pages.append(cropped_page)
+            run_count += 1
+
         return PageCroppingStepOutput(cropped_pages=cropped_pages)
 
 
