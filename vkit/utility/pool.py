@@ -4,10 +4,12 @@ import multiprocessing.util
 import multiprocessing.process
 import threading
 import logging
+import time
 import atexit
 
 import attrs
 from numpy.random import SeedSequence
+import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +182,21 @@ class Pool(Generic[_T_CONFIG, _T_OUTPUT]):
             with self.state.cond:
                 self.state.abort = True
                 self.state.cond.notify()
+
+            self.mp_pool.close()
             self.mp_pool.terminate()
+            time.sleep(1)
+
+            for proc in self.mp_pool._pool:  # type: ignore
+                if not psutil.pid_exists(proc.pid):
+                    continue
+                logger.warning(f'worker pid={proc.pid} still exists, killing...')
+                proc = psutil.Process(proc.pid)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except psutil.TimeoutExpired:
+                    proc.kill()
 
             # For gc.
             self.__setattr__('mp_pool_iter', None)
