@@ -19,6 +19,7 @@ class PageCroppingStepConfig:
     core_size: int
     pad_size: int
     num_samples: Optional[int] = None
+    num_samples_max: Optional[int] = None
     num_samples_estimation_factor: float = 1.5
     pad_value: int = 0
     drop_cropped_page_with_no_text: bool = True
@@ -279,21 +280,26 @@ class PageCroppingStep(
         page_text_line_height_score_map = page_resizing_step_output.page_text_line_height_score_map
 
         num_samples = self.config.num_samples
+
         if num_samples is None:
-            page_image_area = page_image.height * page_image.width
+            page_image_area = int((np.amax(page_image.mat, axis=2) > 0).sum())
             core_area = self.config.core_size**2
             num_samples = max(
                 1,
                 round(page_image_area / core_area * self.config.num_samples_estimation_factor),
             )
 
+        if self.config.num_samples_max:
+            num_samples = min(num_samples, self.config.num_samples_max)
+
+        cropped_pages: List[CroppedPage] = []
+
         if num_samples > 1:
             run_count_max = 2 * num_samples
         else:
             run_count_max = 3
-        run_count = 0
 
-        cropped_pages: List[CroppedPage] = []
+        run_count = 0
 
         while len(cropped_pages) < num_samples and run_count < run_count_max:
             cropped_page = self.sample_cropped_page(
