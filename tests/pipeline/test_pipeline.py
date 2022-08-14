@@ -563,6 +563,11 @@ def debug_adaptive_scaling_pipeline():
         painter.paint_score_map(cropped_page.page_char_height_score_map)
         write_image(f'page_cropped_{idx}_score_map.png', painter.image)
 
+        assert cropped_page.page_char_mask.box
+        char_mask_area = cropped_page.page_char_mask.box.area
+        char_mask_ratio = (cropped_page.page_char_mask.mat > 0).sum() / char_mask_area
+        print(f'{idx}: char_mask_ratio = {char_mask_ratio}')
+
         downsampled_label = cropped_page.downsampled_label
         assert downsampled_label
 
