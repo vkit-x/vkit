@@ -22,9 +22,10 @@ class PageCroppingStepConfig:
     num_samples_max: Optional[int] = None
     num_samples_estimation_factor: float = 1.5
     pad_value: int = 0
-    drop_cropped_page_with_no_text: bool = True
+    drop_cropped_page_with_small_text_ratio: bool = True
+    text_ratio_min: float = 0.025
     drop_cropped_page_with_large_black_area: bool = True
-    large_black_area_ratio_min: float = 0.5
+    black_area_ratio_max: float = 0.5
     enable_downsample_labeling: bool = True
     downsample_labeling_factor: int = 2
 
@@ -182,14 +183,16 @@ class PageCroppingStep(
         )
         page_text_line_height_score_map = page_text_line_height_score_map.to_box_attached(core_box)
 
-        if self.config.drop_cropped_page_with_no_text:
-            if not page_text_line_mask.mat.any():
+        if self.config.drop_cropped_page_with_small_text_ratio:
+            num_text_pixels = (page_char_mask.mat > 0).sum()
+            text_ratio = num_text_pixels / core_box.area
+            if text_ratio < self.config.text_ratio_min:
                 return None
 
         if self.config.drop_cropped_page_with_large_black_area:
             black_pixel_count = int((np.amax(page_image.mat, axis=2) == 0).sum())
             black_area_ratio = black_pixel_count / (page_image.height * page_image.width)
-            if black_area_ratio >= self.config.large_black_area_ratio_min:
+            if black_area_ratio >= self.config.black_area_ratio_max:
                 return None
 
         downsampled_label: Optional[DownsampledLabel] = None
