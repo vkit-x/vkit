@@ -23,7 +23,7 @@ class PageCroppingStepConfig:
     num_samples_estimation_factor: float = 1.5
     pad_value: int = 0
     drop_cropped_page_with_small_text_ratio: bool = True
-    text_ratio_min: float = 0.05
+    text_ratio_min: float = 0.025
     drop_cropped_page_with_large_black_area: bool = True
     black_area_ratio_max: float = 0.5
     enable_downsample_labeling: bool = True
