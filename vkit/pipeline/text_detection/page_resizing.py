@@ -1,5 +1,9 @@
+from typing import Sequence
+import logging
+
 import attrs
 from numpy.random import Generator as RandomGenerator
+import numpy as np
 
 from vkit.utility import sample_cv_resize_interpolation
 from vkit.element import Mask, ScoreMap, Image
@@ -10,11 +14,14 @@ from ..interface import (
     PipelineState,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @attrs.define
 class PageResizingStepConfig:
     resized_text_line_height_min: float = 1.5
     resized_text_line_height_max: float = 10.0
+    text_line_heights_filtering_thr: float = 1.0
 
 
 @attrs.define
@@ -35,6 +42,28 @@ class PageResizingStep(
 
     def __init__(self, config: PageResizingStepConfig):
         super().__init__(config)
+
+    def get_text_line_heights_min(self, page_distorted_text_line_heights: Sequence[float]):
+        # 1. Filtering.
+        text_line_heights = [
+            text_line_height for text_line_height in page_distorted_text_line_heights
+            if text_line_height > self.config.text_line_heights_filtering_thr
+        ]
+        assert text_line_heights
+        # 2. Remove outliers.
+        # https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm
+        text_line_heights = np.array(text_line_heights)
+        deltas = np.abs(text_line_heights - np.median(text_line_heights))
+        deltas_median = np.median(deltas)
+        delta_ratios = deltas / (deltas_median or 1.0)
+        text_line_heights_min = float(
+            min(
+                text_line_height
+                for text_line_height, delta_ratio in zip(text_line_heights, delta_ratios)
+                if delta_ratio < 3.5
+            )
+        )
+        return text_line_heights_min
 
     def run(self, state: PipelineState, rng: RandomGenerator):
         page_distortion_step_output = state.get_pipeline_step_output(PageDistortionStep)
@@ -58,7 +87,8 @@ class PageResizingStep(
 
         # Resizing.
         height, width = page_image.shape
-        text_line_heights_min = min(page_distorted_text_line_heights)
+        text_line_heights_min = self.get_text_line_heights_min(page_distorted_text_line_heights)
+        logger.debug(f'text_line_heights_min={text_line_heights_min}')
         resized_text_line_height = rng.uniform(
             self.config.resized_text_line_height_min,
             self.config.resized_text_line_height_max,
@@ -72,6 +102,7 @@ class PageResizingStep(
             rng,
             include_cv_inter_area=(resize_ratio < 1.0),
         )
+        logger.debug(f'cv_resize_interpolation={cv_resize_interpolation}')
 
         page_image = page_image.to_resized_image(
             resized_height=resized_height,

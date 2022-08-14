@@ -490,30 +490,94 @@ def test_page():
         #         )
 
 
-@pytest.mark.local
 def debug_adaptive_scaling_pipeline():
-    steps_json = '$VKIT_ARTIFACT_PACK/pipeline/text_detection/adaptive_scaling_until_page.json'
+    steps_json = '$VKIT_ARTIFACT_PACK/pipeline/text_detection/dev_adaptive_scaling_dataset_steps.json'
     pipeline = Pipeline(
         steps=pipeline_step_collection_factory.create(steps_json),
         post_processor=bypass_post_processor_factory.create(),
     )
 
-    from pyinstrument import Profiler
-
+    # Profiling.
+    # from pyinstrument import Profiler
     # p = Profiler(async_mode='disabled')
     # p.start()
-    # pipeline.run(default_rng(770))
+    # for rng_seed in range(0, 1000):
+    #     print('rng_seed =', rng_seed)
+    #     pipeline.run(default_rng(rng_seed))
     # p.stop()
     # p.print()
+    # breakpoint()
 
-    p = Profiler(async_mode='disabled')
-    p.start()
-    for rng_seed in range(0, 1000):
-        print('rng_seed =', rng_seed)
-        pipeline.run(default_rng(rng_seed))
-    p.stop()
-    p.print()
-    breakpoint()
+    # The one with labeling issue.
+    rng = default_rng()
+    rng.bit_generator.state = {
+        "bit_generator": "PCG64",
+        "state": {
+            "state": 265664896678725395205730166041826474231,
+            "inc": 264764775878313123560428660725838731763
+        },
+        "has_uint32": 0,
+        "uinteger": 1688944281
+    }
+    state = pipeline.run(rng=rng)
+
+    output: PageDistortionStepOutput = state.key_to_value['page_distortion_step']
+    image = output.page_image
+    write_image(f'page.png', image)
+
+    page_distorted_char_mask = output.page_char_mask
+    assert page_distorted_char_mask
+    vis_image = image.copy()
+    page_distorted_char_mask.fill_image(vis_image, (255, 0, 0), 0.5)
+    write_image(f'page_char_mask.png', vis_image)
+
+    painter = Painter.create(image)
+    page_distorted_char_height_score_map = output.page_char_height_score_map
+    assert page_distorted_char_height_score_map
+    painter.paint_score_map(page_distorted_char_height_score_map)
+    write_image(f'page_char_score_map.png', painter.image)
+
+    output2: PageResizingStepOutput = state.key_to_value['page_resizing_step']
+    image = output2.page_image
+    write_image(f'page_resized.png', image)
+
+    page_distorted_char_mask = output2.page_char_mask
+    assert page_distorted_char_mask
+    vis_image = image.copy()
+    page_distorted_char_mask.fill_image(vis_image, (255, 0, 0), 0.5)
+    write_image(f'page_resized_char_mask.png', vis_image)
+
+    painter = Painter.create(image)
+    page_distorted_char_height_score_map = output2.page_char_height_score_map
+    assert page_distorted_char_height_score_map
+    painter.paint_score_map(page_distorted_char_height_score_map)
+    write_image(f'page_resized_char_score_map.png', painter.image)
+
+    output3: PageCroppingStepOutput = state.key_to_value['page_cropping_step']
+    for idx, cropped_page in enumerate(output3.cropped_pages):
+        write_image(f'page_cropped_{idx}_image.png', cropped_page.page_image)
+        painter = Painter.create(cropped_page.page_image)
+        painter.paint_mask(cropped_page.page_char_mask)
+        write_image(f'page_cropped_{idx}_mask.png', painter.image)
+        painter = Painter.create(cropped_page.page_image)
+        painter.paint_score_map(cropped_page.page_char_height_score_map)
+        write_image(f'page_cropped_{idx}_score_map.png', painter.image)
+
+        downsampled_label = cropped_page.downsampled_label
+        assert downsampled_label
+
+        page_downsampled_char_mask = downsampled_label.page_char_mask
+        assert page_downsampled_char_mask
+        page_downsampled_char_height_score_map = downsampled_label.page_char_height_score_map
+        assert page_downsampled_char_height_score_map
+
+        painter = Painter.create(page_downsampled_char_mask)
+        painter.paint_mask(page_downsampled_char_mask)
+        write_image(f'page_cropped_{idx}_ds_mask.png', painter.image)
+
+        painter = Painter.create(page_downsampled_char_height_score_map)
+        painter.paint_score_map(page_downsampled_char_height_score_map)
+        write_image(f'page_cropped_{idx}_ds_score_map.png', painter.image)
 
 
 # @pytest.mark.local

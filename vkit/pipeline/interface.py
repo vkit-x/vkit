@@ -217,7 +217,12 @@ class Pipeline(Generic[_T_OUTPUT]):
     ) -> _T_OUTPUT:
         if state is None:
             state = PipelineState()
+
+        # Save the rng state.
+        state.set_value('_rng_state', rng.bit_generator.state)
+
         for step in self.steps:
             output = step.run(state, rng)
             state.set_value(step.get_name(), output)
+
         return self.post_processor.generate_output(state, rng)
