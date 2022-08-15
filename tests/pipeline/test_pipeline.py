@@ -491,11 +491,26 @@ def test_page():
 
 
 def debug_adaptive_scaling_pipeline():
+    # import os
+    # print(os.getpid())
+
+    # import tracemalloc
+    # tracemalloc.start()
+
     steps_json = '$VKIT_ARTIFACT_PACK/pipeline/text_detection/dev_adaptive_scaling_dataset_steps.json'
     pipeline = Pipeline(
         steps=pipeline_step_collection_factory.create(steps_json),
         post_processor=bypass_post_processor_factory.create(),
     )
+
+    # snapshot = tracemalloc.take_snapshot()
+    # top_stats = snapshot.statistics('lineno')
+
+    # print("[ Top 10 ]")
+    # for stat in top_stats[:10]:
+    #     print(stat)
+
+    # breakpoint()
 
     # Profiling.
     # from pyinstrument import Profiler
