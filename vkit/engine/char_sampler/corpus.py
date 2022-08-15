@@ -1,12 +1,17 @@
-from typing import Sequence, List, Optional
+from typing import Sequence, List, Optional, Tuple
+from os.path import getsize
+import logging
+from pathlib import Path
 
 import attrs
-import iolite as io
 from numpy.random import Generator as RandomGenerator
+import iolite as io
 
-from vkit.utility import rng_choice
+from vkit.utility import normalize_to_probs, rng_choice
 from vkit.engine.interface import Engine
 from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
+
+logger = logging.getLogger(__name__)
 
 
 @attrs.define
@@ -37,19 +42,55 @@ class CorpusCharSamplerEngine(
         assert resource
         self.lexicon_collection = resource.lexicon_collection
 
-        self.texts: List[str] = []
+        self.txt_file_size_pairs: List[Tuple[Path, int]] = []
         for txt_file in config.txt_files:
-            for line in io.read_text_lines(
+            txt_file = io.file(txt_file, expandvars=True, exists=True)
+            self.txt_file_size_pairs.append((
                 txt_file,
-                expandvars=True,
-                strip=True,
-                skip_empty=True,
-            ):
-                self.texts.append(line)
+                getsize(txt_file),
+            ))
+        self.txt_file_probs = normalize_to_probs([size for _, size in self.txt_file_size_pairs])
+
+    @staticmethod
+    def sample_text_line_from_file(
+        txt_file: Path,
+        size: int,
+        rng: RandomGenerator,
+    ):
+        pos = int(rng.integers(0, size))
+        with txt_file.open('rb') as fin:
+            # Find the next newline.
+            end = pos + 1
+            while end < size:
+                fin.seek(end)
+                if fin.read(1) == b'\n':
+                    break
+                end += 1
+            # Find the prev newline.
+            begin = pos
+            while begin >= 0:
+                fin.seek(begin)
+                if fin.read(1) == b'\n':
+                    break
+                begin -= 1
+            # Read line.
+            begin += 1
+            fin.seek(begin)
+            binary = fin.read(end - begin)
+            # Decode.
+            try:
+                return binary.decode()
+            except UnicodeError:
+                logger.exception(f'Failed to decode {binary}')
+                return ''
+
+    def sample_text_line(self, rng: RandomGenerator):
+        txt_file, size = rng_choice(rng, self.txt_file_size_pairs, probs=self.txt_file_probs)
+        return self.sample_text_line_from_file(txt_file, size, rng)
 
     def sample_and_prep_text(self, rng: RandomGenerator):
         while True:
-            text = rng_choice(rng, self.texts)
+            text = self.sample_text_line(rng)
             segments: List[str] = []
             for segment in text.split():
                 segment = ''.join(

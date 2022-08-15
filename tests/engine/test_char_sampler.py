@@ -1,11 +1,30 @@
 import tempfile
 import string
+from os.path import getsize
 
 from numpy.random import default_rng
+import iolite as io
 import pytest
 
 from vkit.element import LexiconCollection, Lexicon
 from vkit.engine.char_sampler import *
+
+
+@pytest.mark.local
+def test_corpus_sampler_sample_text_line_from_file():
+    rng = default_rng(42)
+    txt_file = io.file(
+        '$VKIT_PRIVATE_DATA/char_sampler/corp-address-debug.txt',
+        expandvars=True,
+        exists=True,
+    )
+    size = getsize(txt_file)
+    text = CorpusCharSamplerEngine.sample_text_line_from_file(
+        txt_file,
+        size,
+        rng,
+    )
+    assert text == '北京市昌平区回龙观镇回龙观西大街9号院4号楼14层1703'
 
 
 def test_corpus_sampler():
@@ -36,9 +55,9 @@ abbb cd dd ef
 
         rng = default_rng(0)
         chars = corpus_sampler.run(CharSamplerEngineRunConfig(5), rng=rng)
-        assert ''.join(chars) == 'abbbc'
+        assert ''.join(chars) == 'cba a'
         chars = corpus_sampler.run(CharSamplerEngineRunConfig(10), rng=rng)
-        assert ''.join(chars) == 'ba cba cba'
+        assert ''.join(chars) == 'abbb c efa'
 
 
 def test_datetime_sampler():
@@ -133,11 +152,11 @@ c
 
     rng = default_rng(0)
     chars = char_sampler_aggregator.run({'num_chars': 40}, rng=rng)
-    assert ''.join(chars) == 'b a a a a a a c b c b b c c b b b c a cc'
+    assert ''.join(chars) == 'b a c c b c a c c a b b a b c b c a b ba'
 
     rng = default_rng(0)
     chars = char_sampler_aggregator.run({'num_chars': 40, 'enable_aggregator_mode': True}, rng=rng)
-    assert ''.join(chars) == 'b 2007-11-26 12*32*15 EET+0200cc2015.03.'
+    assert ''.join(chars) == 'b ab2047-03-02 10 06 29 EET+0200 a2042-1'
 
     temp_txt_file.close()
     temp_config_file.close()
