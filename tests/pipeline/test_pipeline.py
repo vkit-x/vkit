@@ -2,13 +2,17 @@
 # TODO: improve
 from numpy.random import default_rng
 import numpy as np
+from numpy.random import Generator as RandomGenerator
+import attrs
 import cattrs
 import pytest
 
 from vkit.element import Image, Mask, ScoreMap, Painter
 from vkit.pipeline import (
     Pipeline,
-    bypass_post_processor_factory,
+    PipelinePostProcessor,
+    PipelinePostProcessorFactory,
+    PipelineState,
     page_shape_step_factory,
     page_background_step_factory,
     page_layout_step_factory,
@@ -31,6 +35,37 @@ from vkit.pipeline import (
 from tests.opt import write_image, write_json
 
 
+@attrs.define
+class BypassPostProcessorConfig:
+    pass
+
+
+@attrs.define
+class BypassPostProcessorInput:
+    pass
+
+
+@attrs.define
+class BypassPostProcessorOutput:
+    pass
+
+
+class BypassPostProcessor(
+    PipelinePostProcessor[BypassPostProcessorConfig, BypassPostProcessorInput,
+                          BypassPostProcessorOutput]
+):
+
+    def generate_output(
+        self,
+        input: BypassPostProcessorInput,
+        rng: RandomGenerator,
+    ) -> BypassPostProcessorOutput:
+        return BypassPostProcessorOutput()
+
+
+bypass_post_processor_factory = PipelinePostProcessorFactory(BypassPostProcessor)
+
+
 @pytest.mark.local
 def test_background():
     pipeline = Pipeline(
@@ -48,8 +83,9 @@ def test_background():
         post_processor=bypass_post_processor_factory.create(),
     )
     rng = default_rng(0)
-    result = pipeline.run(rng)
-    assert result
+    state = PipelineState()
+    pipeline.run(rng, state=state)
+    assert state.key_to_value['page_background_step_output_output']
 
 
 @pytest.mark.local
@@ -65,8 +101,9 @@ def test_page_layout():
     )
     for seed in range(10):
         rng = default_rng(seed)
-        result = pipeline.run(rng)
-        page_layout_output: PageLayoutStepOutput = result.key_to_value['page_layout_step']
+        state = PipelineState()
+        pipeline.run(rng, state=state)
+        page_layout_output: PageLayoutStepOutput = state.key_to_value['page_layout_step_output']
         page_layout = page_layout_output.page_layout
         boxes = list(page_layout_output.debug_normal_grids)
         color = ['green'] * len(boxes)
@@ -189,9 +226,6 @@ def test_page():
                 },
             },
             {
-                'name': 'text_detection.page_qrcode_step',
-            },
-            {
                 'name': 'text_detection.page_barcode_step',
             },
             {
@@ -281,9 +315,10 @@ def test_page():
     for seed in range(10):
         print(seed)
         rng = default_rng(seed)
-        result = pipeline.run(rng)
+        state = PipelineState()
+        pipeline.run(rng, state=state)
 
-        output: PageDistortionStepOutput = result.key_to_value['page_distortion_step']
+        output: PageDistortionStepOutput = state.key_to_value['page_distortion_step_output']
         image = output.page_image
         write_image(f'page_{seed}.jpg', image)
 
@@ -343,7 +378,7 @@ def test_page():
         #     Box.from_shapable(vis_image).fill_image(vis_image, dst_grid_image, alpha=0.5)
         #     write_image(f'page_{seed}_dst_grid_image_debug.jpg', vis_image)
 
-        output2: PageResizingStepOutput = result.key_to_value['page_resizing_step']
+        output2: PageResizingStepOutput = state.key_to_value['page_resizing_step_output']
         image = output2.page_image
         write_image(f'page_resized_{seed}.jpg', image)
 
@@ -371,7 +406,7 @@ def test_page():
         painter.paint_score_map(page_distorted_text_line_height_score_map)
         write_image(f'page_resized_{seed}_text_line_score_map.jpg', painter.image)
 
-        # output3: PageCroppingStepOutput = result.key_to_value['page_cropping_step']
+        # output3: PageCroppingStepOutput = result.key_to_value['page_cropping_step_output']
         # for idx, cropped_page in enumerate(output3.cropped_pages):
         #     write_image(f'page_cropped_{seed}_{idx}_image.jpg', cropped_page.page_image)
         #     painter = Painter.create(cropped_page.page_image)
@@ -534,9 +569,10 @@ def debug_adaptive_scaling_pipeline():
         "has_uint32": 0,
         "uinteger": 1688944281
     }
-    state = pipeline.run(rng=rng)
+    state = PipelineState()
+    pipeline.run(rng=rng, state=state)
 
-    output: PageDistortionStepOutput = state.key_to_value['page_distortion_step']
+    output: PageDistortionStepOutput = state.key_to_value['page_distortion_step_output']
     image = output.page_image
     write_image(f'page.png', image)
 
@@ -552,7 +588,7 @@ def debug_adaptive_scaling_pipeline():
     painter.paint_score_map(page_distorted_char_height_score_map)
     write_image(f'page_char_score_map.png', painter.image)
 
-    output2: PageResizingStepOutput = state.key_to_value['page_resizing_step']
+    output2: PageResizingStepOutput = state.key_to_value['page_resizing_step_output']
     image = output2.page_image
     write_image(f'page_resized.png', image)
 
@@ -568,7 +604,7 @@ def debug_adaptive_scaling_pipeline():
     painter.paint_score_map(page_distorted_char_height_score_map)
     write_image(f'page_resized_char_score_map.png', painter.image)
 
-    output3: PageCroppingStepOutput = state.key_to_value['page_cropping_step']
+    output3: PageCroppingStepOutput = state.key_to_value['page_cropping_step_output']
     for idx, cropped_page in enumerate(output3.cropped_pages):
         write_image(f'page_cropped_{idx}_image.png', cropped_page.page_image)
         painter = Painter.create(cropped_page.page_image)

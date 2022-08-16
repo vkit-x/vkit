@@ -12,7 +12,7 @@ from typing import (
     Union,
     Callable,
 )
-from enum import Enum, unique
+import itertools
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -27,28 +27,28 @@ from vkit.utility import (
     PathType,
 )
 
-_T_CONFIG = TypeVar('_T_CONFIG')
-_T_RESOURCE = TypeVar('_T_RESOURCE')
+_T_INIT_CONFIG = TypeVar('_T_INIT_CONFIG')
+_T_INIT_RESOURCE = TypeVar('_T_INIT_RESOURCE')
 _T_RUN_CONFIG = TypeVar('_T_RUN_CONFIG')
-_T_OUTPUT = TypeVar('_T_OUTPUT')
+_T_RUN_OUTPUT = TypeVar('_T_RUN_OUTPUT')
 
 
 @attrs.define
-class NoneTypeEngineConfig:
+class NoneTypeEngineInitConfig:
     pass
 
 
 @attrs.define
-class NoneTypeEngineResource:
+class NoneTypeEngineInitResource:
     pass
 
 
 class Engine(
     Generic[
-        _T_CONFIG,
-        _T_RESOURCE,
+        _T_INIT_CONFIG,
+        _T_INIT_RESOURCE,
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ]
 ):  # yapf: disable
 
@@ -58,32 +58,32 @@ class Engine(
 
     def __init__(
         self,
-        config: _T_CONFIG,
-        resource: Optional[_T_RESOURCE] = None,
+        init_config: _T_INIT_CONFIG,
+        init_resource: Optional[_T_INIT_RESOURCE] = None,
     ):
-        self.config = config
-        self.resource = resource
+        self.init_config = init_config
+        self.init_resource = init_resource
 
-    def run(self, run_config: _T_RUN_CONFIG, rng: RandomGenerator) -> _T_OUTPUT:
+    def run(self, run_config: _T_RUN_CONFIG, rng: RandomGenerator) -> _T_RUN_OUTPUT:
         raise NotImplementedError()
 
 
-class EngineRunner(
+class EngineExecutor(
     Generic[
-        _T_CONFIG,
-        _T_RESOURCE,
+        _T_INIT_CONFIG,
+        _T_INIT_RESOURCE,
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ]
 ):  # yapf: disable
 
     def __init__(
         self,
         engine: Engine[
-            _T_CONFIG,
-            _T_RESOURCE,
+            _T_INIT_CONFIG,
+            _T_INIT_RESOURCE,
             _T_RUN_CONFIG,
-            _T_OUTPUT,
+            _T_RUN_OUTPUT,
         ],
     ):  # yapf: disable
         self.engine = engine
@@ -98,17 +98,17 @@ class EngineRunner(
             _T_RUN_CONFIG,
         ],
         rng: RandomGenerator,
-    ) -> _T_OUTPUT:  # yapf: disable
+    ) -> _T_RUN_OUTPUT:  # yapf: disable
         run_config = dyn_structure(run_config, self.get_run_config_cls())
         return self.engine.run(run_config, rng)
 
 
-class EngineFactory(
+class EngineExecutorFactory(
     Generic[
-        _T_CONFIG,
-        _T_RESOURCE,
+        _T_INIT_CONFIG,
+        _T_INIT_RESOURCE,
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ]
 ):  # yapf: disable
 
@@ -116,10 +116,10 @@ class EngineFactory(
         self,
         engine_cls: Type[
             Engine[
-                _T_CONFIG,
-                _T_RESOURCE,
+                _T_INIT_CONFIG,
+                _T_INIT_RESOURCE,
                 _T_RUN_CONFIG,
-                _T_OUTPUT,
+                _T_RUN_OUTPUT,
             ]
         ],
     ):  # yapf: disable
@@ -128,51 +128,50 @@ class EngineFactory(
     def get_type_name(self):
         return self.engine_cls.get_type_name()
 
-    def get_config_cls(self) -> Type[_T_CONFIG]:
+    def get_init_config_cls(self) -> Type[_T_INIT_CONFIG]:
         return get_generic_classes(self.engine_cls)[0]  # type: ignore
 
-    def get_resource_cls(self) -> Type[_T_RESOURCE]:
+    def get_init_resource_cls(self) -> Type[_T_INIT_RESOURCE]:
         return get_generic_classes(self.engine_cls)[1]  # type: ignore
 
     def create(
         self,
-        config: Optional[
+        init_config: Optional[
             Union[
                 Mapping[str, Any],
                 PathType,
-                _T_CONFIG,
+                _T_INIT_CONFIG,
             ]
         ] = None,
-        resource: Optional[
+        init_resource: Optional[
             Union[
                 Mapping[str, Any],
-                _T_RESOURCE,
+                _T_INIT_RESOURCE,
             ]
         ] = None,
     ):  # yapf: disable
-        config = dyn_structure(
-            config,
-            self.get_config_cls(),
+        init_config = dyn_structure(
+            init_config,
+            self.get_init_config_cls(),
             support_path_type=True,
             support_none_type=True,
         )
 
-        resource_cls = self.get_resource_cls()
-        if resource_cls is NoneTypeEngineResource:
-            assert resource is None
+        init_resource_cls = self.get_init_resource_cls()
+        if init_resource_cls is NoneTypeEngineInitResource:
+            assert init_resource is None
         else:
-            assert resource
-        if resource is not None:
-            resource = dyn_structure(resource, resource_cls)
+            assert init_resource
+        if init_resource is not None:
+            init_resource = dyn_structure(init_resource, init_resource_cls)
 
-        return EngineRunner(self.engine_cls(config, resource))
+        return EngineExecutor(self.engine_cls(init_config, init_resource))
 
 
-class EngineRunnerAggregatorSelector(
+class EngineExecutorAggregatorSelector(
     Generic[
-        _T_RESOURCE,
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ]
 ):  # yapf: disable
 
@@ -180,43 +179,41 @@ class EngineRunnerAggregatorSelector(
         self,
         pairs: Sequence[
             Tuple[
-                EngineRunner[
+                EngineExecutor[
                     Any,
-                    _T_RESOURCE,
+                    Any,
                     _T_RUN_CONFIG,
-                    _T_OUTPUT,
+                    _T_RUN_OUTPUT,
                 ],
                 float,
             ]
         ],
     ):  # yapf: disable
-        self.engine_runners, self.probs = normalize_to_keys_and_probs(pairs)
+        self.engine_executors, self.probs = normalize_to_keys_and_probs(pairs)
 
     def get_run_config_cls(self):
-        return self.engine_runners[0].get_run_config_cls()
+        return self.engine_executors[0].get_run_config_cls()
 
-    def select_engine_runner(self, rng: RandomGenerator):
-        return rng_choice(rng, self.engine_runners, probs=self.probs)
+    def select_engine_executor(self, rng: RandomGenerator):
+        return rng_choice(rng, self.engine_executors, probs=self.probs)
 
 
-def engine_runner_aggregator_default_func_collate(
-    selector: EngineRunnerAggregatorSelector[
-        Any,
+def engine_executor_aggregator_default_func_collate(
+    selector: EngineExecutorAggregatorSelector[
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ],
     run_config: _T_RUN_CONFIG,
     rng: RandomGenerator,
-) -> _T_OUTPUT:  # yapf: disable
-    engine_runner = selector.select_engine_runner(rng)
-    return engine_runner.run(run_config, rng)
+) -> _T_RUN_OUTPUT:  # yapf: disable
+    engine_executor = selector.select_engine_executor(rng)
+    return engine_executor.run(run_config, rng)
 
 
-class EngineRunnerAggregator(
+class EngineExecutorAggregator(
     Generic[
-        _T_RESOURCE,
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ]
 ):  # yapf: disable
 
@@ -225,23 +222,21 @@ class EngineRunnerAggregator(
 
     def __init__(
         self,
-        selector: EngineRunnerAggregatorSelector[
-            _T_RESOURCE,
+        selector: EngineExecutorAggregatorSelector[
             _T_RUN_CONFIG,
-            _T_OUTPUT,
+            _T_RUN_OUTPUT,
         ],
         func_collate: Callable[
             [
-                EngineRunnerAggregatorSelector[
-                    _T_RESOURCE,
+                EngineExecutorAggregatorSelector[
                     _T_RUN_CONFIG,
-                    _T_OUTPUT,
+                    _T_RUN_OUTPUT,
                 ],
                 _T_RUN_CONFIG,
                 RandomGenerator,
             ],
-            _T_OUTPUT,
-        ] = engine_runner_aggregator_default_func_collate,
+            _T_RUN_OUTPUT,
+        ] = engine_executor_aggregator_default_func_collate,
     ):  # yapf: disable
         self.selector = selector
         self.func_collate = func_collate
@@ -253,101 +248,184 @@ class EngineRunnerAggregator(
             _T_RUN_CONFIG,
         ],
         rng: RandomGenerator,
-    ) -> _T_OUTPUT:  # yapf: disable
+    ) -> _T_RUN_OUTPUT:  # yapf: disable
         run_config = dyn_structure(run_config, self.get_run_config_cls())
         return self.func_collate(self.selector, run_config, rng)
 
 
-@unique
-class EngineRunnerAggregatorFactoryConfigKey(Enum):
+class EngineExecutorAggregatorFactoryConfigKey:
     TYPE = 'type'
     WEIGHT = 'weight'
     CONFIG = 'config'
 
 
-class EngineRunnerAggregatorFactory(
+class EngineExecutorAggregatorFactory(
     Generic[
-        _T_RESOURCE,
         _T_RUN_CONFIG,
-        _T_OUTPUT,
+        _T_RUN_OUTPUT,
     ]
 ):  # yapf: disable
 
     def __init__(
         self,
-        engine_factories: Sequence[
-            EngineFactory[
+        engine_executor_factories: Sequence[
+            EngineExecutorFactory[
                 Any,
-                _T_RESOURCE,
+                Any,
                 _T_RUN_CONFIG,
-                _T_OUTPUT,
+                _T_RUN_OUTPUT,
             ]
         ],
         func_collate: Callable[
             [
-                EngineRunnerAggregatorSelector[
-                    _T_RESOURCE,
+                EngineExecutorAggregatorSelector[
                     _T_RUN_CONFIG,
-                    _T_OUTPUT,
+                    _T_RUN_OUTPUT,
                 ],
                 _T_RUN_CONFIG,
                 RandomGenerator,
             ],
-            _T_OUTPUT,
-        ] = engine_runner_aggregator_default_func_collate,
+            _T_RUN_OUTPUT,
+        ] = engine_executor_aggregator_default_func_collate,
     ):  # yapf: disable
-        self.type_name_to_engine_factory = {
-            engine_factory.get_type_name(): engine_factory for engine_factory in engine_factories
+        self.type_name_to_engine_executor_factory = {
+            engine_executor_factory.get_type_name(): engine_executor_factory
+            for engine_executor_factory in engine_executor_factories
         }
         self.func_collate = func_collate
 
-    def get_resource_cls(self) -> Type[_T_RESOURCE]:
-        engine_cls = next(iter(self.type_name_to_engine_factory.values()))
-        return engine_cls.get_resource_cls()
-
     def create(
         self,
-        configs: Union[
+        factory_init_configs: Union[
             Sequence[Mapping[str, Any]],
             PathType,
         ],
-        resource: Optional[
-            Union[
-                Mapping[str, Any],
-                _T_RESOURCE,
+        init_resources: Optional[
+            Sequence[
+                Union[
+                    Mapping[str, Any],
+                    # TODO: find a better way to constrain resource type.
+                    Any,
+                ]
             ]
         ] = None,
-
     ):  # yapf: disable
-        resource_cls = self.get_resource_cls()
-        if resource_cls is NoneTypeEngineResource:
-            assert resource is None
-        else:
-            assert resource
-        if resource is not None:
-            resource = dyn_structure(resource, resource_cls)
+        if is_path_type(factory_init_configs):
+            factory_init_configs = read_json_file(factory_init_configs)  # type: ignore
+        factory_init_configs = cast(Sequence[Mapping[str, Any]], factory_init_configs)
 
-        if is_path_type(configs):
-            configs = read_json_file(configs)  # type: ignore
-        configs = cast(Sequence[Mapping[str, Any]], configs)
+        pairs: List[
+            Tuple[
+                EngineExecutor[Any, Any, _T_RUN_CONFIG, _T_RUN_OUTPUT],
+                float,
+            ],
+        ] = []  # yapf: disable
 
-        pairs: List[Tuple[EngineRunner[Any, _T_RESOURCE, _T_RUN_CONFIG, _T_OUTPUT], float]] = []
-        for config in configs:
-            type_name = config[EngineRunnerAggregatorFactoryConfigKey.TYPE.value]
-            if type_name not in self.type_name_to_engine_factory:
+        for factory_init_config, init_resource in zip(
+            factory_init_configs, init_resources or itertools.repeat(None)
+        ):
+            # Reflects engine_executor_factory.
+            type_name = factory_init_config[EngineExecutorAggregatorFactoryConfigKey.TYPE]
+            if type_name not in self.type_name_to_engine_executor_factory:
                 raise KeyError(f'type_name={type_name} not found')
+            engine_executor_factory = self.type_name_to_engine_executor_factory[type_name]
 
-            engine_factory = self.type_name_to_engine_factory[type_name]
-            engine_runner = engine_factory.create(
-                config.get(EngineRunnerAggregatorFactoryConfigKey.CONFIG.value, {}),
-                resource,
+            # Build init_resource.
+            init_resource_cls = engine_executor_factory.get_init_resource_cls()
+            if init_resource_cls is NoneTypeEngineInitResource:
+                assert init_resource is None
+            else:
+                assert init_resource
+                init_resource = dyn_structure(init_resource, init_resource_cls)
+
+            # Build engine_executor.
+            engine_executor = engine_executor_factory.create(
+                factory_init_config.get(EngineExecutorAggregatorFactoryConfigKey.CONFIG, {}),
+                init_resource,
             )
-            if len(configs) == 1:
+
+            # Get the weight.
+            if len(factory_init_configs) == 1:
                 weight = 1
             else:
-                weight = config[EngineRunnerAggregatorFactoryConfigKey.WEIGHT.value]
+                weight = factory_init_config[EngineExecutorAggregatorFactoryConfigKey.WEIGHT]
 
-            pairs.append((engine_runner, weight))
-        selector = EngineRunnerAggregatorSelector(pairs)
+            pairs.append((engine_executor, weight))
 
-        return EngineRunnerAggregator(selector, func_collate=self.func_collate)
+        return EngineExecutorAggregator(
+            EngineExecutorAggregatorSelector(pairs),
+            func_collate=self.func_collate,
+        )
+
+    def create_with_repeated_init_resource(
+        self,
+        factory_init_configs: Union[
+            Sequence[Mapping[str, Any]],
+            PathType,
+        ],
+        init_resource: Union[
+            Mapping[str, Any],
+            Any,
+        ]
+    ):  # yapf: disable
+        if is_path_type(factory_init_configs):
+            factory_init_configs = read_json_file(factory_init_configs)  # type: ignore
+        factory_init_configs = cast(Sequence[Mapping[str, Any]], factory_init_configs)
+
+        return self.create(
+            factory_init_configs,
+            [init_resource] * len(factory_init_configs),
+        )
+
+
+# TODO: move to doc.
+# A minimum template.
+'''
+from typing import Optional
+
+import attrs
+from numpy.random import Generator as RandomGenerator
+
+from vkit.engine.interface import (
+    Engine,
+    EngineExecutorFactory,
+    NoneTypeEngineInitResource,
+)
+
+
+@attrs.define
+class FooEngineInitConfig:
+    pass
+
+
+@attrs.define
+class FooEngineRunConfig:
+    pass
+
+
+class FooEngine(
+    Engine[
+        FooEngineInitConfig,
+        NoneTypeEngineInitResource,
+        FooEngineRunConfig,
+        int,
+    ]
+):  # yapf: disable
+
+    @classmethod
+    def get_type_name(cls) -> str:
+        return 'foo'
+
+    def __init__(
+        self,
+        init_config: FooEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
+    ):
+        super().__init__(init_config, init_resource)
+
+    def run(self, run_config: FooEngineRunConfig, rng: RandomGenerator) -> int:
+        return 42
+
+
+foo_engine_executor_factory = EngineExecutorFactory(FooEngine)
+'''

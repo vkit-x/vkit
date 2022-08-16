@@ -1,14 +1,16 @@
-from vkit.engine.interface import EngineFactory, EngineRunnerAggregatorFactory
+from vkit.engine.interface import EngineExecutorAggregatorFactory
 from .type import (
     CharSlot,
     SealImpression,
     SealImpressionEngineRunConfig,
 )
-from .ellipse import EllipseSealImpressionEngine
+from .ellipse import (
+    seal_impression_ellipse_engine_executor_factory,
+    SealImpressionEllipseEngineInitConfig,
+    SealImpressionEllipseEngine,
+)
 from .text_line_slot_filler import fill_text_line_to_seal_impression
 
-ellipse_seal_impression_factory = EngineFactory(EllipseSealImpressionEngine)
-
-seal_impression_factory = EngineRunnerAggregatorFactory([
-    ellipse_seal_impression_factory,
+seal_impression_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
+    seal_impression_ellipse_engine_executor_factory,
 ])

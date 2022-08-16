@@ -7,12 +7,8 @@ import numpy as np
 
 from vkit.utility import sample_cv_resize_interpolation
 from vkit.element import Mask, ScoreMap, Image
-from .page_distortion import PageDistortionStep
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
+from .page_distortion import PageDistortionStepOutput
+from ..interface import PipelineStep, PipelineStepFactory
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +18,11 @@ class PageResizingStepConfig:
     resized_text_line_height_min: float = 1.5
     resized_text_line_height_max: float = 10.0
     text_line_heights_filtering_thr: float = 1.0
+
+
+@attrs.define
+class PageResizingStepInput:
+    page_distortion_step_output: PageDistortionStepOutput
 
 
 @attrs.define
@@ -36,6 +37,7 @@ class PageResizingStepOutput:
 class PageResizingStep(
     PipelineStep[
         PageResizingStepConfig,
+        PageResizingStepInput,
         PageResizingStepOutput,
     ]
 ):  # yapf: disable
@@ -65,8 +67,8 @@ class PageResizingStep(
         )
         return text_line_heights_min
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_distortion_step_output = state.get_pipeline_step_output(PageDistortionStep)
+    def run(self, input: PageResizingStepInput, rng: RandomGenerator):
+        page_distortion_step_output = input.page_distortion_step_output
         page_image = page_distortion_step_output.page_image
 
         page_char_mask = page_distortion_step_output.page_char_mask

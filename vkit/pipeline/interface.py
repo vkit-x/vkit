@@ -26,6 +26,7 @@ from vkit.utility import (
 
 _T_VALUE = TypeVar('_T_VALUE')
 _T_CONFIG = TypeVar('_T_CONFIG')
+_T_INPUT = TypeVar('_T_INPUT')
 _T_OUTPUT = TypeVar('_T_OUTPUT')
 
 
@@ -46,30 +47,20 @@ class PipelineState:
             raise KeyError(f'key={key} exists but override is not set.')
         self.key_to_value[key] = value
 
-    def get_pipeline_step_output(
-        self,
-        pipeline_step: 'Type[PipelineStep[Any, _T_OUTPUT]]',
-    ) -> _T_OUTPUT:
-        return self.get_value(
-            pipeline_step.get_name(),
-            pipeline_step.get_output_cls(),
-        )
 
-
-@attrs.define
-class NoneTypePipelineStepConfig:
-    pass
-
-
-class PipelineStep(Generic[_T_CONFIG, _T_OUTPUT]):
+class PipelineStep(Generic[_T_CONFIG, _T_INPUT, _T_OUTPUT]):
 
     @classmethod
     def get_config_cls(cls) -> Type[_T_CONFIG]:
         return get_generic_classes(cls)[0]  # type: ignore
 
     @classmethod
-    def get_output_cls(cls) -> Type[_T_OUTPUT]:
+    def get_input_cls(cls) -> Type[_T_INPUT]:
         return get_generic_classes(cls)[1]  # type: ignore
+
+    @classmethod
+    def get_output_cls(cls) -> Type[_T_OUTPUT]:
+        return get_generic_classes(cls)[2]  # type: ignore
 
     _cached_name: str = ''
 
@@ -82,21 +73,21 @@ class PipelineStep(Generic[_T_CONFIG, _T_OUTPUT]):
     def __init__(self, config: _T_CONFIG):
         self.config = config
 
-    def run(self, state: PipelineState, rng: RandomGenerator) -> _T_OUTPUT:
+    def run(self, input: _T_INPUT, rng: RandomGenerator) -> _T_OUTPUT:
         raise NotImplementedError()
 
 
-class PipelineStepFactory(Generic[_T_CONFIG, _T_OUTPUT]):
+class PipelineStepFactory(Generic[_T_CONFIG, _T_INPUT, _T_OUTPUT]):
 
-    def __init__(self, pipeline_step_cls: Type[PipelineStep[_T_CONFIG, _T_OUTPUT]]):
+    def __init__(self, pipeline_step_cls: Type[PipelineStep[_T_CONFIG, _T_INPUT, _T_OUTPUT]]):
         self.pipeline_step_cls = pipeline_step_cls
 
     @property
     def name(self):
         return self.pipeline_step_cls.get_name()
 
-    def get_config_cls(self) -> Type[_T_CONFIG]:
-        return get_generic_classes(self.pipeline_step_cls)[0]  # type: ignore
+    def get_config_cls(self):
+        return self.pipeline_step_cls.get_config_cls()
 
     def create(
         self,
@@ -144,40 +135,24 @@ class PipelineStepCollectionFactory:
         return steps
 
 
-@attrs.define
-class NoneTypePipelinePostProcessorConfig:
-    pass
-
-
-class PipelinePostProcessor(Generic[_T_CONFIG, _T_OUTPUT]):
+class PipelinePostProcessor(Generic[_T_CONFIG, _T_INPUT, _T_OUTPUT]):
 
     def __init__(self, config: _T_CONFIG):
         self.config = config
 
-    def generate_output(
-        self,
-        state: PipelineState,
-        rng: RandomGenerator,
-    ) -> _T_OUTPUT:
+    @classmethod
+    def get_input_cls(cls) -> Type[_T_INPUT]:
+        return get_generic_classes(cls)[1]  # type: ignore
+
+    def generate_output(self, input: _T_INPUT, rng: RandomGenerator) -> _T_OUTPUT:
         raise NotImplementedError()
 
 
-class BypassPipelinePostProcessor(
-    PipelinePostProcessor[
-        NoneTypePipelinePostProcessorConfig,
-        PipelineState,
-    ]
-):  # yapf: disable
-
-    def generate_output(self, state: PipelineState, rng: RandomGenerator) -> PipelineState:
-        return state
-
-
-class PipelinePostProcessorFactory(Generic[_T_CONFIG, _T_OUTPUT]):
+class PipelinePostProcessorFactory(Generic[_T_CONFIG, _T_INPUT, _T_OUTPUT]):
 
     def __init__(
         self,
-        pipeline_post_processor_cls: Type[PipelinePostProcessor[_T_CONFIG, _T_OUTPUT]],
+        pipeline_post_processor_cls: Type[PipelinePostProcessor[_T_CONFIG, _T_INPUT, _T_OUTPUT]],
     ):
         self.pipeline_post_processor_cls = pipeline_post_processor_cls
 
@@ -197,18 +172,31 @@ class PipelinePostProcessorFactory(Generic[_T_CONFIG, _T_OUTPUT]):
         return self.pipeline_post_processor_cls(config)
 
 
-bypass_post_processor_factory = PipelinePostProcessorFactory(BypassPipelinePostProcessor)
-
-
 class Pipeline(Generic[_T_OUTPUT]):
 
     def __init__(
         self,
         steps: Sequence[PipelineStep],
-        post_processor: PipelinePostProcessor[Any, _T_OUTPUT],
+        post_processor: PipelinePostProcessor[Any, Any, _T_OUTPUT],
     ):
         self.steps = steps
         self.post_processor = post_processor
+
+    @staticmethod
+    def build_input(state: PipelineState, input_cls: Any):
+        assert attrs.has(input_cls)
+
+        input_kwargs = {}
+        for key, key_field in attrs.fields_dict(input_cls).items():
+            assert key_field.type
+            assert attrs.has(key_field.type)
+            value = state.get_value(
+                convert_camel_case_name_to_snake_case_name(key_field.type.__name__),
+                key_field.type,
+            )
+            input_kwargs[key] = value
+
+        return input_cls(**input_kwargs)
 
     def run(
         self,
@@ -221,8 +209,25 @@ class Pipeline(Generic[_T_OUTPUT]):
         # Save the rng state.
         state.set_value('_rng_state', rng.bit_generator.state)
 
+        # Run steps.
         for step in self.steps:
-            output = step.run(state, rng)
-            state.set_value(step.get_name(), output)
+            # Build input.
+            step_input = self.build_input(state, step.get_input_cls())
 
-        return self.post_processor.generate_output(state, rng)
+            # Generate output.
+            step_output = step.run(step_input, rng)
+
+            # Update state.
+            step_output_cls = step.get_output_cls()
+            assert isinstance(step_output, step_output_cls)
+            assert attrs.has(step_output_cls)
+            state.set_value(
+                convert_camel_case_name_to_snake_case_name(step_output_cls.__name__),
+                step_output,
+            )
+
+        # Post processing.
+        return self.post_processor.generate_output(
+            self.build_input(state, self.post_processor.get_input_cls()),
+            rng,
+        )

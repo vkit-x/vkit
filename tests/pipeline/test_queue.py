@@ -1,14 +1,19 @@
+from typing import Tuple
 import time
 from multiprocessing import JoinableQueue, Process
 import logging
 
 import numpy as np
+from numpy.random import Generator as RandomGenerator
+import attrs
 
 from vkit.pipeline import (
     Pipeline,
     PipelinePool,
-    bypass_post_processor_factory,
     pipeline_step_collection_factory,
+    PipelinePostProcessor,
+    PipelinePostProcessorFactory,
+    PageShapeStepOutput,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,6 +60,39 @@ def debug_joinable_queue():
         time.sleep(0.5)
 
 
+@attrs.define
+class GetShapePostProcessorConfig:
+    pass
+
+
+@attrs.define
+class GetShapePostProcessorInput:
+    page_shape_step_output: PageShapeStepOutput
+
+
+@attrs.define
+class GetShapePostProcessorOutput:
+    shape: Tuple[int, int]
+
+
+class GetShapePostProcessor(
+    PipelinePostProcessor[GetShapePostProcessorConfig, GetShapePostProcessorInput,
+                          GetShapePostProcessorOutput]
+):
+
+    def generate_output(
+        self,
+        input: GetShapePostProcessorInput,
+        rng: RandomGenerator,
+    ) -> GetShapePostProcessorOutput:
+        return GetShapePostProcessorOutput(
+            shape=(input.page_shape_step_output.height, input.page_shape_step_output.width),
+        )
+
+
+bypass_post_processor_factory = PipelinePostProcessorFactory(GetShapePostProcessor)
+
+
 def debug_pool():
     begin = 1 / 1.4142
     end = 1.4142
@@ -85,9 +123,8 @@ def debug_pool():
 
     shapes = []
     for _ in range(8):
-        state = pipeline_pool.run()
-        page_shape_step = state.key_to_value['page_shape_step']
-        shapes.append((page_shape_step.height, page_shape_step.width))
+        output = pipeline_pool.run()
+        shapes.append(output.shape)
     assert len(set(shapes)) == 8
 
     print('!!!!!! cleanup')
@@ -105,9 +142,8 @@ def debug_pool():
 
     shapes0 = []
     for _ in range(8):
-        state = pipeline_pool.run()
-        page_shape_step = state.key_to_value['page_shape_step']
-        shapes0.append((page_shape_step.height, page_shape_step.width))
+        output = pipeline_pool.run()
+        shapes0.append(output.shape)
 
     pipeline_pool.cleanup()
 
@@ -122,9 +158,8 @@ def debug_pool():
 
     shapes1 = []
     for _ in range(8):
-        state = pipeline_pool.run()
-        page_shape_step = state.key_to_value['page_shape_step']
-        shapes1.append((page_shape_step.height, page_shape_step.width))
+        output = pipeline_pool.run()
+        shapes1.append(output.shape)
 
     assert set(shapes0) == set(shapes1)
     assert len(set(shapes0)) == 2

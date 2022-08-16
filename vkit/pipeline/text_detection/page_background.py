@@ -10,13 +10,9 @@ from vkit.utility import (
     PathType,
 )
 from vkit.element import Image
-from vkit.engine.image import image_factory
-from .page_shape import PageShapeStep
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
+from vkit.engine.image import image_engine_executor_aggregator_factory
+from .page_shape import PageShapeStepOutput
+from ..interface import PipelineStep, PipelineStepFactory
 
 
 @attrs.define
@@ -26,6 +22,11 @@ class PageBackgroundStepConfig:
     weight_random_grayscale: float = 0.2
     grayscale_min: int = 127
     grayscale_max: int = 255
+
+
+@attrs.define
+class PageBackgroundStepInput:
+    page_shape_step_output: PageShapeStepOutput
 
 
 @attrs.define
@@ -42,6 +43,7 @@ class PageBackgroundStepKey(Enum):
 class PageBackgroundStep(
     PipelineStep[
         PageBackgroundStepConfig,
+        PageBackgroundStepInput,
         PageBackgroundStepOutput,
     ]
 ):  # yapf: disable
@@ -49,7 +51,9 @@ class PageBackgroundStep(
     def __init__(self, config: PageBackgroundStepConfig):
         super().__init__(config)
 
-        self.image_aggregator = image_factory.create(self.config.image_configs)
+        self.image_engine_executor_aggregator = image_engine_executor_aggregator_factory.create(
+            self.config.image_configs
+        )
 
         self.keys, self.probs = normalize_to_keys_and_probs([
             (
@@ -62,14 +66,14 @@ class PageBackgroundStep(
             ),
         ])
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
+    def run(self, input: PageBackgroundStepInput, rng: RandomGenerator):
+        page_shape_step_output = input.page_shape_step_output
         height = page_shape_step_output.height
         width = page_shape_step_output.width
 
         key = rng_choice(rng, self.keys, probs=self.probs)
         if key == PageBackgroundStepKey.IMAGE:
-            background_image = self.image_aggregator.run(
+            background_image = self.image_engine_executor_aggregator.run(
                 {
                     'height': height,
                     'width': width,

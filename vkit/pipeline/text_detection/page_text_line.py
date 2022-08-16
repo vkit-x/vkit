@@ -12,21 +12,17 @@ from vkit.utility import (
     PathType,
 )
 from vkit.engine.font import (
-    font_factory,
+    font_engine_executor_aggregator_factory,
     FontEngineRunConfigStyle,
     FontCollection,
     TextLine,
 )
-from vkit.engine.char_sampler import char_sampler_factory
-from vkit.engine.char_and_font_sampler import char_and_font_sampler_factory
+from vkit.engine.char_sampler import char_sampler_engine_executor_aggregator_factory
+from vkit.engine.char_and_font_sampler import char_and_font_sampler_engine_executor_factory
 from vkit.engine.seal_impression import SealImpression
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
-from .page_layout import PageLayoutStep
-from .page_seal_impression import PageSealImpresssionStep
+from ..interface import PipelineStep, PipelineStepFactory
+from .page_layout import PageLayoutStepOutput
+from .page_seal_impression import PageSealImpresssionStepOutput
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +48,12 @@ class PageTextLineStepConfig:
     ] = None  # yapf: disable
     prob_short_text_line: float = 0.15
     short_text_line_num_chars_max: int = 2
+
+
+@attrs.define
+class PageTextLineStepInput:
+    page_layout_step_output: PageLayoutStepOutput
+    page_seal_impresssion_step_output: PageSealImpresssionStepOutput
 
 
 @unique
@@ -100,6 +102,7 @@ class PageTextLineStepOutput:
 class PageTextLineStep(
     PipelineStep[
         PageTextLineStepConfig,
+        PageTextLineStepInput,
         PageTextLineStepOutput,
     ]
 ):  # yapf: disable
@@ -109,38 +112,46 @@ class PageTextLineStep(
 
         lexicon_collection = LexiconCollection.from_file(self.config.lexicon_collection_json)
         font_collection = FontCollection.from_folder(self.config.font_collection_folder)
-        char_sampler_aggregator = char_sampler_factory.create(
-            self.config.char_sampler_configs,
-            {
-                'lexicon_collection': lexicon_collection,
-            },
-        )
-
-        self.char_and_font_sampler = char_and_font_sampler_factory.create(
-            {},
-            {
-                'lexicon_collection': lexicon_collection,
-                'font_collection': font_collection,
-                'char_sampler_aggregator': char_sampler_aggregator,
-            },
-        )
-
-        self.short_text_line_char_and_font_sampler = self.char_and_font_sampler
-        if self.config.short_text_line_char_sampler_configs is not None:
-            short_text_line_char_sampler_aggregator = char_sampler_factory.create(
-                self.config.short_text_line_char_sampler_configs,
+        char_sampler_engine_executor_aggregator = \
+            char_sampler_engine_executor_aggregator_factory.create_with_repeated_init_resource(
+                self.config.char_sampler_configs,
                 {
                     'lexicon_collection': lexicon_collection,
                 },
             )
-            self.short_text_line_char_and_font_sampler = char_and_font_sampler_factory.create(
+
+        self.char_and_font_sampler_engine_executor = \
+            char_and_font_sampler_engine_executor_factory.create(
                 {},
                 {
                     'lexicon_collection': lexicon_collection,
                     'font_collection': font_collection,
-                    'char_sampler_aggregator': short_text_line_char_sampler_aggregator,
+                    'char_sampler_engine_executor_aggregator':
+                        char_sampler_engine_executor_aggregator,
                 },
             )
+
+        self.short_text_line_char_and_font_sampler_engine_executor = \
+            self.char_and_font_sampler_engine_executor
+
+        if self.config.short_text_line_char_sampler_configs is not None:
+            short_text_line_char_sampler_engine_executor_aggregator = \
+                char_sampler_engine_executor_aggregator_factory.create_with_repeated_init_resource(
+                    self.config.short_text_line_char_sampler_configs,
+                    {
+                        'lexicon_collection': lexicon_collection,
+                    },
+                )
+            self.short_text_line_char_and_font_sampler_engine_executor = \
+                char_and_font_sampler_engine_executor_factory.create(
+                    {},
+                    {
+                        'lexicon_collection': lexicon_collection,
+                        'font_collection': font_collection,
+                        'char_sampler_engine_executor_aggregator':
+                            short_text_line_char_sampler_engine_executor_aggregator,
+                    },
+                )
 
         self.keys, self.probs = normalize_to_keys_and_probs([
             (
@@ -160,10 +171,12 @@ class PageTextLineStep(
                 self.config.weight_font_style_glyph_color_blue,
             ),
         ])
-        self.font_aggregator = font_factory.create(self.config.font_configs)
+        self.font_engine_executor_aggregator = font_engine_executor_aggregator_factory.create(
+            self.config.font_configs
+        )
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
+    def run(self, input: PageTextLineStepInput, rng: RandomGenerator):
+        page_layout_step_output = input.page_layout_step_output
         page_layout = page_layout_step_output.page_layout
 
         # Text lines to be recognized.
@@ -179,11 +192,13 @@ class PageTextLineStep(
                 is_short_text_line = (rng.random() < self.config.prob_short_text_line)
 
                 if is_short_text_line:
-                    char_and_font_sampler = self.short_text_line_char_and_font_sampler
+                    char_and_font_sampler_engine_executor = \
+                        self.short_text_line_char_and_font_sampler_engine_executor
                 else:
-                    char_and_font_sampler = self.char_and_font_sampler
+                    char_and_font_sampler_engine_executor = \
+                        self.char_and_font_sampler_engine_executor
 
-                char_and_font = char_and_font_sampler.run(
+                char_and_font = char_and_font_sampler_engine_executor.run(
                     run_config={
                         'height': layout_text_line.box.height,
                         'width': layout_text_line.box.width,
@@ -253,7 +268,7 @@ class PageTextLineStep(
                 self.config.font_style,
                 glyph_color=glyph_color,
             )
-            text_line = self.font_aggregator.run(
+            text_line = self.font_engine_executor_aggregator.run(
                 run_config={
                     'height': layout_text_line.box.height,
                     'width': layout_text_line.box.width,
@@ -284,7 +299,7 @@ class PageTextLineStep(
         )
 
         # Text lines for seal impressions.
-        page_seal_impresssion_step_output = state.get_pipeline_step_output(PageSealImpresssionStep)
+        page_seal_impresssion_step_output = input.page_seal_impresssion_step_output
 
         seal_impressions: List[SealImpression] = []
         seal_impression_resources: List[SealImpressionResource] = []
@@ -302,7 +317,7 @@ class PageTextLineStep(
 
                 num_retries = 3
                 while num_retries > 0:
-                    char_and_font = self.char_and_font_sampler.run(
+                    char_and_font = self.char_and_font_sampler_engine_executor.run(
                         run_config={
                             'height': text_line_slot.text_line_height,
                             'width': 2**32 - 1,
@@ -321,7 +336,7 @@ class PageTextLineStep(
                     continue
                 assert char_and_font
 
-                text_line = self.font_aggregator.run(
+                text_line = self.font_engine_executor_aggregator.run(
                     run_config={
                         'height': text_line_slot.text_line_height,
                         'width': 2**32 - 1,
@@ -340,7 +355,7 @@ class PageTextLineStep(
 
                 num_retries = 3
                 while num_retries > 0:
-                    char_and_font = self.char_and_font_sampler.run(
+                    char_and_font = self.char_and_font_sampler_engine_executor.run(
                         run_config={
                             'height': seal_impression.internal_text_line_box.height,
                             'width': seal_impression.internal_text_line_box.width,
@@ -358,7 +373,7 @@ class PageTextLineStep(
                 else:
                     assert char_and_font
 
-                    internal_text_line = self.font_aggregator.run(
+                    internal_text_line = self.font_engine_executor_aggregator.run(
                         run_config={
                             'height': seal_impression.internal_text_line_box.height,
                             'width': seal_impression.internal_text_line_box.width,

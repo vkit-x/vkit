@@ -8,21 +8,24 @@ from numpy.random import Generator as RandomGenerator
 import iolite as io
 
 from vkit.utility import normalize_to_probs, rng_choice
-from vkit.engine.interface import Engine
-from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
+from vkit.engine.interface import Engine, EngineExecutorFactory
+from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 logger = logging.getLogger(__name__)
 
 
 @attrs.define
-class CorpusCharSamplerEngineConfig:
+class CharSamplerCorpusEngineInitConfig:
     txt_files: Sequence[str]
 
 
-class CorpusCharSamplerEngine(
+CharSamplerCorpusEngineInitResource = CharSamplerEngineInitResource
+
+
+class CharSamplerCorpusEngine(
     Engine[
-        CorpusCharSamplerEngineConfig,
-        CharSamplerEngineResource,
+        CharSamplerCorpusEngineInitConfig,
+        CharSamplerCorpusEngineInitResource,
         CharSamplerEngineRunConfig,
         Sequence[str],
     ]
@@ -34,16 +37,16 @@ class CorpusCharSamplerEngine(
 
     def __init__(
         self,
-        config: CorpusCharSamplerEngineConfig,
-        resource: Optional[CharSamplerEngineResource] = None
+        init_config: CharSamplerCorpusEngineInitConfig,
+        init_resource: Optional[CharSamplerCorpusEngineInitResource] = None
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        assert resource
-        self.lexicon_collection = resource.lexicon_collection
+        assert init_resource
+        self.lexicon_collection = init_resource.lexicon_collection
 
         self.txt_file_size_pairs: List[Tuple[Path, int]] = []
-        for txt_file in config.txt_files:
+        for txt_file in init_config.txt_files:
             txt_file = io.file(txt_file, expandvars=True, exists=True)
             self.txt_file_size_pairs.append((
                 txt_file,
@@ -130,3 +133,6 @@ class CorpusCharSamplerEngine(
 
         else:
             return self.sample_and_prep_text(rng)
+
+
+char_sampler_corpus_engine_executor_factory = EngineExecutorFactory(CharSamplerCorpusEngine)

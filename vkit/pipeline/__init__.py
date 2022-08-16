@@ -1,13 +1,10 @@
 from .interface import (
-    NoneTypePipelineStepConfig,
     PipelineStep,
     PipelineStepFactory,
     PipelineStepCollectionFactory,
     PipelineState,
-    NoneTypePipelinePostProcessorConfig,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
-    bypass_post_processor_factory,
     Pipeline,
 )
 from .pool import PipelinePool
@@ -38,12 +35,6 @@ from .text_detection.page_image import (
     PageImageStepConfig,
     PageImageStepOutput,
     PageImageCollection,
-)
-from .text_detection.page_qrcode import (
-    page_qrcode_step_factory,
-    PageQrcodeStep,
-    PageQrcodeStepConfig,
-    PageQrcodeStepOutput,
 )
 from .text_detection.page_barcode import (
     page_barcode_step_factory,
@@ -120,7 +111,6 @@ pipeline_step_collection_factory.register_step_factories(
         page_background_step_factory,
         page_layout_step_factory,
         page_image_step_factory,
-        page_qrcode_step_factory,
         page_barcode_step_factory,
         page_seal_impresssion_step_factory,
         page_text_line_step_factory,

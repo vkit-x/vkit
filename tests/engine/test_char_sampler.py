@@ -19,7 +19,7 @@ def test_corpus_sampler_sample_text_line_from_file():
         exists=True,
     )
     size = getsize(txt_file)
-    text = CorpusCharSamplerEngine.sample_text_line_from_file(
+    text = CharSamplerCorpusEngine.sample_text_line_from_file(
         txt_file,
         size,
         rng,
@@ -48,7 +48,7 @@ abbb cd dd ef
     with tempfile.NamedTemporaryFile() as temp_file:
         temp_file.write(text.encode())
         temp_file.flush()
-        corpus_sampler = corpus_char_sampler_factory.create(
+        corpus_sampler = char_sampler_corpus_engine_executor_factory.create(
             {'txt_files': [temp_file.name]},
             {'lexicon_collection': lexicon_collection},
         )
@@ -64,7 +64,7 @@ def test_datetime_sampler():
     lexicon_collection = LexiconCollection(
         lexicons=[Lexicon(char=char) for char in string.printable if not char.isspace()]
     )
-    datetime_sampler = datetime_char_sampler_factory.create(
+    datetime_sampler = char_sampler_datetime_engine_executor_factory.create(
         {
             'datetime_formats': ['%Y-%m-%d %H:%M:%S %Z%z'],
             'timezones': ['Europe/Athens'],
@@ -82,8 +82,8 @@ def test_faker_sampler():
     lexicon_collection = LexiconCollection.from_file(
         '$VKIT_PRIVATE_DATA/vkit_lexicon/lexicon_collection_combined/chinese.json'
     )
-    faker_sampler = faker_char_sampler_factory.create(
-        resource={'lexicon_collection': lexicon_collection}
+    faker_sampler = char_sampler_faker_engine_executor_factory.create(
+        init_resource={'lexicon_collection': lexicon_collection}
     )
     rng = default_rng(0)
     chars = faker_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)
@@ -95,7 +95,7 @@ def test_lexicon_sampler():
     lexicon_collection = LexiconCollection.from_file(
         '$VKIT_PRIVATE_DATA/vkit_lexicon/lexicon_collection_combined/chinese.json'
     )
-    lexicon_sampler = lexicon_char_sampler_factory.create(
+    lexicon_sampler = char_sampler_lexicon_engine_executor_factory.create(
         {'space_prob': 0.1},
         {'lexicon_collection': lexicon_collection},
     )
@@ -145,17 +145,24 @@ c
     lexicon_collection = LexiconCollection(
         lexicons=[Lexicon(char=char) for char in string.printable if not char.isspace()]
     )
-    char_sampler_aggregator = char_sampler_factory.create(
-        temp_config_file.name,
-        {'lexicon_collection': lexicon_collection},
-    )
+    char_sampler_engine_executor_aggregator = \
+        char_sampler_engine_executor_aggregator_factory.create_with_repeated_init_resource(
+            temp_config_file.name,
+            {'lexicon_collection': lexicon_collection},
+        )
 
     rng = default_rng(0)
-    chars = char_sampler_aggregator.run({'num_chars': 40}, rng=rng)
+    chars = char_sampler_engine_executor_aggregator.run({'num_chars': 40}, rng=rng)
     assert ''.join(chars) == 'b a c c b c a c c a b b a b c b c a b ba'
 
     rng = default_rng(0)
-    chars = char_sampler_aggregator.run({'num_chars': 40, 'enable_aggregator_mode': True}, rng=rng)
+    chars = char_sampler_engine_executor_aggregator.run(
+        {
+            'num_chars': 40,
+            'enable_aggregator_mode': True
+        },
+        rng=rng,
+    )
     assert ''.join(chars) == 'b ab2047-03-02 10 06 29 EET+0200 a2042-1'
 
     temp_txt_file.close()

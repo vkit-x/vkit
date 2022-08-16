@@ -5,13 +5,9 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import PathType
 from vkit.element import Image, Box
-from vkit.engine.image import image_factory
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
-from .page_layout import PageLayoutStep
+from vkit.engine.image import image_engine_executor_aggregator_factory
+from ..interface import PipelineStep, PipelineStepFactory
+from .page_layout import PageLayoutStepOutput
 
 
 @attrs.define
@@ -19,6 +15,11 @@ class PageImageStepConfig:
     image_configs: Union[Sequence[Mapping[str, Any]], PathType]
     alpha_min: float = 0.25
     alpha_max: float = 1.0
+
+
+@attrs.define
+class PageImageStepInput:
+    page_layout_step_output: PageLayoutStepOutput
 
 
 @attrs.define
@@ -43,6 +44,7 @@ class PageImageStepOutput:
 class PageImageStep(
     PipelineStep[
         PageImageStepConfig,
+        PageImageStepInput,
         PageImageStepOutput,
     ]
 ):  # yapf: disable
@@ -50,15 +52,16 @@ class PageImageStep(
     def __init__(self, config: PageImageStepConfig):
         super().__init__(config)
 
-        self.image_aggregator = image_factory.create(self.config.image_configs)
+        self.image_engine_executor_aggregator = \
+            image_engine_executor_aggregator_factory.create(self.config.image_configs)
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
+    def run(self, input: PageImageStepInput, rng: RandomGenerator):
+        page_layout_step_output = input.page_layout_step_output
         page_layout = page_layout_step_output.page_layout
 
         page_images: List[PageImage] = []
         for layout_image in page_layout.layout_images:
-            image = self.image_aggregator.run(
+            image = self.image_engine_executor_aggregator.run(
                 {
                     'height': layout_image.box.height,
                     'width': layout_image.box.width,

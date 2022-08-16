@@ -4,14 +4,18 @@ import bisect
 import heapq
 
 import attrs
-from numpy.random import default_rng, Generator as RandomGenerator
+from numpy.random import Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
 import iolite as io
 
 from vkit.utility import rng_choice, read_json_file
 from vkit.element import Image, ImageKind, Mask
-from vkit.engine.interface import Engine, NoneTypeEngineResource
+from vkit.engine.interface import (
+    Engine,
+    EngineExecutorFactory,
+    NoneTypeEngineInitResource,
+)
 from .type import ImageEngineRunConfig
 
 
@@ -54,7 +58,7 @@ def load_image_metas_from_folder(folder: str):
 
 
 @attrs.define
-class CombinerImageEngineConfig:
+class ImageCombinerEngineInitConfig:
     image_meta_folder: str
     target_kind_image: ImageKind = ImageKind.RGB
     enable_cache: bool = False
@@ -70,10 +74,10 @@ class PrioritizedSegment:
     right: int = attrs.field(order=False)
 
 
-class CombinerImageEngine(
+class ImageCombinerEngine(
     Engine[
-        CombinerImageEngineConfig,
-        NoneTypeEngineResource,
+        ImageCombinerEngineInitConfig,
+        NoneTypeEngineInitResource,
         ImageEngineRunConfig,
         Image,
     ]
@@ -85,12 +89,12 @@ class CombinerImageEngine(
 
     def __init__(
         self,
-        config: CombinerImageEngineConfig,
-        resource: Optional[NoneTypeEngineResource] = None,
+        init_config: ImageCombinerEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        self.image_metas = load_image_metas_from_folder(config.image_meta_folder)
+        self.image_metas = load_image_metas_from_folder(init_config.image_meta_folder)
         self.image_metas = sorted(
             self.image_metas,
             key=lambda meta: meta.grayscale_mean,
@@ -98,7 +102,7 @@ class CombinerImageEngine(
         self.image_metas_grayscale_means = [
             image_meta.grayscale_mean for image_meta in self.image_metas
         ]
-        self.enable_cache = config.enable_cache
+        self.enable_cache = init_config.enable_cache
         self.image_file_to_cache_image: Dict[str, Image] = {}
 
     def sample_image_metas_based_on_random_anchor(
@@ -111,8 +115,8 @@ class CombinerImageEngine(
         grayscale_std = anchor_image_meta.grayscale_std
         grayscale_mean = anchor_image_meta.grayscale_mean
 
-        grayscale_begin = round(grayscale_mean - self.config.sigma * grayscale_std)
-        grayscale_end = round(grayscale_mean + self.config.sigma * grayscale_std)
+        grayscale_begin = round(grayscale_mean - self.init_config.sigma * grayscale_std)
+        grayscale_end = round(grayscale_mean + self.init_config.sigma * grayscale_std)
 
         index_begin = bisect.bisect_left(self.image_metas_grayscale_means, x=grayscale_begin)
         index_end = bisect.bisect_right(self.image_metas_grayscale_means, x=grayscale_end)
@@ -163,13 +167,13 @@ class CombinerImageEngine(
 
         mat = np.zeros((height, width, 3), dtype=np.uint8)
         edge_mask = Mask.from_shape((height, width))
-        gaussian_blur_half_kernel_size = self.config.gaussian_blur_kernel_size // 2 + 1
+        gaussian_blur_half_kernel_size = self.init_config.gaussian_blur_kernel_size // 2 + 1
 
         # Initialize segments.
         priority_queue: List[PrioritizedSegment] = []
         segment_width_min = int(
             np.clip(
-                round(self.config.init_segment_width_min_ratio * width),
+                round(self.init_config.init_segment_width_min_ratio * width),
                 1,
                 width - 1,
             )
@@ -238,7 +242,7 @@ class CombinerImageEngine(
                 segment_image = self.image_file_to_cache_image[image_meta.image_file]
             else:
                 segment_image = Image.from_file(image_meta.image_file).to_target_kind_image(
-                    self.config.target_kind_image
+                    self.init_config.target_kind_image
                 )
                 if self.enable_cache:
                     self.image_file_to_cache_image[image_meta.image_file] = segment_image
@@ -251,7 +255,7 @@ class CombinerImageEngine(
             mat[up:down + 1, left:right + 1] = \
                 segment_image.mat[:down + 1 - up, :right + 1 - left]
 
-            CombinerImageEngine.fill_np_edge_mask(
+            ImageCombinerEngine.fill_np_edge_mask(
                 np_edge_mask=edge_mask.mat,
                 height=height,
                 width=width,
@@ -284,7 +288,7 @@ class CombinerImageEngine(
 
         # Apply gaussian blur.
         gaussian_blur_sigma = gaussian_blur_half_kernel_size / 3
-        gaussian_blur_ksize = (self.config.gaussian_blur_kernel_size,) * 2
+        gaussian_blur_ksize = (self.init_config.gaussian_blur_kernel_size,) * 2
         edge_mask.fill_np_array(
             mat,
             cv.GaussianBlur(mat, gaussian_blur_ksize, gaussian_blur_sigma),
@@ -297,21 +301,4 @@ class CombinerImageEngine(
         return self.synthesize_image(run_config, image_metas, rng)
 
 
-def debug():
-    from vkit.utility import get_data_folder
-    folder = get_data_folder(__file__)
-
-    from vkit.engine.interface import EngineFactory
-
-    combiner_image_engine = EngineFactory(CombinerImageEngine).create({
-        'image_meta_folder': f'{folder}/image_meta',
-    })
-    for seed in range(20):
-        image = combiner_image_engine.run(
-            ImageEngineRunConfig(
-                height=891,
-                width=630,
-            ),
-            rng=default_rng(seed),
-        )
-        image.to_file(f'{folder}/debug/{seed}.png')
+image_combiner_engine_executor_factory = EngineExecutorFactory(ImageCombinerEngine)

@@ -10,12 +10,8 @@ from numpy.random import Generator as RandomGenerator
 from vkit.utility import rng_choice, normalize_to_probs, normalize_to_keys_and_probs
 from vkit.element import Box
 from vkit.engine.font.type import FontEngineRunConfigGlyphSequence
-from .page_shape import PageShapeStep
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
+from .page_shape import PageShapeStepOutput
+from ..interface import PipelineStep, PipelineStepFactory
 
 
 @attrs.define
@@ -75,20 +71,20 @@ class PageLayoutStepConfig:
     image_width_ratio_min: float = 0.1
     image_width_ratio_max: float = 0.35
 
-    # QR code.
-    num_qrcodes_min: int = 0
-    num_qrcodes_max: int = 1
-    qrcode_length_ratio_min: float = 0.05
-    qrcode_length_ratio_max: float = 0.15
+    # Barcode (qr).
+    num_barcode_qrs_min: int = 0
+    num_barcode_qrs_max: int = 1
+    barcode_qr_length_ratio_min: float = 0.05
+    barcode_qr_length_ratio_max: float = 0.15
 
-    # Bar code.
-    num_barcodes_min: int = 0
-    num_barcodes_max: int = 1
-    barcode_height_ratio_min: float = 0.025
-    barcode_height_ratio_max: float = 0.05
-    barcode_aspect_ratio: float = 0.2854396602149411
-    barcode_num_chars_min: int = 9
-    barcode_num_chars_max: int = 13
+    # Barcode (code39).
+    num_barcode_code39s_min: int = 0
+    num_barcode_code39s_max: int = 1
+    barcode_code39_height_ratio_min: float = 0.025
+    barcode_code39_height_ratio_max: float = 0.05
+    barcode_code39_aspect_ratio: float = 0.2854396602149411
+    barcode_code39_num_chars_min: int = 9
+    barcode_code39_num_chars_max: int = 13
 
     # Seal impression.
     num_seal_impressions_min: int = 1
@@ -101,6 +97,11 @@ class PageLayoutStepConfig:
     seal_impression_weight_general_ellipse: float = 1
     seal_impression_general_ellipse_aspect_ratio_min: float = 0.75
     seal_impression_general_ellipse_aspect_ratio_max: float = 1.333
+
+
+@attrs.define
+class PageLayoutStepInput:
+    page_shape_step_output: PageShapeStepOutput
 
 
 @attrs.define
@@ -127,12 +128,12 @@ class LayoutImage:
 
 
 @attrs.define
-class LayoutQrcode:
+class LayoutBarcodeQr:
     box: Box
 
 
 @attrs.define
-class LayoutBarcode:
+class LayoutBarcodeCode39:
     box: Box
 
 
@@ -152,8 +153,8 @@ class PageLayout:
     layout_non_text_symbols: Sequence[LayoutNonTextSymbol]
     layout_seal_impressions: Sequence[LayoutSealImpression]
     layout_images: Sequence[LayoutImage]
-    layout_qrcodes: Sequence[LayoutQrcode]
-    layout_barcodes: Sequence[LayoutBarcode]
+    layout_barcode_qrs: Sequence[LayoutBarcodeQr]
+    layout_barcode_code39s: Sequence[LayoutBarcodeCode39]
 
 
 @attrs.define
@@ -171,7 +172,7 @@ class PrioritizedSegment:
 
 
 @unique
-class EllipseSealImpressionShapeType(Enum):
+class SealImpressionEllipseShapeType(Enum):
     CIRCLE = 'circle'
     GENERAL_ELLIPSE = 'general_ellipse'
 
@@ -179,6 +180,7 @@ class EllipseSealImpressionShapeType(Enum):
 class PageLayoutStep(
     PipelineStep[
         PageLayoutStepConfig,
+        PageLayoutStepInput,
         PageLayoutStepOutput,
     ]
 ):  # yapf: disable
@@ -187,15 +189,15 @@ class PageLayoutStep(
         super().__init__(config)
 
         (
-            self.ellipse_seal_impression_shape_types,
-            self.ellipse_seal_impression_shape_types_probs,
+            self.seal_impression_ellipse_shape_types,
+            self.seal_impression_ellipse_shape_types_probs,
         ) = normalize_to_keys_and_probs([
             (
-                EllipseSealImpressionShapeType.CIRCLE,
+                SealImpressionEllipseShapeType.CIRCLE,
                 self.config.seal_impression_weight_circle,
             ),
             (
-                EllipseSealImpressionShapeType.GENERAL_ELLIPSE,
+                SealImpressionEllipseShapeType.GENERAL_ELLIPSE,
                 self.config.seal_impression_weight_general_ellipse,
             ),
         ])
@@ -664,7 +666,7 @@ class PageLayoutStep(
         hori_overlapped = (box0.right >= box1.left and box1.right >= box0.left)
         return vert_overlapped and hori_overlapped
 
-    def sample_layout_qrcodes(
+    def sample_layout_barcode_qrs(
         self,
         height: int,
         width: int,
@@ -673,20 +675,20 @@ class PageLayoutStep(
     ):
         reference_height = self.get_reference_height(height=height, width=width)
 
-        layout_qrcodes: List[LayoutQrcode] = []
+        layout_barcode_qrs: List[LayoutBarcodeQr] = []
 
-        num_layout_qrcodes = rng.integers(
-            self.config.num_qrcodes_min,
-            self.config.num_qrcodes_max + 1,
+        num_layout_barcode_qrs = rng.integers(
+            self.config.num_barcode_qrs_min,
+            self.config.num_barcode_qrs_max + 1,
         )
         num_retries = 3
-        while num_layout_qrcodes > 0 and num_retries > 0:
-            qrcode_length_ratio = rng.uniform(
-                self.config.qrcode_length_ratio_min,
-                self.config.qrcode_length_ratio_max,
+        while num_layout_barcode_qrs > 0 and num_retries > 0:
+            barcode_qr_length_ratio = rng.uniform(
+                self.config.barcode_qr_length_ratio_min,
+                self.config.barcode_qr_length_ratio_max,
             )
-            qrcode_length = round(qrcode_length_ratio * reference_height)
-            qrcode_length = min(height, width, qrcode_length)
+            barcode_qr_length = round(barcode_qr_length_ratio * reference_height)
+            barcode_qr_length = min(height, width, barcode_qr_length)
 
             # Place QR code next to text line.
             anchor_layout_text_line_box = rng_choice(rng, layout_text_lines).box
@@ -696,31 +698,31 @@ class PageLayoutStep(
             if placement in (LayoutXcodePlacement.NEXT_TO_DOWN, LayoutXcodePlacement.NEXT_TO_UP):
                 if placement == LayoutXcodePlacement.NEXT_TO_DOWN:
                     up = anchor_layout_text_line_box.down + 1
-                    down = up + qrcode_length - 1
+                    down = up + barcode_qr_length - 1
                     if down >= height:
                         num_retries -= 1
                         continue
                 else:
                     assert placement == LayoutXcodePlacement.NEXT_TO_UP
                     down = anchor_layout_text_line_box.up - 1
-                    up = down + 1 - qrcode_length
+                    up = down + 1 - barcode_qr_length
                     if up < 0:
                         num_retries -= 1
                         continue
 
                 left_min = max(
                     0,
-                    anchor_layout_text_line_box_center.x - qrcode_length,
+                    anchor_layout_text_line_box_center.x - barcode_qr_length,
                 )
                 left_max = min(
-                    width - qrcode_length,
+                    width - barcode_qr_length,
                     anchor_layout_text_line_box_center.x,
                 )
                 if left_min > left_max:
                     num_retries -= 1
                     continue
                 left = int(rng.integers(left_min, left_max + 1))
-                right = left + qrcode_length - 1
+                right = left + barcode_qr_length - 1
 
             else:
                 assert placement in (
@@ -730,24 +732,24 @@ class PageLayoutStep(
 
                 if placement == LayoutXcodePlacement.NEXT_TO_RIGHT:
                     left = anchor_layout_text_line_box.right + 1
-                    right = left + qrcode_length - 1
+                    right = left + barcode_qr_length - 1
                     if right >= width:
                         num_retries -= 1
                         continue
                 else:
                     assert placement == LayoutXcodePlacement.NEXT_TO_LEFT
                     right = anchor_layout_text_line_box.left - 1
-                    left = right + 1 - qrcode_length
+                    left = right + 1 - barcode_qr_length
                     if left < 0:
                         num_retries -= 1
                         continue
 
                 up_min = max(
                     0,
-                    anchor_layout_text_line_box_center.y - qrcode_length,
+                    anchor_layout_text_line_box_center.y - barcode_qr_length,
                 )
                 up_max = min(
-                    height - qrcode_length,
+                    height - barcode_qr_length,
                     anchor_layout_text_line_box_center.y,
                 )
                 if up_min > up_max:
@@ -755,19 +757,21 @@ class PageLayoutStep(
                     continue
 
                 up = int(rng.integers(up_min, up_max + 1))
-                down = up + qrcode_length - 1
+                down = up + barcode_qr_length - 1
 
-            num_layout_qrcodes -= 1
-            layout_qrcodes.append(LayoutQrcode(box=Box(
-                up=up,
-                down=down,
-                left=left,
-                right=right,
-            )))
+            num_layout_barcode_qrs -= 1
+            layout_barcode_qrs.append(
+                LayoutBarcodeQr(box=Box(
+                    up=up,
+                    down=down,
+                    left=left,
+                    right=right,
+                ))
+            )
 
-        return layout_qrcodes
+        return layout_barcode_qrs
 
-    def sample_layout_barcodes(
+    def sample_layout_barcode_code39s(
         self,
         height: int,
         width: int,
@@ -776,29 +780,30 @@ class PageLayoutStep(
     ):
         reference_height = self.get_reference_height(height=height, width=width)
 
-        layout_barcodes: List[LayoutBarcode] = []
+        layout_barcode_code39s: List[LayoutBarcodeCode39] = []
 
-        num_layout_barcodes = rng.integers(
-            self.config.num_barcodes_min,
-            self.config.num_barcodes_max + 1,
+        num_layout_barcode_code39s = rng.integers(
+            self.config.num_barcode_code39s_min,
+            self.config.num_barcode_code39s_max + 1,
         )
         num_retries = 3
-        while num_layout_barcodes > 0 and num_retries > 0:
-            barcode_height_ratio = rng.uniform(
-                self.config.barcode_height_ratio_min,
-                self.config.barcode_height_ratio_max,
+        while num_layout_barcode_code39s > 0 and num_retries > 0:
+            barcode_code39_height_ratio = rng.uniform(
+                self.config.barcode_code39_height_ratio_min,
+                self.config.barcode_code39_height_ratio_max,
             )
-            barcode_height = round(barcode_height_ratio * reference_height)
-            barcode_height = min(height, width, barcode_height)
+            barcode_code39_height = round(barcode_code39_height_ratio * reference_height)
+            barcode_code39_height = min(height, width, barcode_code39_height)
 
-            barcode_num_chars = int(
+            barcode_code39_num_chars = int(
                 rng.integers(
-                    self.config.barcode_num_chars_min,
-                    self.config.barcode_num_chars_max + 1,
+                    self.config.barcode_code39_num_chars_min,
+                    self.config.barcode_code39_num_chars_max + 1,
                 )
             )
-            barcode_width = round(
-                barcode_height * self.config.barcode_aspect_ratio * barcode_num_chars
+            barcode_code39_width = round(
+                barcode_code39_height * self.config.barcode_code39_aspect_ratio
+                * barcode_code39_num_chars
             )
 
             # Place Bar code next to text line.
@@ -809,31 +814,31 @@ class PageLayoutStep(
             if placement in (LayoutXcodePlacement.NEXT_TO_DOWN, LayoutXcodePlacement.NEXT_TO_UP):
                 if placement == LayoutXcodePlacement.NEXT_TO_DOWN:
                     up = anchor_layout_text_line_box.down + 1
-                    down = up + barcode_height - 1
+                    down = up + barcode_code39_height - 1
                     if down >= height:
                         num_retries -= 1
                         continue
                 else:
                     assert placement == LayoutXcodePlacement.NEXT_TO_UP
                     down = anchor_layout_text_line_box.up - 1
-                    up = down + 1 - barcode_height
+                    up = down + 1 - barcode_code39_height
                     if up < 0:
                         num_retries -= 1
                         continue
 
                 left_min = max(
                     0,
-                    anchor_layout_text_line_box_center.x - barcode_width,
+                    anchor_layout_text_line_box_center.x - barcode_code39_width,
                 )
                 left_max = min(
-                    width - barcode_width,
+                    width - barcode_code39_width,
                     anchor_layout_text_line_box_center.x,
                 )
                 if left_min > left_max:
                     num_retries -= 1
                     continue
                 left = int(rng.integers(left_min, left_max + 1))
-                right = left + barcode_width - 1
+                right = left + barcode_code39_width - 1
 
             else:
                 assert placement in (
@@ -843,24 +848,24 @@ class PageLayoutStep(
 
                 if placement == LayoutXcodePlacement.NEXT_TO_RIGHT:
                     left = anchor_layout_text_line_box.right + 1
-                    right = left + barcode_width - 1
+                    right = left + barcode_code39_width - 1
                     if right >= width:
                         num_retries -= 1
                         continue
                 else:
                     assert placement == LayoutXcodePlacement.NEXT_TO_LEFT
                     right = anchor_layout_text_line_box.left - 1
-                    left = right + 1 - barcode_width
+                    left = right + 1 - barcode_code39_width
                     if left < 0:
                         num_retries -= 1
                         continue
 
                 up_min = max(
                     0,
-                    anchor_layout_text_line_box_center.y - barcode_height,
+                    anchor_layout_text_line_box_center.y - barcode_code39_height,
                 )
                 up_max = min(
-                    height - barcode_height,
+                    height - barcode_code39_height,
                     anchor_layout_text_line_box_center.y,
                 )
                 if up_min > up_max:
@@ -868,11 +873,11 @@ class PageLayoutStep(
                     continue
 
                 up = int(rng.integers(up_min, up_max + 1))
-                down = up + barcode_height - 1
+                down = up + barcode_code39_height - 1
 
-            num_layout_barcodes -= 1
-            layout_barcodes.append(
-                LayoutBarcode(box=Box(
+            num_layout_barcode_code39s -= 1
+            layout_barcode_code39s.append(
+                LayoutBarcodeCode39(box=Box(
                     up=up,
                     down=down,
                     left=left,
@@ -880,36 +885,36 @@ class PageLayoutStep(
                 ))
             )
 
-        return layout_barcodes
+        return layout_barcode_code39s
 
-    def sample_layout_qrcodes_and_layout_barcodes(
+    def sample_layout_barcode_qrs_and_layout_barcode_code39s(
         self,
         height: int,
         width: int,
         layout_text_lines: Sequence[LayoutTextLine],
         rng: RandomGenerator,
     ):
-        layout_qrcodes = self.sample_layout_qrcodes(
+        layout_barcode_qrs = self.sample_layout_barcode_qrs(
             height=height,
             width=width,
             layout_text_lines=layout_text_lines,
             rng=rng,
         )
 
-        layout_barcodes = self.sample_layout_barcodes(
+        layout_barcode_code39s = self.sample_layout_barcode_code39s(
             height=height,
             width=width,
             layout_text_lines=layout_text_lines,
             rng=rng,
         )
 
-        if layout_qrcodes or layout_barcodes:
-            # QR code / Bar code could not be overlapped with text lines.
+        if layout_barcode_qrs or layout_barcode_code39s:
+            # Barcode could not be overlapped with text lines.
             # Hence need to remove the overlapped text lines.
             keep_layout_text_lines: List[LayoutTextLine] = []
             for layout_text_line in layout_text_lines:
                 keep = True
-                for layout_xcode in itertools.chain(layout_qrcodes, layout_barcodes):
+                for layout_xcode in itertools.chain(layout_barcode_qrs, layout_barcode_code39s):
                     if self.boxes_are_overlapped(layout_xcode.box, layout_text_line.box):
                         keep = False
                         break
@@ -918,7 +923,7 @@ class PageLayoutStep(
 
             layout_text_lines = keep_layout_text_lines
 
-        return layout_qrcodes, layout_barcodes, layout_text_lines
+        return layout_barcode_qrs, layout_barcode_code39s, layout_text_lines
 
     @staticmethod
     def get_text_line_area(layout_text_lines: Sequence[LayoutTextLine]):
@@ -1061,13 +1066,13 @@ class PageLayoutStep(
             # Sample width.
             shape_type = rng_choice(
                 rng,
-                self.ellipse_seal_impression_shape_types,
-                probs=self.ellipse_seal_impression_shape_types_probs,
+                self.seal_impression_ellipse_shape_types,
+                probs=self.seal_impression_ellipse_shape_types_probs,
             )
-            if shape_type == EllipseSealImpressionShapeType.CIRCLE:
+            if shape_type == SealImpressionEllipseShapeType.CIRCLE:
                 seal_impression_width = seal_impression_height
 
-            elif shape_type == EllipseSealImpressionShapeType.GENERAL_ELLIPSE:
+            elif shape_type == SealImpressionEllipseShapeType.GENERAL_ELLIPSE:
                 aspect_ratio = float(
                     rng.uniform(
                         self.config.seal_impression_general_ellipse_aspect_ratio_min,
@@ -1121,8 +1126,8 @@ class PageLayoutStep(
 
         return layout_seal_impressions
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_shape_step_output = state.get_pipeline_step_output(PageShapeStep)
+    def run(self, input: PageLayoutStepInput, rng: RandomGenerator):
+        page_shape_step_output = input.page_shape_step_output
         height = page_shape_step_output.height
         width = page_shape_step_output.width
 
@@ -1139,10 +1144,10 @@ class PageLayoutStep(
         # QR codes & Bar codes.
         # NOTE: Some layout_text_lines could be dropped.
         (
-            layout_qrcodes,
-            layout_barcodes,
+            layout_barcode_qrs,
+            layout_barcode_code39s,
             layout_text_lines,
-        ) = self.sample_layout_qrcodes_and_layout_barcodes(
+        ) = self.sample_layout_barcode_qrs_and_layout_barcode_code39s(
             height=height,
             width=width,
             layout_text_lines=layout_text_lines,
@@ -1173,8 +1178,8 @@ class PageLayoutStep(
                 layout_non_text_symbols=layout_non_text_symbols,
                 layout_seal_impressions=layout_seal_impressions,
                 layout_images=layout_images,
-                layout_qrcodes=layout_qrcodes,
-                layout_barcodes=layout_barcodes,
+                layout_barcode_qrs=layout_barcode_qrs,
+                layout_barcode_code39s=layout_barcode_code39s,
             ),
             debug_large_text_line_gird=large_text_line_gird,
             debug_normal_grids=normal_grids,

@@ -6,12 +6,8 @@ import numpy as np
 import cv2 as cv
 
 from vkit.element import Box, Mask, ScoreMap, Image
-from .page_resizing import PageResizingStep
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
+from .page_resizing import PageResizingStepOutput
+from ..interface import PipelineStep, PipelineStepFactory
 
 
 @attrs.define
@@ -32,6 +28,11 @@ class PageCroppingStepConfig:
     @property
     def crop_size(self):
         return 2 * self.pad_size + self.core_size
+
+
+@attrs.define
+class PageCroppingStepInput:
+    page_resizing_step_output: PageResizingStepOutput
 
 
 @attrs.define
@@ -63,6 +64,7 @@ class PageCroppingStepOutput:
 class PageCroppingStep(
     PipelineStep[
         PageCroppingStepConfig,
+        PageCroppingStepInput,
         PageCroppingStepOutput,
     ]
 ):  # yapf: disable
@@ -274,8 +276,8 @@ class PageCroppingStep(
             downsampled_label=downsampled_label,
         )
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_resizing_step_output = state.get_pipeline_step_output(PageResizingStep)
+    def run(self, input: PageCroppingStepInput, rng: RandomGenerator):
+        page_resizing_step_output = input.page_resizing_step_output
         page_image = page_resizing_step_output.page_image
         page_char_mask = page_resizing_step_output.page_char_mask
         page_char_height_score_map = page_resizing_step_output.page_char_height_score_map

@@ -1,17 +1,21 @@
-from vkit.engine.interface import EngineFactory, EngineRunnerAggregatorFactory
-from .type import FontEngineRunConfigStyle, FontEngineRunConfig, FontCollection, TextLine
+from vkit.engine.interface import EngineExecutorAggregatorFactory
+from .type import (
+    FontEngineRunConfigStyle,
+    FontEngineRunConfig,
+    FontCollection,
+    TextLine,
+)
 from .freetype import (
-    FreetypeDefaultFontEngine,
-    FreetypeLcdFontEngine,
-    FreetypeMonochromeFontEngine,
+    font_freetype_default_engine_executor_factory,
+    font_freetype_lcd_engine_executor_factory,
+    font_freetype_monochrome_engine_executor_factory,
+    FontFreetypeDefaultEngine,
+    FontFreetypeLcdEngine,
+    FontFreetypeMonochromeEngine,
 )
 
-freetype_default_font_factory = EngineFactory(FreetypeDefaultFontEngine)
-freetype_lcd_font_factory = EngineFactory(FreetypeLcdFontEngine)
-freetype_monochrome_font_factory = EngineFactory(FreetypeMonochromeFontEngine)
-
-font_factory = EngineRunnerAggregatorFactory([
-    freetype_default_font_factory,
-    freetype_lcd_font_factory,
-    freetype_monochrome_font_factory,
+font_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
+    font_freetype_default_engine_executor_factory,
+    font_freetype_lcd_engine_executor_factory,
+    font_freetype_monochrome_engine_executor_factory,
 ])
