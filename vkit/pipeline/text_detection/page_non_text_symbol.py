@@ -7,13 +7,9 @@ import numpy as np
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
 from vkit.element import Box, Image, ImageKind
-from vkit.engine.image import selector_image_factory
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
-from .page_layout import PageLayoutStep
+from vkit.engine.image import image_selector_engine_executor_factory
+from ..interface import PipelineStep, PipelineStepFactory
+from .page_layout import PageLayoutStepOutput
 
 
 @attrs.define
@@ -28,6 +24,11 @@ class PageNonTextSymbolStepConfig:
     weight_color_blue: float = 0.04
     color_rgb_min: int = 128
     color_rgb_max: int = 255
+
+
+@attrs.define
+class PageNonTextSymbolStepInput:
+    page_layout_step_output: PageLayoutStepOutput
 
 
 @attrs.define
@@ -48,6 +49,7 @@ class NonTextSymbolColorMode(Enum):
 class PageNonTextSymbolStep(
     PipelineStep[
         PageNonTextSymbolStepConfig,
+        PageNonTextSymbolStepInput,
         PageNonTextSymbolStepOutput,
     ]
 ):  # yapf: disable
@@ -55,11 +57,12 @@ class PageNonTextSymbolStep(
     def __init__(self, config: PageNonTextSymbolStepConfig):
         super().__init__(config)
 
-        self.symbol_image_selector = selector_image_factory.create({
-            'image_folders': self.config.symbol_image_folders,
-            'target_kind_image': None,
-            'force_resize': True,
-        })
+        self.symbol_image_selector_engine_executor = \
+            image_selector_engine_executor_factory.create({
+                'image_folders': self.config.symbol_image_folders,
+                'target_kind_image': None,
+                'force_resize': True,
+            })
 
         self.color_modes, self.color_modes_probs = normalize_to_keys_and_probs([
             (
@@ -80,8 +83,8 @@ class PageNonTextSymbolStep(
             ),
         ])
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
+    def run(self, input: PageNonTextSymbolStepInput, rng: RandomGenerator):
+        page_layout_step_output = input.page_layout_step_output
         page_layout = page_layout_step_output.page_layout
 
         images: List[Image] = []
@@ -91,7 +94,7 @@ class PageNonTextSymbolStep(
         for layout_non_text_symbol in page_layout.layout_non_text_symbols:
             box = layout_non_text_symbol.box
 
-            image = self.symbol_image_selector.run(
+            image = self.symbol_image_selector_engine_executor.run(
                 {
                     'height': box.height,
                     'width': box.width

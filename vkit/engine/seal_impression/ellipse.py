@@ -8,8 +8,12 @@ import cv2 as cv
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
 from vkit.element import Point, Box, Mask, ImageKind
-from vkit.engine.interface import Engine, NoneTypeEngineResource
-from vkit.engine.image import selector_image_factory
+from vkit.engine.interface import (
+    NoneTypeEngineInitResource,
+    Engine,
+    EngineExecutorFactory,
+)
+from vkit.engine.image import image_selector_engine_executor_factory
 from .type import (
     SealImpressionEngineRunConfig,
     CharSlot,
@@ -19,7 +23,7 @@ from .type import (
 
 
 @attrs.define
-class EllipseSealImpressionEngineConfig:
+class SealImpressionEllipseEngineInitConfig:
     # Color & Transparency.
     color_rgb_min: int = 128
     color_rgb_max: int = 255
@@ -73,19 +77,19 @@ class EllipseSealImpressionEngineConfig:
 
 
 @unique
-class EllipseSealImpressionBorderStyle(Enum):
+class SealImpressionEllipseBorderStyle(Enum):
     SOLID_LINE = 'solid_line'
     DOUBLE_LINES = 'double_lines'
 
 
 @unique
-class EllipseSealImpressionTextLineMode(Enum):
+class SealImpressionEllipseTextLineMode(Enum):
     ONE = 'one'
     TWO = 'two'
 
 
 @unique
-class EllipseSealImpressionColorMode(Enum):
+class SealImpressionEllipseColorMode(Enum):
     GRAYSCALE = 'grayscale'
     RED = 'red'
     GREEN = 'green'
@@ -104,10 +108,10 @@ class TextLineRoughPlacement:
     clockwise: bool
 
 
-class EllipseSealImpressionEngine(
+class SealImpressionEllipseEngine(
     Engine[
-        EllipseSealImpressionEngineConfig,
-        NoneTypeEngineResource,
+        SealImpressionEllipseEngineInitConfig,
+        NoneTypeEngineInitResource,
         SealImpressionEngineRunConfig,
         SealImpression,
     ]
@@ -119,76 +123,78 @@ class EllipseSealImpressionEngine(
 
     def __init__(
         self,
-        config: EllipseSealImpressionEngineConfig,
-        resource: Optional[NoneTypeEngineResource] = None
+        config: SealImpressionEllipseEngineInitConfig,
+        resource: Optional[NoneTypeEngineInitResource] = None
     ):
         super().__init__(config, resource)
 
         self.border_styles, self.border_styles_probs = normalize_to_keys_and_probs([
             (
-                EllipseSealImpressionBorderStyle.SOLID_LINE,
-                self.config.weight_border_style_solid_line,
+                SealImpressionEllipseBorderStyle.SOLID_LINE,
+                self.init_config.weight_border_style_solid_line,
             ),
             (
-                EllipseSealImpressionBorderStyle.DOUBLE_LINES,
-                self.config.weight_border_style_double_lines,
+                SealImpressionEllipseBorderStyle.DOUBLE_LINES,
+                self.init_config.weight_border_style_double_lines,
             ),
         ])
         self.text_line_modes, self.text_line_modes_probs = normalize_to_keys_and_probs([
             (
-                EllipseSealImpressionTextLineMode.ONE,
-                self.config.weight_text_line_mode_one,
+                SealImpressionEllipseTextLineMode.ONE,
+                self.init_config.weight_text_line_mode_one,
             ),
             (
-                EllipseSealImpressionTextLineMode.TWO,
-                self.config.weight_text_line_mode_two,
+                SealImpressionEllipseTextLineMode.TWO,
+                self.init_config.weight_text_line_mode_two,
             ),
         ])
         self.color_modes, self.color_modes_probs = normalize_to_keys_and_probs([
             (
-                EllipseSealImpressionColorMode.GRAYSCALE,
-                self.config.weight_color_grayscale,
+                SealImpressionEllipseColorMode.GRAYSCALE,
+                self.init_config.weight_color_grayscale,
             ),
             (
-                EllipseSealImpressionColorMode.RED,
-                self.config.weight_color_red,
+                SealImpressionEllipseColorMode.RED,
+                self.init_config.weight_color_red,
             ),
             (
-                EllipseSealImpressionColorMode.GREEN,
-                self.config.weight_color_green,
+                SealImpressionEllipseColorMode.GREEN,
+                self.init_config.weight_color_green,
             ),
             (
-                EllipseSealImpressionColorMode.BLUE,
-                self.config.weight_color_blue,
+                SealImpressionEllipseColorMode.BLUE,
+                self.init_config.weight_color_blue,
             ),
         ])
         self.icon_image_selector = None
-        if self.config.icon_image_folders:
-            self.icon_image_selector = selector_image_factory.create({
-                'image_folders': self.config.icon_image_folders,
+        if self.init_config.icon_image_folders:
+            self.icon_image_selector = image_selector_engine_executor_factory.create({
+                'image_folders': self.init_config.icon_image_folders,
                 'target_kind_image': ImageKind.GRAYSCALE,
                 'force_resize': True,
             })
 
     def sample_alpha_and_color(self, rng: RandomGenerator):
         alpha = float(rng.uniform(
-            self.config.alpha_min,
-            self.config.alpha_max,
+            self.init_config.alpha_min,
+            self.init_config.alpha_max,
         ))
 
         color_mode = rng_choice(rng, self.color_modes, probs=self.color_modes_probs)
-        rgb_value = int(rng.integers(
-            self.config.color_rgb_min,
-            self.config.color_rgb_max + 1,
-        ))
-        if color_mode == EllipseSealImpressionColorMode.GRAYSCALE:
+        rgb_value = int(
+            rng.integers(
+                self.init_config.color_rgb_min,
+                self.init_config.color_rgb_max + 1,
+            )
+        )
+        if color_mode == SealImpressionEllipseColorMode.GRAYSCALE:
             color = (rgb_value,) * 3
         else:
-            if color_mode == EllipseSealImpressionColorMode.RED:
+            if color_mode == SealImpressionEllipseColorMode.RED:
                 color = (rgb_value, 0, 0)
-            elif color_mode == EllipseSealImpressionColorMode.GREEN:
+            elif color_mode == SealImpressionEllipseColorMode.GREEN:
                 color = (0, rgb_value, 0)
-            elif color_mode == EllipseSealImpressionColorMode.BLUE:
+            elif color_mode == SealImpressionEllipseColorMode.BLUE:
                 color = (0, 0, rgb_value)
             else:
                 raise NotImplementedError()
@@ -249,7 +255,7 @@ class EllipseSealImpressionEngine(
 
         keep_last_oob = (rng.random() < 0.5)
 
-        point_ups = EllipseSealImpressionEngine.sample_ellipse_points(
+        point_ups = SealImpressionEllipseEngine.sample_ellipse_points(
             ellipse_height=ellipse_up_height,
             ellipse_width=ellipse_up_width,
             ellipse_y_offset=ellipse_y_offset,
@@ -259,7 +265,7 @@ class EllipseSealImpressionEngine(
             angle_step=angle_step,
             keep_last_oob=keep_last_oob,
         )
-        point_downs = EllipseSealImpressionEngine.sample_ellipse_points(
+        point_downs = SealImpressionEllipseEngine.sample_ellipse_points(
             ellipse_height=ellipse_down_height,
             ellipse_width=ellipse_down_width,
             ellipse_y_offset=ellipse_y_offset,
@@ -284,10 +290,12 @@ class EllipseSealImpressionEngine(
         rng: RandomGenerator,
     ):
         # Shared outer ellipse.
-        pad_ratio = float(rng.uniform(
-            self.config.pad_ratio_min,
-            self.config.pad_ratio_max,
-        ))
+        pad_ratio = float(
+            rng.uniform(
+                self.init_config.pad_ratio_min,
+                self.init_config.pad_ratio_max,
+            )
+        )
 
         pad = round(pad_ratio * height)
         ellipse_outer_height = height - 2 * pad
@@ -301,11 +309,11 @@ class EllipseSealImpressionEngine(
         half_gap = None
         text_line_mode = rng_choice(rng, self.text_line_modes, probs=self.text_line_modes_probs)
 
-        if text_line_mode == EllipseSealImpressionTextLineMode.ONE:
+        if text_line_mode == SealImpressionEllipseTextLineMode.ONE:
             gap_ratio = float(
                 rng.uniform(
-                    self.config.text_line_mode_one_gap_ratio_min,
-                    self.config.text_line_mode_one_gap_ratio_max,
+                    self.init_config.text_line_mode_one_gap_ratio_min,
+                    self.init_config.text_line_mode_one_gap_ratio_max,
                 )
             )
             angle_gap = round(gap_ratio * 360)
@@ -313,11 +321,11 @@ class EllipseSealImpressionEngine(
             text_line_one_angle_begin = 90 + angle_gap // 2
             text_line_one_angle_end = text_line_one_angle_begin + angle_range - 1
 
-        elif text_line_mode == EllipseSealImpressionTextLineMode.TWO:
+        elif text_line_mode == SealImpressionEllipseTextLineMode.TWO:
             gap_ratio = float(
                 rng.uniform(
-                    self.config.text_line_mode_two_gap_ratio_min,
-                    self.config.text_line_mode_two_gap_ratio_max,
+                    self.init_config.text_line_mode_two_gap_ratio_min,
+                    self.init_config.text_line_mode_two_gap_ratio_max,
                 )
             )
             half_gap = round(gap_ratio * 360 / 2)
@@ -330,8 +338,8 @@ class EllipseSealImpressionEngine(
 
         text_line_one_height_ratio = float(
             rng.uniform(
-                self.config.text_line_height_ratio_min,
-                self.config.text_line_height_ratio_max,
+                self.init_config.text_line_height_ratio_min,
+                self.init_config.text_line_height_ratio_max,
             )
         )
         text_line_one_height = round(text_line_one_height_ratio * height)
@@ -354,13 +362,13 @@ class EllipseSealImpressionEngine(
         )
 
         # Now for the text line two.
-        if text_line_mode == EllipseSealImpressionTextLineMode.TWO:
+        if text_line_mode == SealImpressionEllipseTextLineMode.TWO:
             assert half_gap
 
             text_line_two_height_ratio = float(
                 rng.uniform(
-                    self.config.text_line_height_ratio_min,
-                    self.config.text_line_height_ratio_max,
+                    self.init_config.text_line_height_ratio_min,
+                    self.init_config.text_line_height_ratio_max,
                 )
             )
             text_line_two_height = round(text_line_two_height_ratio * height)
@@ -402,23 +410,23 @@ class EllipseSealImpressionEngine(
         for rough_placement in rough_placements:
             char_aspect_ratio = float(
                 rng.uniform(
-                    self.config.char_aspect_ratio_min,
-                    self.config.char_aspect_ratio_max,
+                    self.init_config.char_aspect_ratio_min,
+                    self.init_config.char_aspect_ratio_max,
                 )
             )
             char_width_ref = max(1, round(rough_placement.text_line_height * char_aspect_ratio))
 
             char_space_ratio = float(
                 rng.uniform(
-                    self.config.char_space_ratio_min,
-                    self.config.char_space_ratio_max,
+                    self.init_config.char_space_ratio_min,
+                    self.init_config.char_space_ratio_max,
                 )
             )
             char_space_ref = max(1, round(rough_placement.text_line_height * char_space_ratio))
 
             radius_ref = max(1, ellipse_y_offset)
             angle_step = max(
-                self.config.angle_step_min,
+                self.init_config.angle_step_min,
                 round(360 * (char_width_ref + char_space_ref) / (2 * np.pi * radius_ref)),
             )
 
@@ -489,14 +497,14 @@ class EllipseSealImpressionEngine(
         ellipse_inner_height, ellipse_inner_width = ellipse_inner_shape
 
         box_height_ratio = rng.uniform(
-            self.config.icon_height_ratio_min,
-            self.config.icon_height_ratio_max,
+            self.init_config.icon_height_ratio_min,
+            self.init_config.icon_height_ratio_max,
         )
         box_height = round(ellipse_inner_height * box_height_ratio)
 
         box_width_ratio = rng.uniform(
-            self.config.icon_width_ratio_min,
-            self.config.icon_width_ratio_max,
+            self.init_config.icon_width_ratio_min,
+            self.init_config.icon_width_ratio_max,
         )
         box_width = round(ellipse_inner_width * box_width_ratio)
 
@@ -521,8 +529,8 @@ class EllipseSealImpressionEngine(
 
         # Vert.
         box_height_ratio = rng.uniform(
-            self.config.internal_text_line_height_ratio_min,
-            self.config.internal_text_line_height_ratio_max,
+            self.init_config.internal_text_line_height_ratio_min,
+            self.init_config.internal_text_line_height_ratio_max,
         )
         box_height = round(ellipse_inner_height * box_height_ratio)
 
@@ -546,8 +554,8 @@ class EllipseSealImpressionEngine(
         box_width_max = round(2 * ellipse_b * np.sqrt(ellipse_a**2 - ellipse_h**2) / ellipse_a)
 
         box_width_ratio = rng.uniform(
-            self.config.internal_text_line_width_ratio_min,
-            self.config.internal_text_line_width_ratio_max,
+            self.init_config.internal_text_line_width_ratio_min,
+            self.init_config.internal_text_line_width_ratio_max,
         )
         box_width = round(ellipse_inner_width * box_width_ratio)
         box_width = max(box_width_max, box_width)
@@ -574,12 +582,12 @@ class EllipseSealImpressionEngine(
         # Will generate solid line first.
         border_thickness_ratio = float(
             rng.uniform(
-                self.config.border_thickness_ratio_min,
-                self.config.border_thickness_ratio_max,
+                self.init_config.border_thickness_ratio_min,
+                self.init_config.border_thickness_ratio_max,
             )
         )
         border_thickness = round(height * border_thickness_ratio)
-        border_thickness = max(self.config.border_thickness_min, border_thickness)
+        border_thickness = max(self.init_config.border_thickness_min, border_thickness)
 
         center = (width // 2, height // 2)
         # NOTE: minus 1 to make sure the border is inbound.
@@ -595,13 +603,13 @@ class EllipseSealImpressionEngine(
             thickness=border_thickness,
         )
 
-        if border_thickness > 2 * self.config.border_thickness_min + 1 \
-                and border_style == EllipseSealImpressionBorderStyle.DOUBLE_LINES:
+        if border_thickness > 2 * self.init_config.border_thickness_min + 1 \
+                and border_style == SealImpressionEllipseBorderStyle.DOUBLE_LINES:
             # Remove the middle part to generate double lines.
             border_thickness_empty = int(
                 rng.integers(
                     1,
-                    border_thickness - 2 * self.config.border_thickness_min,
+                    border_thickness - 2 * self.init_config.border_thickness_min,
                 )
             )
             cv.ellipse(
@@ -618,7 +626,7 @@ class EllipseSealImpressionEngine(
             )
 
         icon_box_down = None
-        if self.icon_image_selector and rng.random() < self.config.prob_add_icon:
+        if self.icon_image_selector and rng.random() < self.init_config.prob_add_icon:
             icon_box = self.sample_icon_box(
                 height=height,
                 width=width,
@@ -633,12 +641,12 @@ class EllipseSealImpressionEngine(
                 },
                 rng,
             )
-            icon_mask_mat = (icon_grayscale_image.mat > self.config.icon_image_grayscale_min)
+            icon_mask_mat = (icon_grayscale_image.mat > self.init_config.icon_image_grayscale_min)
             icon_mask = Mask(mat=icon_mask_mat.astype(np.uint8))
             icon_box.fill_mask(background_mask, icon_mask)
 
         internal_text_line_box = None
-        if rng.random() < self.config.prob_add_internal_text_line:
+        if rng.random() < self.init_config.prob_add_internal_text_line:
             internal_text_line_box = self.sample_internal_text_line_box(
                 height=height,
                 width=width,
@@ -669,3 +677,6 @@ class EllipseSealImpressionEngine(
             text_line_slots=text_line_slots,
             internal_text_line_box=internal_text_line_box,
         )
+
+
+seal_impression_ellipse_engine_executor_factory = EngineExecutorFactory(SealImpressionEllipseEngine)

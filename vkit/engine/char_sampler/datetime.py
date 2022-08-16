@@ -7,22 +7,25 @@ from numpy.random import Generator as RandomGenerator
 import pytz
 
 from vkit.utility import rng_choice
-from vkit.engine.interface import Engine
-from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
+from vkit.engine.interface import Engine, EngineExecutorFactory
+from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 
 @attrs.define
-class DatetimeCharSamplerEngineConfig:
+class CharSamplerDatetimeEngineInitConfig:
     datetime_formats: Sequence[str]
     timezones: Sequence[str]
     datetime_begin: Tuple[int, int, int] = (1991, 12, 25)
     datetime_end: Tuple[int, int, int] = (2050, 12, 31)
 
 
-class DatetimeCharSamplerEngine(
+CharSamplerDatetimeEngineInitResource = CharSamplerEngineInitResource
+
+
+class CharSamplerDatetimeEngine(
     Engine[
-        DatetimeCharSamplerEngineConfig,
-        CharSamplerEngineResource,
+        CharSamplerDatetimeEngineInitConfig,
+        CharSamplerDatetimeEngineInitResource,
         CharSamplerEngineRunConfig,
         Sequence[str],
     ]
@@ -34,8 +37,8 @@ class DatetimeCharSamplerEngine(
 
     def __init__(
         self,
-        config: DatetimeCharSamplerEngineConfig,
-        resource: Optional[CharSamplerEngineResource] = None,
+        config: CharSamplerDatetimeEngineInitConfig,
+        resource: Optional[CharSamplerDatetimeEngineInitResource] = None,
     ):
         super().__init__(config, resource)
 
@@ -53,11 +56,11 @@ class DatetimeCharSamplerEngine(
         ticks = rng.integers(self.ticks_begin, self.ticks_end + 1)
         # I don't know why, but it works.
         dt = datetime.fromtimestamp(ticks)
-        tz = pytz.timezone(rng_choice(rng, self.config.timezones))
+        tz = pytz.timezone(rng_choice(rng, self.init_config.timezones))
         dt = tz.localize(dt)
 
         # Datetime format.
-        datetime_format = rng_choice(rng, self.config.datetime_formats)
+        datetime_format = rng_choice(rng, self.init_config.datetime_formats)
         delimiters = [delimiter for delimiter in self.delimiters if delimiter in datetime_format]
         if delimiters:
             selected_delimiter = rng_choice(rng, delimiters)
@@ -100,3 +103,6 @@ class DatetimeCharSamplerEngine(
 
         else:
             return self.sample_datetime_text(rng)
+
+
+char_sampler_datetime_engine_executor_factory = EngineExecutorFactory(CharSamplerDatetimeEngine)

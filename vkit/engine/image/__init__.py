@@ -1,18 +1,17 @@
-from vkit.engine.interface import EngineFactory, EngineRunnerAggregatorFactory
+from vkit.engine.interface import EngineExecutorAggregatorFactory
 from .type import ImageEngineRunConfig
 from .combiner import (
-    CombinerImageEngine,
-    CombinerImageEngineConfig,
+    image_combiner_engine_executor_factory,
+    ImageCombinerEngineInitConfig,
+    ImageCombinerEngine,
 )
 from .selector import (
-    SelectorImageEngine,
-    SelectorImageEngineConfig,
+    image_selector_engine_executor_factory,
+    ImageSelectorEngineInitConfig,
+    ImageSelectorEngine,
 )
 
-combiner_image_factory = EngineFactory(CombinerImageEngine)
-selector_image_factory = EngineFactory(SelectorImageEngine)
-
-image_factory = EngineRunnerAggregatorFactory([
-    combiner_image_factory,
-    selector_image_factory,
+image_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
+    image_combiner_engine_executor_factory,
+    image_selector_engine_executor_factory,
 ])

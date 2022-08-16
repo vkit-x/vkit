@@ -4,12 +4,8 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.element import Point, PointList, Box, Mask, ScoreMap, Polygon
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
-from .page_text_line import PageTextLineStep, PageTextLineCollection
+from ..interface import PipelineStep, PipelineStepFactory
+from .page_text_line import PageTextLineStepOutput, PageTextLineCollection
 
 
 @attrs.define
@@ -21,6 +17,11 @@ class PageTextLineLabelStepConfig:
     enable_boundary_mask: bool = False
     boundary_dilate_ratio: float = 0.5
     enable_boundary_score_map: bool = False
+
+
+@attrs.define
+class PageTextLineLabelStepInput:
+    page_text_line_step_output: PageTextLineStepOutput
 
 
 @attrs.define
@@ -55,6 +56,7 @@ class PageTextLineLabelStepOutput:
 class PageTextLineLabelStep(
     PipelineStep[
         PageTextLineLabelStepConfig,
+        PageTextLineLabelStepInput,
         PageTextLineLabelStepOutput,
     ]
 ):  # yapf: disable
@@ -276,8 +278,8 @@ class PageTextLineLabelStep(
         page_text_line_boundary_mask.to_inverted_mask().fill_score_map(boundary_score_map, 0.0)
         return boundary_score_map
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
+    def run(self, input: PageTextLineLabelStepInput, rng: RandomGenerator):
+        page_text_line_step_output = input.page_text_line_step_output
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
         page_char_polygon_collection = self.generate_page_char_polygon_collection(

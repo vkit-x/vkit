@@ -1,14 +1,13 @@
-from typing import Any, Sequence, List
+from typing import Sequence, List
 
 from numpy.random import Generator as RandomGenerator
 
-from vkit.engine.interface import EngineRunnerAggregatorSelector
+from vkit.engine.interface import EngineExecutorAggregatorSelector
 from .type import CharSamplerEngineRunConfig
 
 
 def char_sampler_func_collate(
-    selector: EngineRunnerAggregatorSelector[
-        Any,
+    selector: EngineExecutorAggregatorSelector[
         CharSamplerEngineRunConfig,
         Sequence[str],
     ],
@@ -23,7 +22,7 @@ def char_sampler_func_collate(
         while len(chars) < num_chars:
             if chars and rng.random() < 0.5:
                 chars.append(' ')
-            new_chars = selector.select_engine_runner(rng).run(run_config, rng)
+            new_chars = selector.select_engine_executor(rng).run(run_config, rng)
             chars.extend(new_chars)
 
         # Trim and make sure the last char is not space.
@@ -39,4 +38,4 @@ def char_sampler_func_collate(
         return chars
 
     else:
-        return selector.select_engine_runner(rng).run(run_config, rng)
+        return selector.select_engine_executor(rng).run(run_config, rng)

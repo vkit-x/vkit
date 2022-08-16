@@ -18,16 +18,12 @@ from vkit.engine.distortion_policy.random_distortion import (
     random_distortion_factory,
     RandomDistortionDebug,
 )
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
+from ..interface import PipelineStep, PipelineStepFactory
 from .page_text_line_label import (
     PageCharPolygonCollection,
     PageTextLinePolygonCollection,
 )
-from .page_assembler import PageAssemblerStep
+from .page_assembler import PageAssemblerStepOutput
 
 
 @attrs.define
@@ -52,6 +48,11 @@ class PageDistortionStepConfig:
 
 
 @attrs.define
+class PageDistortionStepInput:
+    page_assembler_step_output: PageAssemblerStepOutput
+
+
+@attrs.define
 class PageDistortionStepOutput:
     page_image: Image
     page_random_distortion_debug: Optional[RandomDistortionDebug]
@@ -70,6 +71,7 @@ class PageDistortionStepOutput:
 class PageDistortionStep(
     PipelineStep[
         PageDistortionStepConfig,
+        PageDistortionStepInput,
         PageDistortionStepOutput,
     ]
 ):  # yapf: disable
@@ -206,8 +208,8 @@ class PageDistortionStep(
             char_heights_debug_image,
         )
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_assembler_step_output = state.get_pipeline_step_output(PageAssemblerStep)
+    def run(self, input: PageDistortionStepInput, rng: RandomGenerator):
+        page_assembler_step_output = input.page_assembler_step_output
         page = page_assembler_step_output.page
         page_char_polygon_collection = page.page_char_polygon_collection
         page_text_line_polygon_collection = page.page_text_line_polygon_collection

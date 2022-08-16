@@ -4,20 +4,23 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
-from vkit.engine.interface import Engine
-from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
+from vkit.engine.interface import Engine, EngineExecutorFactory
+from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 
 @attrs.define
-class LexiconCharSamplerEngineConfig:
+class CharSamplerLexiconEngineInitConfig:
     tag_to_weight: Optional[Mapping[str, float]] = None
     space_prob: float = 0.0
 
 
-class LexiconCharSamplerEngine(
+CharSamplerLexiconEngineInitResource = CharSamplerEngineInitResource
+
+
+class CharSamplerLexiconEngine(
     Engine[
-        LexiconCharSamplerEngineConfig,
-        CharSamplerEngineResource,
+        CharSamplerLexiconEngineInitConfig,
+        CharSamplerLexiconEngineInitResource,
         CharSamplerEngineRunConfig,
         Sequence[str],
     ]
@@ -31,8 +34,8 @@ class LexiconCharSamplerEngine(
 
     def __init__(
         self,
-        config: LexiconCharSamplerEngineConfig,
-        resource: Optional[CharSamplerEngineResource] = None,
+        config: CharSamplerLexiconEngineInitConfig,
+        resource: Optional[CharSamplerLexiconEngineInitResource] = None,
     ):
         super().__init__(config, resource)
 
@@ -80,3 +83,6 @@ class LexiconCharSamplerEngine(
                 chars.append(char)
 
         return chars
+
+
+char_sampler_lexicon_engine_executor_factory = EngineExecutorFactory(CharSamplerLexiconEngine)

@@ -7,21 +7,25 @@ import iolite as io
 
 from vkit.utility import rng_choice
 from vkit.element import Image, ImageKind, Box
-from vkit.engine.interface import Engine, NoneTypeEngineResource
+from vkit.engine.interface import (
+    Engine,
+    EngineExecutorFactory,
+    NoneTypeEngineInitResource,
+)
 from .type import ImageEngineRunConfig
 
 
 @attrs.define
-class SelectorImageEngineConfig:
+class ImageSelectorEngineInitConfig:
     image_folders: Sequence[str]
     target_kind_image: Optional[ImageKind] = ImageKind.RGB
     force_resize: bool = False
 
 
-class SelectorImageEngine(
+class ImageSelectorEngine(
     Engine[
-        SelectorImageEngineConfig,
-        NoneTypeEngineResource,
+        ImageSelectorEngineInitConfig,
+        NoneTypeEngineInitResource,
         ImageEngineRunConfig,
         Image,
     ]
@@ -33,13 +37,13 @@ class SelectorImageEngine(
 
     def __init__(
         self,
-        config: SelectorImageEngineConfig,
-        resource: Optional[NoneTypeEngineResource] = None,
+        config: ImageSelectorEngineInitConfig,
+        resource: Optional[NoneTypeEngineInitResource] = None,
     ):
         super().__init__(config, resource)
 
         self.image_files: List[PathLike] = []
-        for image_folder in self.config.image_folders:
+        for image_folder in self.init_config.image_folders:
             image_fd = io.folder(image_folder, expandvars=True, exists=True)
             for ext in ['jpg', 'jpeg', 'png']:
                 for new_ext in [ext, ext.upper()]:
@@ -49,12 +53,12 @@ class SelectorImageEngine(
         image_file = rng_choice(rng, self.image_files)
         image = Image.from_file(image_file)
 
-        if self.config.target_kind_image:
-            image = image.to_target_kind_image(self.config.target_kind_image)
+        if self.init_config.target_kind_image:
+            image = image.to_target_kind_image(self.init_config.target_kind_image)
 
         height = run_config.height
         width = run_config.width
-        if not self.config.force_resize and height <= image.height and width <= image.width:
+        if not self.init_config.force_resize and height <= image.height and width <= image.width:
             # Select a part of image.
             up = rng.integers(0, image.height - height + 1)
             left = rng.integers(0, image.width - width + 1)
@@ -74,3 +78,6 @@ class SelectorImageEngine(
             )
 
         return image
+
+
+image_selector_engine_executor_factory = EngineExecutorFactory(ImageSelectorEngine)

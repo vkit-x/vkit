@@ -5,12 +5,8 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.element import Box, ScoreMap
 from vkit.engine.font import TextLine
-from ..interface import (
-    PipelineStep,
-    PipelineStepFactory,
-    PipelineState,
-)
-from .page_text_line import PageTextLineStep
+from ..interface import PipelineStep, PipelineStepFactory
+from .page_text_line import PageTextLineStepOutput
 
 
 @attrs.define
@@ -27,6 +23,11 @@ class PageTextLineBoundingBoxStepConfig:
 
 
 @attrs.define
+class PageTextLineBoundingBoxStepInput:
+    page_text_line_step_output: PageTextLineStepOutput
+
+
+@attrs.define
 class PageTextLineBoundingBoxStepOutput:
     score_maps: Sequence[ScoreMap]
     colors: Sequence[Tuple[int, int, int]]
@@ -35,6 +36,7 @@ class PageTextLineBoundingBoxStepOutput:
 class PageTextLineBoundingBoxStep(
     PipelineStep[
         PageTextLineBoundingBoxStepConfig,
+        PageTextLineBoundingBoxStepInput,
         PageTextLineBoundingBoxStepOutput,
     ]
 ):  # yapf: disable
@@ -131,8 +133,8 @@ class PageTextLineBoundingBoxStep(
 
         return score_map, text_line.glyph_color
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
+    def run(self, input: PageTextLineBoundingBoxStepInput, rng: RandomGenerator):
+        page_text_line_step_output = input.page_text_line_step_output
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
 
         score_maps: List[ScoreMap] = []

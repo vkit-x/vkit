@@ -4,7 +4,7 @@ from vkit.element import LexiconCollection
 
 
 @attrs.define
-class CharSamplerEngineResource:
+class CharSamplerEngineInitResource:
     lexicon_collection: LexiconCollection
 
 

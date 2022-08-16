@@ -6,12 +6,12 @@ from numpy.random import Generator as RandomGenerator
 from faker import Faker
 
 from vkit.utility import rng_choice
-from vkit.engine.interface import Engine
-from .type import CharSamplerEngineResource, CharSamplerEngineRunConfig
+from vkit.engine.interface import Engine, EngineExecutorFactory
+from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 
 @attrs.define
-class FakerCharSamplerEngineConfig:
+class CharSamplerFakerEngineInitConfig:
     local_to_weight: Mapping[str, float] = {
         'zh_CN': 3,
         'zh_TW': 2,
@@ -29,10 +29,13 @@ class FakerCharSamplerEngineConfig:
     }
 
 
-class FakerCharSamplerEngine(
+CharSamplerFakerEngineInitResource = CharSamplerEngineInitResource
+
+
+class CharSamplerFakerEngine(
     Engine[
-        FakerCharSamplerEngineConfig,
-        CharSamplerEngineResource,
+        CharSamplerFakerEngineInitConfig,
+        CharSamplerFakerEngineInitResource,
         CharSamplerEngineRunConfig,
         Sequence[str],
     ]
@@ -44,8 +47,8 @@ class FakerCharSamplerEngine(
 
     def __init__(
         self,
-        config: FakerCharSamplerEngineConfig,
-        resource: Optional[CharSamplerEngineResource] = None,
+        config: CharSamplerFakerEngineInitConfig,
+        resource: Optional[CharSamplerFakerEngineInitResource] = None,
     ):
         super().__init__(config, resource)
 
@@ -62,12 +65,12 @@ class FakerCharSamplerEngine(
     def sample_from_faker(self, rng: RandomGenerator):
         # Faker is not picklable, hence need a lazy initialization.
         if self.faker is None:
-            self.faker = Faker(OrderedDict(self.config.local_to_weight))
+            self.faker = Faker(OrderedDict(self.init_config.local_to_weight))
 
         while True:
             method = rng_choice(rng, self.methods, probs=self.methods_probs)
             seed: int = rng.bit_generator.state['state']['state']
-            for local in self.config.local_to_weight:
+            for local in self.init_config.local_to_weight:
                 self.faker[local].seed(seed)
 
             text = getattr(self.faker, method)()
@@ -107,3 +110,6 @@ class FakerCharSamplerEngine(
 
         else:
             return self.sample_from_faker(rng)
+
+
+char_sampler_faker_engine_executor_factory = EngineExecutorFactory(CharSamplerFakerEngine)

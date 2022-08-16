@@ -8,20 +8,17 @@ from numpy.random import Generator as RandomGenerator
 from vkit.utility import rng_choice
 from vkit.element import LexiconCollection
 from vkit.engine.interface import (
-    NoneTypeEngineConfig,
+    NoneTypeEngineInitConfig,
     Engine,
-    EngineFactory,
-    EngineRunnerAggregator,
+    EngineExecutorFactory,
+    EngineExecutorAggregator,
 )
 from vkit.engine.font.type import (
     FontCollection,
     FontVariant,
     FontEngineRunConfigGlyphSequence,
 )
-from vkit.engine.char_sampler.type import (
-    CharSamplerEngineResource,
-    CharSamplerEngineRunConfig,
-)
+from vkit.engine.char_sampler.type import CharSamplerEngineRunConfig
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +34,10 @@ class CharAndFontSamplerEngineRunConfig:
 
 
 @attrs.define
-class CharAndFontSamplerEngineResource:
+class CharAndFontSamplerEngineInitResource:
     lexicon_collection: LexiconCollection
     font_collection: FontCollection
-    char_sampler_aggregator: EngineRunnerAggregator[
-        CharSamplerEngineResource,
+    char_sampler_engine_executor_aggregator: EngineExecutorAggregator[
         CharSamplerEngineRunConfig,
         Sequence[str],
     ]  # yapf: disable
@@ -55,8 +51,8 @@ class CharAndFont:
 
 class CharAndFontSamplerEngine(
     Engine[
-        NoneTypeEngineConfig,
-        CharAndFontSamplerEngineResource,
+        NoneTypeEngineInitConfig,
+        CharAndFontSamplerEngineInitResource,
         CharAndFontSamplerEngineRunConfig,
         Optional[CharAndFont],
     ]
@@ -68,15 +64,15 @@ class CharAndFontSamplerEngine(
 
     def __init__(
         self,
-        config: NoneTypeEngineConfig,
-        resource: Optional[CharAndFontSamplerEngineResource] = None,
+        config: NoneTypeEngineInitConfig,
+        resource: Optional[CharAndFontSamplerEngineInitResource] = None,
     ):
         super().__init__(config, resource)
 
         assert resource
         self.font_collection = resource.font_collection
         self.lexicon_collection = resource.lexicon_collection
-        self.char_sampler_aggregator = resource.char_sampler_aggregator
+        self.char_sampler_engine_executor_aggregator = resource.char_sampler_engine_executor_aggregator
 
     @staticmethod
     def estimate_num_chars(run_config: CharAndFontSamplerEngineRunConfig):
@@ -100,7 +96,7 @@ class CharAndFontSamplerEngine(
     ) -> Optional[CharAndFont]:
         # Sample chars.
         num_chars = CharAndFontSamplerEngine.estimate_num_chars(run_config)
-        chars = self.char_sampler_aggregator.run(
+        chars = self.char_sampler_engine_executor_aggregator.run(
             CharSamplerEngineRunConfig(
                 num_chars=num_chars,
                 enable_aggregator_mode=True,
@@ -123,4 +119,4 @@ class CharAndFontSamplerEngine(
         return CharAndFont(chars=chars, font_variant=font_variant)
 
 
-char_and_font_sampler_factory = EngineFactory(CharAndFontSamplerEngine)
+char_and_font_sampler_engine_executor_factory = EngineExecutorFactory(CharAndFontSamplerEngine)

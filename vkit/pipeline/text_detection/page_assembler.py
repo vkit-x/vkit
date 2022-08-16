@@ -4,29 +4,40 @@ from numpy.random import Generator as RandomGenerator
 from vkit.element import Shapable, Box, Image
 from vkit.engine.seal_impression import fill_text_line_to_seal_impression
 from vkit.engine.distortion import rotate
-from ..interface import (
-    PipelineStep,
-    NoneTypePipelineStepConfig,
-    PipelineStepFactory,
-    PipelineState,
-)
-from .page_layout import PageLayoutStep
-from .page_background import PageBackgroundStep
-from .page_image import PageImageStep, PageImageCollection
-from .page_qrcode import PageQrcodeStep
-from .page_barcode import PageBarcodeStep
+from ..interface import PipelineStep, PipelineStepFactory
+from .page_layout import PageLayoutStepOutput
+from .page_background import PageBackgroundStepOutput
+from .page_image import PageImageStepOutput, PageImageCollection
+from .page_barcode import PageBarcodeStepOutput
 from .page_text_line import (
-    PageTextLineStep,
+    PageTextLineStepOutput,
     PageTextLineCollection,
     PageSealImpressionTextLineCollection,
 )
-from .page_non_text_symbol import PageNonTextSymbolStep
+from .page_non_text_symbol import PageNonTextSymbolStepOutput
 from .page_text_line_label import (
-    PageTextLineLabelStep,
+    PageTextLineLabelStepOutput,
     PageCharPolygonCollection,
     PageTextLinePolygonCollection,
 )
-from .page_text_line_bounding_box import PageTextLineBoundingBoxStep
+from .page_text_line_bounding_box import PageTextLineBoundingBoxStepOutput
+
+
+@attrs.define
+class PageAssemblerStepConfig:
+    pass
+
+
+@attrs.define
+class PageAssemblerStepInput:
+    page_layout_step_output: PageLayoutStepOutput
+    page_background_step_output: PageBackgroundStepOutput
+    page_image_step_output: PageImageStepOutput
+    page_barcode_step_output: PageBarcodeStepOutput
+    page_text_line_step_output: PageTextLineStepOutput
+    page_non_text_symbol_step_output: PageNonTextSymbolStepOutput
+    page_text_line_bounding_box_step_output: PageTextLineBoundingBoxStepOutput
+    page_text_line_label_step_output: PageTextLineLabelStepOutput
 
 
 @attrs.define
@@ -54,37 +65,36 @@ class PageAssemblerStepOutput:
 
 class PageAssemblerStep(
     PipelineStep[
-        NoneTypePipelineStepConfig,
+        PageAssemblerStepConfig,
+        PageAssemblerStepInput,
         PageAssemblerStepOutput,
     ]
 ):  # yapf: disable
 
-    def run(self, state: PipelineState, rng: RandomGenerator):
-        page_layout_step_output = state.get_pipeline_step_output(PageLayoutStep)
+    def run(self, input: PageAssemblerStepInput, rng: RandomGenerator):
+        page_layout_step_output = input.page_layout_step_output
         page_layout = page_layout_step_output.page_layout
 
-        page_background_step_output = state.get_pipeline_step_output(PageBackgroundStep)
+        page_background_step_output = input.page_background_step_output
         background_image = page_background_step_output.background_image
 
-        page_image_step_output = state.get_pipeline_step_output(PageImageStep)
+        page_image_step_output = input.page_image_step_output
         page_image_collection = page_image_step_output.page_image_collection
 
-        page_qrcode_step_output = state.get_pipeline_step_output(PageQrcodeStep)
-        page_barcode_step_output = state.get_pipeline_step_output(PageBarcodeStep)
+        page_barcode_step_output = input.page_barcode_step_output
 
-        page_text_line_step_output = state.get_pipeline_step_output(PageTextLineStep)
+        page_text_line_step_output = input.page_text_line_step_output
         page_text_line_collection = page_text_line_step_output.page_text_line_collection
         page_seal_impression_text_line_collection = \
             page_text_line_step_output.page_seal_impression_text_line_collection
 
-        page_non_text_symbol_step_output = state.get_pipeline_step_output(PageNonTextSymbolStep)
+        page_non_text_symbol_step_output = input.page_non_text_symbol_step_output
 
-        page_text_line_bounding_box_step_output = \
-            state.get_pipeline_step_output(PageTextLineBoundingBoxStep)
+        page_text_line_bounding_box_step_output = input.page_text_line_bounding_box_step_output
         text_line_bounding_box_score_maps = page_text_line_bounding_box_step_output.score_maps
         text_line_bounding_box_colors = page_text_line_bounding_box_step_output.colors
 
-        page_text_line_label_step_output = state.get_pipeline_step_output(PageTextLineLabelStep)
+        page_text_line_label_step_output = input.page_text_line_label_step_output
         page_char_polygon_collection = \
             page_text_line_label_step_output.page_char_polygon_collection
         page_text_line_polygon_collection = \
@@ -102,12 +112,11 @@ class PageAssemblerStep(
                 alpha=page_image.alpha,
             )
 
-        # Page QR codes.
-        for qrcode_score_map in page_qrcode_step_output.qrcode_score_maps:
-            assembled_image[qrcode_score_map] = (0, 0, 0)
-        # Page Bar codes.
-        for barcode_score_map in page_barcode_step_output.barcode_score_maps:
-            assembled_image[barcode_score_map] = (0, 0, 0)
+        # Page barcodes.
+        for barcode_qr_score_map in page_barcode_step_output.barcode_qr_score_maps:
+            assembled_image[barcode_qr_score_map] = (0, 0, 0)
+        for barcode_code39_score_map in page_barcode_step_output.barcode_code39_score_maps:
+            assembled_image[barcode_code39_score_map] = (0, 0, 0)
 
         # Page text line bounding boxes.
         for text_line_bounding_box_score_map, text_line_bounding_box_color in zip(
