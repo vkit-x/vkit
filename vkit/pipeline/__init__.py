@@ -5,6 +5,7 @@ from .interface import (
     PipelineState,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
+    PipelineRunRngStateOutput,
     Pipeline,
 )
 from .pool import PipelinePool

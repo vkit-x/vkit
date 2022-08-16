@@ -172,6 +172,11 @@ class PipelinePostProcessorFactory(Generic[_T_CONFIG, _T_INPUT, _T_OUTPUT]):
         return self.pipeline_post_processor_cls(config)
 
 
+@attrs.define
+class PipelineRunRngStateOutput:
+    rng_state: Mapping[str, Any]
+
+
 class Pipeline(Generic[_T_OUTPUT]):
 
     def __init__(
@@ -207,7 +212,10 @@ class Pipeline(Generic[_T_OUTPUT]):
             state = PipelineState()
 
         # Save the rng state.
-        state.set_value('_rng_state', rng.bit_generator.state)
+        state.set_value(
+            convert_camel_case_name_to_snake_case_name(PipelineRunRngStateOutput.__name__),
+            PipelineRunRngStateOutput(rng.bit_generator.state),
+        )
 
         # Run steps.
         for step in self.steps:
