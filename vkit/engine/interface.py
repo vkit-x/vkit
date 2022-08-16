@@ -418,10 +418,10 @@ class FooEngine(
 
     def __init__(
         self,
-        config: FooEngineInitConfig,
-        resource: Optional[NoneTypeEngineInitResource] = None,
+        init_config: FooEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
     def run(self, run_config: FooEngineRunConfig, rng: RandomGenerator) -> int:
         return 42

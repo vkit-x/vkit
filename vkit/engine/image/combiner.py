@@ -89,12 +89,12 @@ class ImageCombinerEngine(
 
     def __init__(
         self,
-        config: ImageCombinerEngineInitConfig,
-        resource: Optional[NoneTypeEngineInitResource] = None,
+        init_config: ImageCombinerEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        self.image_metas = load_image_metas_from_folder(config.image_meta_folder)
+        self.image_metas = load_image_metas_from_folder(init_config.image_meta_folder)
         self.image_metas = sorted(
             self.image_metas,
             key=lambda meta: meta.grayscale_mean,
@@ -102,7 +102,7 @@ class ImageCombinerEngine(
         self.image_metas_grayscale_means = [
             image_meta.grayscale_mean for image_meta in self.image_metas
         ]
-        self.enable_cache = config.enable_cache
+        self.enable_cache = init_config.enable_cache
         self.image_file_to_cache_image: Dict[str, Image] = {}
 
     def sample_image_metas_based_on_random_anchor(

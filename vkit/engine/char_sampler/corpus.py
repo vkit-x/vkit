@@ -37,16 +37,16 @@ class CharSamplerCorpusEngine(
 
     def __init__(
         self,
-        config: CharSamplerCorpusEngineInitConfig,
-        resource: Optional[CharSamplerCorpusEngineInitResource] = None
+        init_config: CharSamplerCorpusEngineInitConfig,
+        init_resource: Optional[CharSamplerCorpusEngineInitResource] = None
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        assert resource
-        self.lexicon_collection = resource.lexicon_collection
+        assert init_resource
+        self.lexicon_collection = init_resource.lexicon_collection
 
         self.txt_file_size_pairs: List[Tuple[Path, int]] = []
-        for txt_file in config.txt_files:
+        for txt_file in init_config.txt_files:
             txt_file = io.file(txt_file, expandvars=True, exists=True)
             self.txt_file_size_pairs.append((
                 txt_file,

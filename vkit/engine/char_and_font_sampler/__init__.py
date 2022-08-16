@@ -64,15 +64,15 @@ class CharAndFontSamplerEngine(
 
     def __init__(
         self,
-        config: NoneTypeEngineInitConfig,
-        resource: Optional[CharAndFontSamplerEngineInitResource] = None,
+        init_config: NoneTypeEngineInitConfig,
+        init_resource: Optional[CharAndFontSamplerEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        assert resource
-        self.font_collection = resource.font_collection
-        self.lexicon_collection = resource.lexicon_collection
-        self.char_sampler_engine_executor_aggregator = resource.char_sampler_engine_executor_aggregator
+        assert init_resource
+        self.font_collection = init_resource.font_collection
+        self.lexicon_collection = init_resource.lexicon_collection
+        self.char_sampler_engine_executor_aggregator = init_resource.char_sampler_engine_executor_aggregator
 
     @staticmethod
     def estimate_num_chars(run_config: CharAndFontSamplerEngineRunConfig):

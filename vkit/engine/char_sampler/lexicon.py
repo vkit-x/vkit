@@ -34,19 +34,19 @@ class CharSamplerLexiconEngine(
 
     def __init__(
         self,
-        config: CharSamplerLexiconEngineInitConfig,
-        resource: Optional[CharSamplerLexiconEngineInitResource] = None,
+        init_config: CharSamplerLexiconEngineInitConfig,
+        init_resource: Optional[CharSamplerLexiconEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        assert resource
-        self.lexicon_collection = resource.lexicon_collection
+        assert init_resource
+        self.lexicon_collection = init_resource.lexicon_collection
 
         weights = []
-        if config.tag_to_weight:
+        if init_config.tag_to_weight:
             for tag in self.lexicon_collection.tags:
-                assert tag in config.tag_to_weight
-                weights.append(config.tag_to_weight[tag])
+                assert tag in init_config.tag_to_weight
+                weights.append(init_config.tag_to_weight[tag])
         else:
             for tag in self.lexicon_collection.tags:
                 weights.append(len(self.lexicon_collection.tag_to_lexicons[tag]))
@@ -56,8 +56,8 @@ class CharSamplerLexiconEngine(
         self.probs_no_space = [val / total for val in weights]
 
         self.tags = list(self.tags_no_space)
-        if config.space_prob > 0:
-            space_weight = total * config.space_prob / (1 - config.space_prob)
+        if init_config.space_prob > 0:
+            space_weight = total * init_config.space_prob / (1 - init_config.space_prob)
             self.tags.append(self.KEY_SPACE)
             weights.append(space_weight)
             total += space_weight

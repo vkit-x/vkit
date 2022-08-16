@@ -47,16 +47,16 @@ class CharSamplerFakerEngine(
 
     def __init__(
         self,
-        config: CharSamplerFakerEngineInitConfig,
-        resource: Optional[CharSamplerFakerEngineInitResource] = None,
+        init_config: CharSamplerFakerEngineInitConfig,
+        init_resource: Optional[CharSamplerFakerEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        assert resource
-        self.lexicon_collection = resource.lexicon_collection
+        assert init_resource
+        self.lexicon_collection = init_resource.lexicon_collection
 
-        self.methods = sorted(config.method_to_weight)
-        weights = [config.method_to_weight[method] for method in self.methods]
+        self.methods = sorted(init_config.method_to_weight)
+        weights = [init_config.method_to_weight[method] for method in self.methods]
         total = sum(weights)
         self.methods_probs = [weight / total for weight in weights]
 

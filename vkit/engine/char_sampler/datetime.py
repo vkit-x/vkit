@@ -37,19 +37,19 @@ class CharSamplerDatetimeEngine(
 
     def __init__(
         self,
-        config: CharSamplerDatetimeEngineInitConfig,
-        resource: Optional[CharSamplerDatetimeEngineInitResource] = None,
+        init_config: CharSamplerDatetimeEngineInitConfig,
+        init_resource: Optional[CharSamplerDatetimeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
-        assert resource
-        self.lexicon_collection = resource.lexicon_collection
+        assert init_resource
+        self.lexicon_collection = init_resource.lexicon_collection
         self.delimiters = [
             char for char in ['/', ':', '-', ',', '.', '*']
             if self.lexicon_collection.has_char(char)
         ]
-        self.ticks_begin = int(time.mktime(date(*config.datetime_begin).timetuple()))
-        self.ticks_end = int(time.mktime(date(*config.datetime_end).timetuple()))
+        self.ticks_begin = int(time.mktime(date(*init_config.datetime_begin).timetuple()))
+        self.ticks_end = int(time.mktime(date(*init_config.datetime_end).timetuple()))
 
     def sample_datetime_text(self, rng: RandomGenerator):
         # Datetime.

@@ -102,10 +102,10 @@ class BarcodeCode39Engine(
 
     def __init__(
         self,
-        config: BarcodeCode39EngineInitConfig,
-        resource: Optional[NoneTypeEngineInitResource] = None,
+        init_config: BarcodeCode39EngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
         self.ascii_letters = tuple(string.ascii_letters)
 

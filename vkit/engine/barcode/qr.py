@@ -40,10 +40,10 @@ class BarcodeQrEngine(
 
     def __init__(
         self,
-        config: BarcodeQrEngineInitConfig,
-        resource: Optional[NoneTypeEngineInitResource] = None,
+        init_config: BarcodeQrEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
         assert self.init_config.payload_text_length_max <= CV_PAYLOAD_TEXT_LENGTH_MAX
         self.ascii_letters = tuple(string.ascii_letters)

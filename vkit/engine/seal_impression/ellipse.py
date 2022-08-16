@@ -123,10 +123,10 @@ class SealImpressionEllipseEngine(
 
     def __init__(
         self,
-        config: SealImpressionEllipseEngineInitConfig,
-        resource: Optional[NoneTypeEngineInitResource] = None
+        init_config: SealImpressionEllipseEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
         self.border_styles, self.border_styles_probs = normalize_to_keys_and_probs([
             (

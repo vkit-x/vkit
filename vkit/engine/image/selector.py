@@ -37,10 +37,10 @@ class ImageSelectorEngine(
 
     def __init__(
         self,
-        config: ImageSelectorEngineInitConfig,
-        resource: Optional[NoneTypeEngineInitResource] = None,
+        init_config: ImageSelectorEngineInitConfig,
+        init_resource: Optional[NoneTypeEngineInitResource] = None,
     ):
-        super().__init__(config, resource)
+        super().__init__(init_config, init_resource)
 
         self.image_files: List[PathLike] = []
         for image_folder in self.init_config.image_folders:
