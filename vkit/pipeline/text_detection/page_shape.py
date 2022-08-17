@@ -11,8 +11,8 @@ from ..interface import PipelineStep, PipelineStepFactory
 @attrs.define
 class PageShapeStepConfig:
     aspect_ratios: Sequence[float] = attrs.field(factory=lambda: (1 / 1.4142, 1.4142))
-    # NOTE: to ensure the minimum font size >= 12 pixels.
-    area: int = 1681**2
+    # NOTE: to ensure the minimum font size >= 18 pixels.
+    area: int = 2522**2
 
 
 @attrs.define
