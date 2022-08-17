@@ -118,7 +118,7 @@ class Painter:
         return Painter(image)
 
     def __init__(self, image: Image):
-        self.image = image
+        self.image = image.copy()
 
     def generate_layer_image(self):
         # RGBA.
