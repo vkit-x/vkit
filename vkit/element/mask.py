@@ -1,4 +1,4 @@
-from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar
+from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar, Sequence
 
 import attrs
 import numpy as np
@@ -407,6 +407,39 @@ class Mask(Shapable):
             alpha = alpha.mat
 
         self.fill_np_array(image.mat, value, alpha=alpha)
+
+    def to_unconnected_masks(self) -> Sequence['Mask']:
+        # [ (N, 1, 2), ... ]
+        cv_contours, _ = cv.findContours(
+            (self.np_mask.astype(np.uint8) * 255),
+            cv.RETR_LIST,
+            cv.CHAIN_APPROX_SIMPLE,
+        )
+
+        boxed_masks: List[Mask] = []
+
+        for cv_contour in cv_contours:
+            # 1. Build mask based on the contour.
+            assert cv_contour.shape[1] == 1
+            np_points = np.squeeze(cv_contour, axis=1)
+            polygon = Polygon.from_np_array(np_points)
+            bounding_box = polygon.to_bounding_box()
+            boxed_mask = Mask.from_shapable(bounding_box)
+            polygon.fill_mask(boxed_mask)
+
+            # 2. Boxed.
+            if not self.box:
+                box = bounding_box
+            else:
+                box = bounding_box.to_shifted_box(
+                    y_offset=self.box.up,
+                    x_offset=self.box.left,
+                )
+            boxed_mask = boxed_mask.to_box_attached(box)
+
+            boxed_masks.append(boxed_mask)
+
+        return boxed_masks
 
 
 def generate_fill_by_masks_mask(

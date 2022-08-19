@@ -9,6 +9,7 @@ from vkit.element import Point, Painter
 from vkit.pipeline import (
     pipeline_step_collection_factory,
     PageDistortionStepOutput,
+    PageResizingStepOutput,
     PageCroppingStepOutput,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
@@ -25,6 +26,7 @@ class DebugAdaptiveScalingPipelinePostProcessorConfig:
 @attrs.define
 class DebugAdaptiveScalingPipelinePostProcessorInputOutput:
     page_distortion_step_output: PageDistortionStepOutput
+    page_resizing_step_output: PageResizingStepOutput
     page_cropping_step_output: PageCroppingStepOutput
 
 
@@ -91,6 +93,51 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     cur_write_image(f'page_{seed}_text_line_score_map.jpg', painter.image)
 
 
+def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutput):
+    cur_write_image = functools.partial(write_image, frames_offset=1)
+
+    for idx, cropped_page in enumerate(output.cropped_pages):
+        cur_write_image(f'page_{seed}_cropped_{idx}_image.png', cropped_page.page_image)
+        painter = Painter.create(cropped_page.page_image)
+        painter.paint_mask(cropped_page.page_char_mask)
+        cur_write_image(f'page_{seed}_cropped_{idx}_mask.png', painter.image)
+        painter = Painter.create(cropped_page.page_image)
+        painter.paint_score_map(cropped_page.page_char_height_score_map)
+        cur_write_image(f'page_{seed}_cropped_{idx}_score_map.png', painter.image)
+
+        assert cropped_page.page_char_mask.box
+        char_mask_area = cropped_page.page_char_mask.box.area
+        char_mask_ratio = (cropped_page.page_char_mask.mat > 0).sum() / char_mask_area
+        print(f'{idx}: char_mask_ratio = {char_mask_ratio}')
+
+        downsampled_label = cropped_page.downsampled_label
+        assert downsampled_label
+
+        page_downsampled_char_mask = downsampled_label.page_char_mask
+        assert page_downsampled_char_mask
+        page_downsampled_char_height_score_map = downsampled_label.page_char_height_score_map
+        assert page_downsampled_char_height_score_map
+
+        painter = Painter.create(page_downsampled_char_mask)
+        painter.paint_mask(page_downsampled_char_mask)
+        cur_write_image(f'page_{seed}_cropped_{idx}_ds_mask.png', painter.image)
+
+        painter = Painter.create(page_downsampled_char_height_score_map)
+        painter.paint_score_map(page_downsampled_char_height_score_map)
+        cur_write_image(f'page_{seed}_cropped_{idx}_ds_score_map.png', painter.image)
+
+
+def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutput):
+    cur_write_image = functools.partial(write_image, frames_offset=1)
+
+    cur_write_image(f'page_{seed}_resized_image.jpg', output.page_image)
+
+    text_line_unconnected_masks = output.page_text_line_mask.to_unconnected_masks()
+    painter = Painter(output.page_image)
+    painter.paint_masks(text_line_unconnected_masks, alpha=0.9)
+    cur_write_image(f'page_{seed}_resized_text_line_unconnected_masks.jpg', painter.image)
+
+
 @pytest.mark.local
 def test_debug_adaptive_scaling_dataset_steps():
     post_processor_factory = PipelinePostProcessorFactory(DebugAdaptiveScalingPipelinePostProcessor)
@@ -104,3 +151,7 @@ def test_debug_adaptive_scaling_dataset_steps():
         rng = default_rng(seed)
         output = pipeline.run(rng)
         visualize_page_distortion_step_output(seed, output.page_distortion_step_output)
+        if True:
+            visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
+        if False:
+            visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
