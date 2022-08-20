@@ -194,7 +194,7 @@ def test_random_distortion():
     rng = default_rng(0)
 
     for idx in range(50):
-        debug = debug = RandomDistortionDebug()
+        debug = RandomDistortionDebug()
         result = random_distortion.distort(image=image, rng=rng, debug=debug)
         assert result.image
         level = min(debug.distortion_levels or (0,))
