@@ -104,11 +104,6 @@ class DistortionInternals(Generic[_T_CONFIG, _T_STATE]):
     shape: Tuple[int, int]
     rng: Optional[RandomGenerator]
 
-    def restore_rng_if_supported(self):
-        if self.rng:
-            assert self.config.supports_rng_state and self.config.rng_state
-            self.rng.bit_generator.state = self.config.rng_state
-
 
 class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
@@ -253,15 +248,18 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             config = dyn_structure(config_or_config_generator, self.config_cls)
 
         if config.supports_rng_state:
-            if not config.rng_state:
+            # Process rng_state.
+            if config.rng_state:
+                # Create/replace rng.
+                rng = default_rng()
+                rng.bit_generator.state = config.rng_state
+            else:
+                # Copy rng.
                 if not rng:
                     raise RuntimeError('both config.rng_state and rng are None.')
                 config.rng_state = rng.bit_generator.state
-
-            # Calling rng methods changes rng's state. We don't want to change the state
-            # of exterior rng, hence making a copy here.
-            rng = default_rng()
-            rng.bit_generator.state = config.rng_state
+                # Make sure rng_state.setter is overrided.
+                assert config.rng_state
 
         else:
             # Force not passing rng.
@@ -377,19 +375,6 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         )
         return internals.state
 
-    def distort_image_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        image: Image,
-    ):
-        internals.restore_rng_if_supported()
-        return self.func_image(
-            internals.config,
-            internals.state,
-            image,
-            internals.rng,
-        )
-
     # yapf: disable
     def distort_image(
         self,
@@ -411,26 +396,12 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             shapable_or_shape=image,
             rng=rng,
         )
-        return self.distort_image_with_internals(internals, image)
-
-    def distort_score_map_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        score_map: ScoreMap,
-    ):
-        internals.restore_rng_if_supported()
-
-        if self.func_score_map:
-            return self.func_score_map(
-                internals.config,
-                internals.state,
-                score_map,
-                internals.rng,
-            )
-
-        else:
-            # NOP.
-            return score_map
+        return self.func_image(
+            internals.config,
+            internals.state,
+            image,
+            internals.rng,
+        )
 
     # yapf: disable
     def distort_score_map(
@@ -447,32 +418,23 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
-        internals = self.prepare_internals(
-            config_or_config_generator=config_or_config_generator,
-            state=state,
-            shapable_or_shape=score_map,
-            rng=rng,
-        )
-        return self.distort_score_map_with_internals(internals, score_map)
-
-    def distort_mask_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        mask: Mask,
-    ):
-        internals.restore_rng_if_supported()
-
-        if self.func_mask:
-            return self.func_mask(
+        if self.func_score_map:
+            internals = self.prepare_internals(
+                config_or_config_generator=config_or_config_generator,
+                state=state,
+                shapable_or_shape=score_map,
+                rng=rng,
+            )
+            return self.func_score_map(
                 internals.config,
                 internals.state,
-                mask,
+                score_map,
                 internals.rng,
             )
 
         else:
             # NOP.
-            return mask
+            return score_map
 
     # yapf: disable
     def distort_mask(
@@ -489,32 +451,23 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
-        internals = self.prepare_internals(
-            config_or_config_generator=config_or_config_generator,
-            state=state,
-            shapable_or_shape=mask,
-            rng=rng,
-        )
-        return self.distort_mask_with_internals(internals, mask)
-
-    def get_active_mask_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-    ):
-        internals.restore_rng_if_supported()
-
-        if self.func_active_mask:
-            return self.func_active_mask(
+        if self.func_mask:
+            internals = self.prepare_internals(
+                config_or_config_generator=config_or_config_generator,
+                state=state,
+                shapable_or_shape=mask,
+                rng=rng,
+            )
+            return self.func_mask(
                 internals.config,
                 internals.state,
-                internals.shape,
+                mask,
                 internals.rng,
             )
 
         else:
-            mask = Mask.from_shape(internals.shape)
-            mask.mat.fill(1)
-            return self.distort_mask_with_internals(internals, mask)
+            # NOP.
+            return mask
 
     # yapf: disable
     def get_active_mask(
@@ -531,20 +484,53 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
+        if self.func_active_mask:
+            internals = self.prepare_internals(
+                config_or_config_generator=config_or_config_generator,
+                state=state,
+                shapable_or_shape=shapable_or_shape,
+                rng=rng,
+            )
+            return self.func_active_mask(
+                internals.config,
+                internals.state,
+                internals.shape,
+                internals.rng,
+            )
+
+        else:
+            shape = Distortion.get_shape_from_shapable_or_shape(shapable_or_shape)
+            mask = Mask.from_shape(shape)
+            mask.mat.fill(1)
+            return self.distort_mask(
+                config_or_config_generator=config_or_config_generator,
+                state=state,
+                mask=mask,
+                rng=rng,
+            )
+
+    # yapf: disable
+    def distort_point(
+        self,
+        config_or_config_generator: Union[
+            Union[_T_CONFIG, Mapping[str, Any]],
+            Callable[
+                [Tuple[int, int], RandomGenerator],
+                Union[_T_CONFIG, Mapping[str, Any]],
+            ],
+        ],
+        shapable_or_shape: Union[Shapable, Tuple[int, int]],
+        point: Point,
+        state: Optional[_T_STATE] = None,
+        rng: Optional[RandomGenerator] = None,
+    ):
+        # yapf: enable
         internals = self.prepare_internals(
             config_or_config_generator=config_or_config_generator,
             state=state,
             shapable_or_shape=shapable_or_shape,
             rng=rng,
         )
-        return self.get_active_mask_with_internals(internals)
-
-    def distort_point_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        point: Point,
-    ):
-        internals.restore_rng_if_supported()
 
         if self.func_point:
             return self.func_point(
@@ -570,55 +556,6 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             return point
 
     # yapf: disable
-    def distort_point(
-        self,
-        config_or_config_generator: Union[
-            Union[_T_CONFIG, Mapping[str, Any]],
-            Callable[
-                [Tuple[int, int], RandomGenerator],
-                Union[_T_CONFIG, Mapping[str, Any]],
-            ],
-        ],
-        shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        point: Point,
-        state: Optional[_T_STATE] = None,
-        rng: Optional[RandomGenerator] = None,
-    ):
-        # yapf: enable
-        internals = self.prepare_internals(
-            config_or_config_generator=config_or_config_generator,
-            state=state,
-            shapable_or_shape=shapable_or_shape,
-            rng=rng,
-        )
-        return self.distort_point_with_internals(internals, point)
-
-    def distort_points_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        points: Union[PointList, Iterable[Point]],
-    ):
-        internals.restore_rng_if_supported()
-
-        points = PointList(points)
-
-        if self.func_points:
-            return self.func_points(
-                internals.config,
-                internals.state,
-                internals.shape,
-                points,
-                internals.rng,
-            )
-
-        else:
-            new_points = PointList()
-            for point in points:
-                new_point = self.distort_point_with_internals(internals, point)
-                new_points.append(new_point)
-            return new_points
-
-    # yapf: disable
     def distort_points(
         self,
         config_or_config_generator: Union[
@@ -634,43 +571,36 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
+        points = PointList(points)
+
         internals = self.prepare_internals(
             config_or_config_generator=config_or_config_generator,
             state=state,
             shapable_or_shape=shapable_or_shape,
             rng=rng,
         )
-        return self.distort_points_with_internals(internals, points)
 
-    def distort_polygon_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        polygon: Polygon,
-    ):
-        internals.restore_rng_if_supported()
-
-        if self.func_polygon:
-            return self.func_polygon(
+        if self.func_points:
+            return self.func_points(
                 internals.config,
                 internals.state,
                 internals.shape,
-                polygon,
+                points,
                 internals.rng,
             )
-
-        elif self.func_polygons:
-            distorted_polygons = self.func_polygons(
-                internals.config,
-                internals.state,
-                internals.shape,
-                [polygon],
-                internals.rng,
-            )
-            return distorted_polygons[0]
 
         else:
-            new_points = self.distort_points_with_internals(internals, polygon.points)
-            return Polygon(points=new_points)
+            new_points = PointList()
+            for point in points:
+                new_point = self.distort_point(
+                    config_or_config_generator=internals.config,
+                    shapable_or_shape=internals.shape,
+                    point=point,
+                    state=internals.state,
+                    rng=None,
+                )
+                new_points.append(new_point)
+            return new_points
 
     # yapf: disable
     def distort_polygon(
@@ -694,30 +624,35 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             shapable_or_shape=shapable_or_shape,
             rng=rng,
         )
-        return self.distort_polygon_with_internals(internals, polygon)
 
-    def distort_polygons_with_internals(
-        self,
-        internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        polygons: Iterable[Polygon],
-    ):
-        internals.restore_rng_if_supported()
-
-        if self.func_polygons:
-            return self.func_polygons(
+        if self.func_polygon:
+            return self.func_polygon(
                 internals.config,
                 internals.state,
                 internals.shape,
-                polygons,
+                polygon,
                 internals.rng,
             )
 
+        elif self.func_polygons:
+            distorted_polygons = self.func_polygons(
+                internals.config,
+                internals.state,
+                internals.shape,
+                [polygon],
+                internals.rng,
+            )
+            return distorted_polygons[0]
+
         else:
-            new_polygons = []
-            for polygon in polygons:
-                new_polygon = self.distort_polygon_with_internals(internals, polygon)
-                new_polygons.append(new_polygon)
-            return new_polygons
+            new_points = self.distort_points(
+                config_or_config_generator=internals.config,
+                shapable_or_shape=internals.shape,
+                state=internals.state,
+                points=polygon.points,
+                rng=None,
+            )
+            return Polygon(points=new_points)
 
     # yapf: disable
     def distort_polygons(
@@ -741,7 +676,28 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             shapable_or_shape=shapable_or_shape,
             rng=rng,
         )
-        return self.distort_polygons_with_internals(internals, polygons)
+
+        if self.func_polygons:
+            return self.func_polygons(
+                internals.config,
+                internals.state,
+                internals.shape,
+                polygons,
+                internals.rng,
+            )
+
+        else:
+            new_polygons = []
+            for polygon in polygons:
+                new_polygon = self.distort_polygon(
+                    config_or_config_generator=internals.config,
+                    state=internals.state,
+                    shapable_or_shape=internals.shape,
+                    polygon=polygon,
+                    rng=None,
+                )
+                new_polygons.append(new_polygon)
+            return new_polygons
 
     @staticmethod
     def get_shape(
@@ -790,7 +746,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             score_map=score_map,
         )
 
-        internals = self.prepare_internals(
+        config, state = self.generate_config_and_state(
             config_or_config_generator=config_or_config_generator,
             state=None,
             shapable_or_shape=shape,
@@ -802,47 +758,101 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         result_shape = None
 
         if image:
-            result.image = self.distort_image_with_internals(internals, image)
+            result.image = self.distort_image(
+                config,
+                image,
+                state=state,
+                rng=rng,
+            )
             result_shape = result.image.shape
 
         if mask:
-            result.mask = self.distort_mask_with_internals(internals, mask)
+            result.mask = self.distort_mask(
+                config,
+                mask,
+                state=state,
+                rng=rng,
+            )
             if not result_shape:
                 result_shape = result.mask.shape
             assert result_shape == result.mask.shape
 
         if score_map:
-            result.score_map = self.distort_score_map_with_internals(internals, score_map)
+            result.score_map = self.distort_score_map(
+                config,
+                score_map,
+                state=state,
+                rng=rng,
+            )
             if not result_shape:
                 result_shape = result.score_map.shape
             assert result_shape == result.score_map.shape
 
         if point:
-            result.point = self.distort_point_with_internals(internals, point)
+            result.point = self.distort_point(
+                config,
+                shape,
+                point,
+                state=state,
+                rng=rng,
+            )
 
         if points:
-            result.points = self.distort_points_with_internals(internals, points)
+            result.points = self.distort_points(
+                config,
+                shape,
+                points,
+                state=state,
+                rng=rng,
+            )
 
         if corner_points:
-            result.corner_points = self.distort_points_with_internals(internals, corner_points)
+            result.corner_points = self.distort_points(
+                config,
+                shape,
+                corner_points,
+                state=state,
+                rng=rng,
+            )
 
         if polygon:
-            result.polygon = self.distort_polygon_with_internals(internals, polygon)
+            result.polygon = self.distort_polygon(
+                config,
+                shape,
+                polygon,
+                state=state,
+                rng=rng,
+            )
 
         if polygons:
-            result.polygons = self.distort_polygons_with_internals(internals, polygons)
+            result.polygons = self.distort_polygons(
+                config,
+                shape,
+                polygons,
+                state=state,
+                rng=rng,
+            )
 
         if text_polygon:
             result.text_polygon = attrs.evolve(
                 text_polygon,
-                polygon=self.distort_polygon_with_internals(internals, text_polygon.polygon),
+                polygon=self.distort_polygon(
+                    config,
+                    shape,
+                    text_polygon.polygon,
+                    state=state,
+                    rng=rng,
+                ),
             )
 
         if text_polygons:
             text_polygons = tuple(text_polygons)
-            distorted_polygons = self.distort_polygons_with_internals(
-                internals,
+            distorted_polygons = self.distort_polygons(
+                config,
+                shape,
                 [text_polygon.polygon for text_polygon in text_polygons],
+                state=state,
+                rng=rng,
             )
             result.text_polygons = [
                 attrs.evolve(text_polygon, polygon=distorted_polygon)
@@ -850,13 +860,18 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             ]
 
         if get_active_mask:
-            result.active_mask = self.get_active_mask_with_internals(internals)
+            result.active_mask = self.get_active_mask(
+                config,
+                shape,
+                state=state,
+                rng=rng,
+            )
 
         if get_config:
-            result.config = internals.config
+            result.config = config
 
         if get_state:
-            result.state = internals.state
+            result.state = state
 
         # Fallback to shape for photometric distortion.
         result.shape = result_shape or shape
