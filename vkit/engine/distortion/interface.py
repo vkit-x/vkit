@@ -383,6 +383,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         image: Image,
     ):
         internals.restore_rng_if_supported()
+
         return self.func_image(
             internals.config,
             internals.state,
