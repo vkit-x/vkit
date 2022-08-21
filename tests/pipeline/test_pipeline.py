@@ -132,10 +132,16 @@ def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutpu
 
     cur_write_image(f'page_{seed}_resized_image.jpg', output.page_image)
 
-    text_line_unconnected_masks = output.page_text_line_mask.to_unconnected_masks()
-    painter = Painter(output.page_image)
-    painter.paint_masks(text_line_unconnected_masks, alpha=0.9)
-    cur_write_image(f'page_{seed}_resized_text_line_unconnected_masks.jpg', painter.image)
+    if False:
+        text_line_disconnected_masks = output.page_text_line_mask.to_disconnected_masks()
+        painter = Painter(output.page_image)
+        painter.paint_masks(text_line_disconnected_masks, alpha=0.9)
+        cur_write_image(f'page_{seed}_resized_text_line_disconnected_masks.jpg', painter.image)
+
+        text_line_disconnected_polygons = output.page_text_line_mask.to_disconnected_polygons()
+        painter = Painter(output.page_image)
+        painter.paint_polygons(text_line_disconnected_polygons, alpha=0.9)
+        cur_write_image(f'page_{seed}_resized_text_line_disconnected_polygons.jpg', painter.image)
 
 
 @pytest.mark.local

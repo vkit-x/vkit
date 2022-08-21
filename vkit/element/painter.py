@@ -1,5 +1,4 @@
 from typing import Union, Tuple, Sequence, Iterable, Any, Optional
-import itertools
 
 import cv2 as cv
 import numpy as np
@@ -426,7 +425,7 @@ class Painter:
         )
 
         layer_image = self.generate_layer_image()
-        layer_image.fill_by_mask_value_tuples(zip(masks, rgba_tuples, itertools.repeat(alpha)))
+        layer_image.fill_by_mask_value_tuples(zip(masks, rgba_tuples))
         self.overlay_layer_image(layer_image)
 
     def paint_score_map(

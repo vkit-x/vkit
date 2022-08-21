@@ -408,7 +408,7 @@ class Mask(Shapable):
 
         self.fill_np_array(image.mat, value, alpha=alpha)
 
-    def to_unconnected_masks(self) -> Sequence['Mask']:
+    def to_disconnected_polygons(self) -> Sequence['Polygon']:
         # [ (N, 1, 2), ... ]
         cv_contours, _ = cv.findContours(
             (self.np_mask.astype(np.uint8) * 255),
@@ -416,27 +416,27 @@ class Mask(Shapable):
             cv.CHAIN_APPROX_SIMPLE,
         )
 
-        boxed_masks: List[Mask] = []
+        polygons: List[Polygon] = []
 
         for cv_contour in cv_contours:
-            # 1. Build mask based on the contour.
             assert cv_contour.shape[1] == 1
             np_points = np.squeeze(cv_contour, axis=1)
-            polygon = Polygon.from_np_array(np_points)
+
+            if self.box:
+                np_points[:, 0] += self.box.left
+                np_points[:, 1] += self.box.up
+
+            polygons.append(Polygon.from_np_array(np_points))
+
+        return polygons
+
+    def to_disconnected_masks(self) -> Sequence['Mask']:
+        boxed_masks: List[Mask] = []
+
+        for polygon in self.to_disconnected_polygons():
             bounding_box = polygon.to_bounding_box()
-            boxed_mask = Mask.from_shapable(bounding_box)
+            boxed_mask = Mask.from_shapable(bounding_box).to_box_attached(bounding_box)
             polygon.fill_mask(boxed_mask)
-
-            # 2. Boxed.
-            if not self.box:
-                box = bounding_box
-            else:
-                box = bounding_box.to_shifted_box(
-                    y_offset=self.box.up,
-                    x_offset=self.box.left,
-                )
-            boxed_mask = boxed_mask.to_box_attached(box)
-
             boxed_masks.append(boxed_mask)
 
         return boxed_masks
