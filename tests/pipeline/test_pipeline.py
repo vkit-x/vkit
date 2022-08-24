@@ -5,12 +5,13 @@ import attrs
 from numpy.random import Generator as RandomGenerator, default_rng
 import pytest
 
-from vkit.element import Point, Painter
+from vkit.element import Point, Polygon, Painter  # noqa
 from vkit.pipeline import (
     pipeline_step_collection_factory,
     PageDistortionStepOutput,
     PageResizingStepOutput,
     PageCroppingStepOutput,
+    PageTextRegionStackingStepOutput,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
     Pipeline,
@@ -28,6 +29,7 @@ class DebugAdaptiveScalingPipelinePostProcessorInputOutput:
     page_distortion_step_output: PageDistortionStepOutput
     page_resizing_step_output: PageResizingStepOutput
     page_cropping_step_output: PageCroppingStepOutput
+    page_text_region_stacking_step_output: PageTextRegionStackingStepOutput
 
 
 class DebugAdaptiveScalingPipelinePostProcessor(
@@ -92,6 +94,11 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     painter.paint_score_map(page_distorted_text_line_height_score_map)
     cur_write_image(f'page_{seed}_text_line_score_map.jpg', painter.image)
 
+    if True:
+        painter = Painter.create(output.page_image)
+        painter.paint_polygons(output.page_disconnected_text_region_collection.to_polygons())
+        cur_write_image(f'page_{seed}_disconnected_text_region_collection.jpg', painter.image)
+
 
 def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutput):
     cur_write_image = functools.partial(write_image, frames_offset=1)
@@ -132,8 +139,13 @@ def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutpu
 
     cur_write_image(f'page_{seed}_resized_image.jpg', output.page_image)
 
+    painter = Painter(output.page_image)
+    painter.paint_mask(output.page_text_line_mask, alpha=0.9)
+    cur_write_image(f'page_{seed}_resized_text_line_mask.jpg', painter.image)
+
     if False:
-        text_line_disconnected_masks = output.page_text_line_mask.to_disconnected_masks()
+        text_line_disconnected_masks = \
+            output.page_text_line_mask.to_disconnected_polygon_mask_pairs()
         painter = Painter(output.page_image)
         painter.paint_masks(text_line_disconnected_masks, alpha=0.9)
         cur_write_image(f'page_{seed}_resized_text_line_disconnected_masks.jpg', painter.image)
@@ -142,6 +154,50 @@ def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutpu
         painter = Painter(output.page_image)
         painter.paint_polygons(text_line_disconnected_polygons, alpha=0.9)
         cur_write_image(f'page_{seed}_resized_text_line_disconnected_polygons.jpg', painter.image)
+
+
+def visualize_page_text_region_stacking_step_output(
+    seed: int,
+    output: PageTextRegionStackingStepOutput,
+):
+    cur_write_image = functools.partial(write_image, frames_offset=1)
+
+    if output.debug:
+        precise_text_region_polygons: List[Polygon] = []
+        char_polygons: List[Polygon] = []
+        color_indices: List[int] = []
+        for color_idx, page_text_region_info in enumerate(output.debug.page_text_region_infos):
+            precise_text_region_polygons.append(page_text_region_info.precise_text_region_polygon)
+            char_polygons.extend(page_text_region_info.char_polygons)
+            color_indices.extend([color_idx] * len(page_text_region_info.char_polygons))
+
+        painter = Painter.create(output.debug.page_image)
+        painter.paint_polygons(precise_text_region_polygons)
+        cur_write_image(f'page_{seed}_precise_text_region_polygons.jpg', painter.image)
+
+        painter = Painter.create(output.debug.page_image)
+        painter.paint_polygons(char_polygons, color=color_indices)
+        cur_write_image(f'page_{seed}_precise_text_region_char_polygons.jpg', painter.image)
+
+        for idx, page_flat_text_region in enumerate(output.debug.page_flat_text_regions[:3]):
+            cur_write_image(f'page_{seed}_flat_text_region_{idx}.jpg', page_flat_text_region.image)
+
+            painter = Painter.create(page_flat_text_region.image)
+            painter.paint_polygons(page_flat_text_region.char_polygons)
+            cur_write_image(f'page_{seed}_flat_text_region_{idx}_char_polygons.jpg', painter.image)
+
+        for idx, page_flat_text_region in enumerate(
+            output.debug.resized_page_flat_text_regions[:3]
+        ):
+            cur_write_image(
+                f'page_{seed}_flat_text_region_resized_{idx}.jpg', page_flat_text_region.image
+            )
+
+            painter = Painter.create(page_flat_text_region.image)
+            painter.paint_polygons(page_flat_text_region.char_polygons)
+            cur_write_image(
+                f'page_{seed}_flat_text_region_resized_{idx}_char_polygons.jpg', painter.image
+            )
 
 
 @pytest.mark.local
@@ -161,3 +217,13 @@ def test_debug_adaptive_scaling_dataset_steps():
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
         if False:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
+        if True:
+            visualize_page_text_region_stacking_step_output(
+                seed,
+                output.page_text_region_stacking_step_output,
+            )
+
+    # For profiling.
+    # for seed in (0, 1):
+    #     rng = default_rng(seed)
+    #     pipeline.run(rng)

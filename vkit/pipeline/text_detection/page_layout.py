@@ -1,14 +1,15 @@
-from typing import Optional, Sequence, List
+from typing import Optional, Sequence, List, DefaultDict
 import math
 import heapq
 from enum import Enum, unique
 import itertools
+from collections import defaultdict
 
 import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice, normalize_to_probs, normalize_to_keys_and_probs
-from vkit.element import Box
+from vkit.element import Box, Polygon
 from vkit.engine.font.type import FontEngineRunConfigGlyphSequence
 from .page_shape import PageShapeStepOutput
 from ..interface import PipelineStep, PipelineStepFactory
@@ -98,6 +99,9 @@ class PageLayoutStepConfig:
     seal_impression_general_ellipse_aspect_ratio_min: float = 0.75
     seal_impression_general_ellipse_aspect_ratio_max: float = 1.333
 
+    # For char-level polygon regression.
+    disconnected_text_region_polygons_height_ratio_max: float = 2.0
+
 
 @attrs.define
 class PageLayoutStepInput:
@@ -110,6 +114,9 @@ class LayoutTextLine:
     #   == -1: for large text line.
     #   >= 0: for normal text lines.
     grid_idx: int
+    # text_line_idx: index within a grid.
+    text_line_idx: int
+    text_line_height: int
     box: Box
     glyph_sequence: FontEngineRunConfigGlyphSequence
 
@@ -150,6 +157,11 @@ class LayoutXcodePlacement(Enum):
 
 
 @attrs.define
+class DisconnectedTextRegion:
+    polygon: Polygon
+
+
+@attrs.define
 class PageLayout:
     height: int
     width: int
@@ -159,6 +171,7 @@ class PageLayout:
     layout_images: Sequence[LayoutImage]
     layout_barcode_qrs: Sequence[LayoutBarcodeQr]
     layout_barcode_code39s: Sequence[LayoutBarcodeCode39]
+    disconnected_text_regions: Sequence[DisconnectedTextRegion]
 
 
 @attrs.define
@@ -533,9 +546,12 @@ class PageLayoutStep(
             right = left + normal_text_line_length - 1
             assert right <= grid.right
 
+            text_line_idx = len(layout_text_lines)
             layout_text_lines.append(
                 LayoutTextLine(
                     grid_idx=grid_idx,
+                    text_line_idx=text_line_idx,
+                    text_line_height=normal_text_line_height,
                     box=Box(up=up, down=down, left=left, right=right),
                     glyph_sequence=FontEngineRunConfigGlyphSequence.HORI_DEFAULT,
                 )
@@ -568,6 +584,8 @@ class PageLayoutStep(
 
         return LayoutTextLine(
             grid_idx=-1,
+            text_line_idx=0,
+            text_line_height=large_text_line_gird.height,
             box=attrs.evolve(large_text_line_gird, left=left, right=right),
             glyph_sequence=FontEngineRunConfigGlyphSequence.HORI_DEFAULT,
         )
@@ -1134,6 +1152,61 @@ class PageLayoutStep(
 
         return layout_seal_impressions
 
+    def generate_disconnected_text_regions(
+        self,
+        layout_text_lines: Sequence[LayoutTextLine],
+    ):
+        grid_idx_to_layout_text_lines: DefaultDict[int, List[LayoutTextLine]] = defaultdict(list)
+        for layout_text_line in layout_text_lines:
+            grid_idx_to_layout_text_lines[layout_text_line.grid_idx].append(layout_text_line)
+
+        disconnected_text_regions: List[DisconnectedTextRegion] = []
+
+        for _, layout_text_lines in sorted(
+            grid_idx_to_layout_text_lines.items(),
+            key=lambda p: p[0],
+        ):
+            layout_text_lines = sorted(layout_text_lines, key=lambda ltl: ltl.text_line_idx)
+
+            begin = 0
+            while begin < len(layout_text_lines):
+                text_line_height_min = layout_text_lines[begin].text_line_height
+                text_line_height_max = text_line_height_min
+
+                # Find [begin, end) interval satisfying the condition.
+                end = begin + 1
+                while end < len(layout_text_lines):
+                    text_line_height = layout_text_lines[end].text_line_height
+                    text_line_height_min = min(text_line_height_min, text_line_height)
+                    text_line_height_max = max(text_line_height_max, text_line_height)
+                    if text_line_height_max / text_line_height_min \
+                            > self.config.disconnected_text_region_polygons_height_ratio_max:
+                        break
+                    else:
+                        end += 1
+
+                # To polygon.
+                # NOTE: Simply using a bounding box is enough.
+                # This method is common to all glyph sequences.
+                cur_layout_text_lines = layout_text_lines[begin:end]
+                bounding_box = Box(
+                    up=min(ltl.box.up for ltl in cur_layout_text_lines),
+                    down=max(ltl.box.down for ltl in cur_layout_text_lines),
+                    left=min(ltl.box.left for ltl in cur_layout_text_lines),
+                    right=max(ltl.box.right for ltl in cur_layout_text_lines),
+                )
+                step = min(
+                    itertools.chain.from_iterable(ltl.box.shape for ltl in cur_layout_text_lines)
+                )
+                disconnected_text_regions.append(
+                    DisconnectedTextRegion(polygon=bounding_box.to_polygon(step=step))
+                )
+
+                # Move to next.
+                begin = end
+
+        return disconnected_text_regions
+
     def run(self, input: PageLayoutStepInput, rng: RandomGenerator):
         page_shape_step_output = input.page_shape_step_output
         height = page_shape_step_output.height
@@ -1178,6 +1251,11 @@ class PageLayoutStep(
             rng=rng,
         )
 
+        # For char-level polygon regression.
+        disconnected_text_regions = self.generate_disconnected_text_regions(
+            layout_text_lines=layout_text_lines,
+        )
+
         return PageLayoutStepOutput(
             page_layout=PageLayout(
                 height=height,
@@ -1188,6 +1266,7 @@ class PageLayoutStep(
                 layout_images=layout_images,
                 layout_barcode_qrs=layout_barcode_qrs,
                 layout_barcode_code39s=layout_barcode_code39s,
+                disconnected_text_regions=disconnected_text_regions,
             ),
             debug_large_text_line_gird=large_text_line_gird,
             debug_grids=grids,

@@ -121,8 +121,6 @@ class PointList(List[Point]):
         points = PointList()
         for np_point in np_points:
             x, y = np_point
-            x = float(x)
-            y = float(y)
             points.append(Point.create(y=y, x=x))
 
         if len(points) > 2 and points[0] == points[-1]:

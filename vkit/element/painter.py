@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Sequence, Iterable, Any, Optional
+from typing import cast, Union, Tuple, Sequence, Iterable, Any, Optional
 
 import cv2 as cv
 import numpy as np
@@ -76,18 +76,34 @@ class Painter:
     @staticmethod
     def get_rgba_tuples_from_color_names(
         num_elements: int,
-        color: Optional[Union[str, Iterable[str]]],
+        color: Optional[Union[str, Iterable[str], Iterable[int]]],
         alpha: float,
         palette: Sequence[str] = PALETTE,
     ):
         if color is None:
             rgb_tuples = Painter.get_rgb_tuples(num_elements, palette=palette)
+
         elif isinstance(color, str):
             rgb_tuple = Painter.get_rgb_tuple_from_color_name(color)
             rgb_tuples = (rgb_tuple,) * num_elements
+
         else:
+            colors = tuple(color)
+            if not colors:
+                color_names = ()
+
+            elif isinstance(colors[0], str):
+                color_names = cast(Tuple[str], colors)
+
+            elif isinstance(colors[0], int):
+                color_indices = cast(Tuple[int], colors)
+                color_names = [palette[color_idx % len(palette)] for color_idx in color_indices]
+
+            else:
+                raise NotImplementedError()
+
             rgb_tuples = tuple(
-                Painter.get_rgb_tuple_from_color_name(color_name) for color_name in color
+                Painter.get_rgb_tuple_from_color_name(color_name) for color_name in color_names
             )
 
         alpha_uint8 = round(255 * alpha)
@@ -168,7 +184,7 @@ class Painter:
         self,
         texts: Iterable[str],
         points: Iterable[Point],
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -198,7 +214,7 @@ class Painter:
         points: Union[PointList, Iterable[Point]],
         radius: int = 1,
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -240,7 +256,7 @@ class Painter:
         enable_arrow: bool = False,
         arrow_length_ratio: float = 0.1,
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -289,7 +305,7 @@ class Painter:
         self,
         boxes: Iterable[Box],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         border_thickness: Optional[int] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
@@ -332,7 +348,7 @@ class Painter:
         self,
         char_boxes: Iterable[CharBox],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         border_thickness: Optional[int] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
@@ -351,7 +367,7 @@ class Painter:
         self,
         polygons: Iterable[Polygon],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -382,7 +398,7 @@ class Painter:
         self,
         text_polygons: Iterable[TextPolygon],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -412,7 +428,7 @@ class Painter:
     def paint_masks(
         self,
         masks: Iterable[Mask],
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):

@@ -184,9 +184,8 @@ class ImageGrid:
 
     @staticmethod
     def get_np_y_x_points_within_polygon(polygon: Polygon):
-        internals = polygon.to_fill_np_array_internals()
-        box = internals.bounding_box
-        np_mask = internals.get_np_mask()
+        box = polygon.fill_np_array_internals.bounding_box
+        np_mask = polygon.fill_np_array_internals.get_np_mask()
 
         y, x = np_mask.nonzero()
         y += box.up

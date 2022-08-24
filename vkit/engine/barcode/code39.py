@@ -95,9 +95,7 @@ class BarcodeCode39Engine(
         up = np_vert_nonzero[0]
         down = np_vert_nonzero[-1]
 
-        mask_mat = mask.mat[up:down + 1, left:right + 1]
-        mask = Mask(mask_mat)
-
+        mask = mask.to_cropped_mask(up=up, down=down, left=left, right=right)
         return mask
 
     def __init__(
