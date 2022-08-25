@@ -74,6 +74,15 @@ def rng_choice_with_size(
     return [items[idx] for idx in indices]
 
 
+def rng_shuffle(
+    rng: RandomGenerator,
+    items: Sequence[_T_ITEM],
+) -> Sequence[_T_ITEM]:
+    indices = list(range(len(items)))
+    rng.shuffle(indices)
+    return tuple(items[idx] for idx in indices)
+
+
 _CV_INTER_FLAGS = cast(
     Sequence[int],
     (

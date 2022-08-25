@@ -101,11 +101,11 @@ from .text_detection.page_cropping import (
     PageCroppingStepOutput,
     CroppedPage,
 )
-from .text_detection.page_text_region_stacking import (
-    page_text_region_stacking_step_factory,
-    PageTextRegionStackingStep,
-    PageTextRegionStackingStepInput,
-    PageTextRegionStackingStepOutput,
+from .text_detection.page_text_region import (
+    page_text_region_step_factory,
+    PageTextRegionStep,
+    PageTextRegionStepInput,
+    PageTextRegionStepOutput,
 )
 
 # Registry.
@@ -128,6 +128,6 @@ pipeline_step_collection_factory.register_step_factories(
         page_distortion_step_factory,
         page_resizing_step_factory,
         page_cropping_step_factory,
-        page_text_region_stacking_step_factory,
+        page_text_region_step_factory,
     ],
 )

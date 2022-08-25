@@ -11,7 +11,7 @@ from vkit.pipeline import (
     PageDistortionStepOutput,
     PageResizingStepOutput,
     PageCroppingStepOutput,
-    PageTextRegionStackingStepOutput,
+    PageTextRegionStepOutput,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
     Pipeline,
@@ -29,7 +29,7 @@ class DebugAdaptiveScalingPipelinePostProcessorInputOutput:
     page_distortion_step_output: PageDistortionStepOutput
     page_resizing_step_output: PageResizingStepOutput
     page_cropping_step_output: PageCroppingStepOutput
-    page_text_region_stacking_step_output: PageTextRegionStackingStepOutput
+    page_text_region_step_output: PageTextRegionStepOutput
 
 
 class DebugAdaptiveScalingPipelinePostProcessor(
@@ -156,9 +156,9 @@ def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutpu
         cur_write_image(f'page_{seed}_resized_text_line_disconnected_polygons.jpg', painter.image)
 
 
-def visualize_page_text_region_stacking_step_output(
+def visualize_page_text_region_step_output(
     seed: int,
-    output: PageTextRegionStackingStepOutput,
+    output: PageTextRegionStepOutput,
 ):
     cur_write_image = functools.partial(write_image, frames_offset=1)
 
@@ -199,6 +199,12 @@ def visualize_page_text_region_stacking_step_output(
                 f'page_{seed}_flat_text_region_resized_{idx}_char_polygons.jpg', painter.image
             )
 
+    cur_write_image(f'page_{seed}_stacked_image.jpg', output.page_image)
+
+    painter = Painter.create(output.page_image)
+    painter.paint_polygons(output.page_char_polygons)
+    cur_write_image(f'page_{seed}_stacked_image_char_polygons.jpg', painter.image)
+
 
 @pytest.mark.local
 def test_debug_adaptive_scaling_dataset_steps():
@@ -218,9 +224,9 @@ def test_debug_adaptive_scaling_dataset_steps():
         if False:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
         if True:
-            visualize_page_text_region_stacking_step_output(
+            visualize_page_text_region_step_output(
                 seed,
-                output.page_text_region_stacking_step_output,
+                output.page_text_region_step_output,
             )
 
     # For profiling.

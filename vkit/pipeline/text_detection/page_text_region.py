@@ -8,6 +8,7 @@ import numpy as np
 from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.errors import TopologicalError as ShapelyTopologicalError
+from rectpack import newPacker as RectPacker
 
 from vkit.element import Box, Polygon, Mask, Image
 from vkit.engine.distortion.geometric.affine import rotate
@@ -17,15 +18,15 @@ from .page_resizing import PageResizingStepOutput
 
 
 @attrs.define
-class PageTextRegionStackingStepConfig:
-    page_flat_text_region_resize_char_height_min: int = 26
-    page_flat_text_region_resize_char_height_max: int = 32
-    stacking_gap: int = 2
+class PageTextRegionStepConfig:
+    page_flat_text_region_resize_char_height_min: int = 32
+    page_flat_text_region_resize_char_height_max: int = 36
+    gap: int = 2
     debug: bool = False
 
 
 @attrs.define
-class PageTextRegionStackingStepInput:
+class PageTextRegionStepInput:
     page_distortion_step_output: PageDistortionStepOutput
     page_resizing_step_output: PageResizingStepOutput
 
@@ -41,9 +42,17 @@ class PageFlatTextRegion:
     image: Image
     char_polygons: Sequence[Polygon]
 
+    @property
+    def height(self):
+        return self.image.height
+
+    @property
+    def width(self):
+        return self.image.width
+
 
 @attrs.define
-class DebugPageTextRegionStackingStep:
+class DebugPageTextRegionStep:
     page_image: Image = attrs.field(default=None)
     precise_text_region_candidate_polygons: List[Polygon] = attrs.field(default=None)
     page_text_region_infos: List[PageTextRegionInfo] = attrs.field(default=None)
@@ -52,15 +61,17 @@ class DebugPageTextRegionStackingStep:
 
 
 @attrs.define
-class PageTextRegionStackingStepOutput:
-    debug: Optional[DebugPageTextRegionStackingStep]
+class PageTextRegionStepOutput:
+    page_image: Image
+    page_char_polygons: Sequence[Polygon]
+    debug: Optional[DebugPageTextRegionStep]
 
 
-class PageTextRegionStackingStep(
+class PageTextRegionStep(
     PipelineStep[
-        PageTextRegionStackingStepConfig,
-        PageTextRegionStackingStepInput,
-        PageTextRegionStackingStepOutput,
+        PageTextRegionStepConfig,
+        PageTextRegionStepInput,
+        PageTextRegionStepOutput,
     ]
 ):  # yapf: disable
 
@@ -178,7 +189,7 @@ class PageTextRegionStackingStep(
         image = bounding_box.extract_image(page_image)
 
         # Get the flat text region by rotation.
-        angle = PageTextRegionStackingStep.get_flat_rotation_angle(precise_text_region_polygon)
+        angle = PageTextRegionStep.get_flat_rotation_angle(precise_text_region_polygon)
 
         # Rotate.
         rotated_result = rotate.distort(
@@ -291,11 +302,76 @@ class PageTextRegionStackingStep(
     def stack_page_flat_text_regions(
         self,
         page_flat_text_regions: Sequence[PageFlatTextRegion],
-        rng: RandomGenerator,
     ):
-        pass
+        pad = 2 * self.config.gap
 
-    def run(self, input: PageTextRegionStackingStepInput, rng: RandomGenerator):
+        rect_packer = RectPacker(rotation=False)
+        id_to_page_flat_text_region: Dict[int, PageFlatTextRegion] = {}
+
+        # Add rectangle and bin.
+        # NOTE: Only one bin is added, that is, packing all text region into one image.
+        bin_width = 0
+        bin_height = 0
+
+        for pftr_id, page_flat_text_region in enumerate(page_flat_text_regions):
+            id_to_page_flat_text_region[pftr_id] = page_flat_text_region
+            rect_packer.add_rect(
+                width=page_flat_text_region.width + pad,
+                height=page_flat_text_region.height + pad,
+                rid=pftr_id,
+            )
+
+            bin_width = max(bin_width, page_flat_text_region.width)
+            bin_height += page_flat_text_region.height
+
+        bin_width += pad
+        bin_height += pad
+
+        rect_packer.add_bin(width=bin_width, height=bin_height)
+        rect_packer.pack()
+
+        boxes: List[Box] = []
+        pftr_ids: List[int] = []
+        for bin_idx, x, y, width, height, pftr_id in rect_packer.rect_list():
+            assert bin_idx == 0
+            boxes.append(Box(
+                up=y,
+                down=y + height - 1,
+                left=x,
+                right=x + width - 1,
+            ))
+            pftr_ids.append(pftr_id)
+
+        page_height = max(box.down for box in boxes) + 1
+        page_width = max(box.right for box in boxes) + 1
+
+        image = Image.from_shape((page_height, page_width), value=0)
+        char_polygons: List[Polygon] = []
+
+        for box, pftr_id in zip(boxes, pftr_ids):
+            page_flat_text_region = id_to_page_flat_text_region[pftr_id]
+            assert page_flat_text_region.height + pad == box.height
+            assert page_flat_text_region.width + pad == box.width
+
+            up = box.up + self.config.gap
+            left = box.left
+
+            box = Box(
+                up=up,
+                down=up + page_flat_text_region.height - 1,
+                left=left,
+                right=left + page_flat_text_region.width - 1,
+            )
+            box.fill_image(image, page_flat_text_region.image)
+            for char_polygon in page_flat_text_region.char_polygons:
+                char_polygons.append(char_polygon.to_shifted_polygon(
+                    y_offset=up,
+                    x_offset=left,
+                ))
+
+        return image, char_polygons
+
+    def run(self, input: PageTextRegionStepInput, rng: RandomGenerator):
         page_distortion_step_output = input.page_distortion_step_output
         page_image = page_distortion_step_output.page_image
         page_disconnected_text_region_collection = \
@@ -307,7 +383,7 @@ class PageTextRegionStackingStep(
 
         debug = None
         if self.config.debug:
-            debug = DebugPageTextRegionStackingStep()
+            debug = DebugPageTextRegionStep()
 
         # Build R-tree to track text regions.
         # https://github.com/shapely/shapely/issues/640
@@ -476,8 +552,13 @@ class PageTextRegionStackingStep(
             debug.resized_page_flat_text_regions = page_flat_text_regions
 
         # Stack text regions.
+        image, char_polygons = self.stack_page_flat_text_regions(page_flat_text_regions)
 
-        return PageTextRegionStackingStepOutput(debug=debug,)
+        return PageTextRegionStepOutput(
+            page_image=image,
+            page_char_polygons=char_polygons,
+            debug=debug,
+        )
 
 
-page_text_region_stacking_step_factory = PipelineStepFactory(PageTextRegionStackingStep)
+page_text_region_step_factory = PipelineStepFactory(PageTextRegionStep)
