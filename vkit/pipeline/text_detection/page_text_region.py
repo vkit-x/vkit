@@ -328,7 +328,7 @@ class PageTextRegionStep(
         bin_height += pad
 
         rect_packer.add_bin(width=bin_width, height=bin_height)
-        rect_packer.pack()
+        rect_packer.pack()  # type: ignore
 
         boxes: List[Box] = []
         pftr_ids: List[int] = []
