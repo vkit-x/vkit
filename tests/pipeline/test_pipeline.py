@@ -12,6 +12,7 @@ from vkit.pipeline import (
     PageResizingStepOutput,
     PageCroppingStepOutput,
     PageTextRegionStepOutput,
+    PageTextRegionLabelStepOutput,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
     Pipeline,
@@ -30,6 +31,7 @@ class DebugAdaptiveScalingPipelinePostProcessorInputOutput:
     page_resizing_step_output: PageResizingStepOutput
     page_cropping_step_output: PageCroppingStepOutput
     page_text_region_step_output: PageTextRegionStepOutput
+    page_text_region_label_step_output: PageTextRegionLabelStepOutput
 
 
 class DebugAdaptiveScalingPipelinePostProcessor(
@@ -206,6 +208,17 @@ def visualize_page_text_region_step_output(
     cur_write_image(f'page_{seed}_stacked_image_char_polygons.jpg', painter.image)
 
 
+def visualize_page_text_region_label_step_output(
+    seed: int,
+    output: PageTextRegionLabelStepOutput,
+):
+    cur_write_image = functools.partial(write_image, frames_offset=1)
+
+    painter = Painter(output.page_image)
+    painter.paint_score_map(output.page_score_map)
+    cur_write_image(f'page_{seed}_stacked_image_label_char_score_map.jpg', painter.image)
+
+
 @pytest.mark.local
 def test_debug_adaptive_scaling_dataset_steps():
     post_processor_factory = PipelinePostProcessorFactory(DebugAdaptiveScalingPipelinePostProcessor)
@@ -227,6 +240,11 @@ def test_debug_adaptive_scaling_dataset_steps():
             visualize_page_text_region_step_output(
                 seed,
                 output.page_text_region_step_output,
+            )
+        if True:
+            visualize_page_text_region_label_step_output(
+                seed,
+                output.page_text_region_label_step_output,
             )
 
     # For profiling.

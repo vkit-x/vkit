@@ -124,11 +124,11 @@ class ScoreMap(Shapable):
         )
 
         Hence,
-        u in [0.0, 1.0]
+        u in [0.0, 1.0], and
         u -> 0.0, x -> line (point0, point3)
-        x -> 1.0, x -> line (point1, point2)
+        u -> 1.0, x -> line (point1, point2)
 
-        v in [0.0, 1.0]
+        v in [0.0, 1.0], and
         v -> 0.0, x -> line (point0, point1)
         v -> 1.0, x -> line (point3, point2)
         '''

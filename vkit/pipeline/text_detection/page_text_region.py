@@ -22,6 +22,7 @@ class PageTextRegionStepConfig:
     page_flat_text_region_resize_char_height_min: int = 32
     page_flat_text_region_resize_char_height_max: int = 36
     gap: int = 2
+    enable_post_uniform_rotate: bool = False
     debug: bool = False
 
 
@@ -553,6 +554,16 @@ class PageTextRegionStep(
 
         # Stack text regions.
         image, char_polygons = self.stack_page_flat_text_regions(page_flat_text_regions)
+
+        if self.config.enable_post_uniform_rotate:
+            rotated_result = rotate.distort(
+                {'angle': int(rng.integers(0, 360))},
+                image=image,
+                polygons=char_polygons,
+            )
+            assert rotated_result.image and rotated_result.polygons
+            image = rotated_result.image
+            char_polygons = rotated_result.polygons
 
         return PageTextRegionStepOutput(
             page_image=image,
