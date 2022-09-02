@@ -1,3 +1,5 @@
+Copyright 2022 vkit-x Administrator. All Rights Reserved.
+
 This project (vkit-x/vkit) is dual-licensed under commercial and SSPL licenses.
 
 The commercial license gives you the full rights to create and distribute software
