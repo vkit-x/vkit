@@ -252,7 +252,7 @@ class PageTextRegionLabelStep(
     @staticmethod
     def generate_np_gaussian_map(
         length: int,
-        rescale_radius_to_value: float = 2.5,
+        rescale_radius_to_value: float = 3.0,
     ):
         # https://colab.research.google.com/drive/1TQ1-BTisMYZHIRVVNpVwDFPviXYMhT7A
         # Build distances to the center point.
@@ -266,9 +266,9 @@ class PageTextRegionLabelStep(
         np_hori_offset = np.repeat(np_offset[None, :], length, axis=0)
         np_distance = np.sqrt(np.square(np_vert_offset) + np.square(np_hori_offset))
 
-        # Rescale the radius. If default value 2.5 is used, the value in the circle of
-        # gaussian map is approximately 0.044, and the value in corner is
-        # approximately 0.002.
+        # Rescale the radius. If default value 3.0 is used, the value lying on the circle of
+        # gaussian map is approximately 0.01, and the value in corner is
+        # approximately 1E-6.
         np_distance = rescale_radius_to_value * np_distance / radius
         np_gaussian_map = np.exp(-0.5 * np.square(np_distance))
 
