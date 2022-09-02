@@ -1,11 +1,11 @@
-from typing import List, Set
+from typing import List, Set, Sequence
 import functools
 
 import attrs
 from numpy.random import Generator as RandomGenerator, default_rng
 import pytest
 
-from vkit.element import Point, Polygon, Image, Painter
+from vkit.element import Point, Line, Polygon, Image, Painter
 from vkit.pipeline import (
     pipeline_step_collection_factory,
     PageDistortionStepOutput,
@@ -212,6 +212,45 @@ def visualize_page_text_region_step_output(
     cur_write_image(f'page_{seed}_stacked_image_char_polygons.jpg', painter.image)
 
 
+def paint_page_char_regression_labels(
+    page_image: Image,
+    page_char_regression_labels: Sequence[PageCharRegressionLabel],
+):
+    points: List[Point] = []
+    points_color: List[str] = []
+    visited_char_indices: Set[int] = set()
+
+    lines: List[Line] = []
+    lines_color: List[str] = []
+
+    for label in page_char_regression_labels:
+        points.append(label.label_point)
+        if label.tag == PageCharRegressionLabelTag.CENTROID:
+            points_color.append('red')
+        elif label.tag == PageCharRegressionLabelTag.DEVIATE:
+            points_color.append('green')
+        else:
+            raise NotImplementedError()
+
+        if label.char_idx not in visited_char_indices:
+            points.extend([label.up_left, label.up_right, label.down_right, label.down_left])
+            points_color.extend(['blue', 'yellow', 'white', '#00ffff'])
+            visited_char_indices.add(label.char_idx)
+
+        lines.extend([
+            Line(point_begin=label.label_point, point_end=label.up_left),
+            Line(point_begin=label.label_point, point_end=label.up_right),
+            Line(point_begin=label.label_point, point_end=label.down_right),
+            Line(point_begin=label.label_point, point_end=label.down_left),
+        ])
+        lines_color.extend(['blue', 'yellow', 'white', '#00ffff'])
+
+    painter = Painter(page_image)
+    painter.paint_lines(lines, color=lines_color, alpha=0.8)
+    painter.paint_points(points, radius=2, color=points_color, alpha=0.9)
+    return painter.image
+
+
 def visualize_page_text_region_label_step_output(
     seed: int,
     page_image: Image,
@@ -267,29 +306,13 @@ def visualize_page_text_region_label_step_output(
         )
         assert point_distance(down_left, label.down_left) <= 2
 
-    points: List[Point] = []
-    color: List[str] = []
-    visited_char_indices: Set[int] = set()
-
     for label in output.page_char_regression_labels:
         check_point_reconstruction(label)
 
-        points.append(label.label_point)
-        if label.tag == PageCharRegressionLabelTag.CENTROID:
-            color.append('red')
-        elif label.tag == PageCharRegressionLabelTag.DEVIATE:
-            color.append('green')
-        else:
-            raise NotImplementedError()
-
-        if label.char_idx not in visited_char_indices:
-            points.extend([label.up_left, label.up_right, label.down_right, label.down_left])
-            color.extend(['blue', 'yellow', 'white', '#00ffff'])
-            visited_char_indices.add(label.char_idx)
-
-    painter = Painter(page_image)
-    painter.paint_points(points, radius=2, color=color, alpha=0.9)
-    cur_write_image(f'page_{seed}_stacked_image_label_char_regression.jpg', painter.image)
+    cur_write_image(
+        f'page_{seed}_stacked_image_label_char_regression.jpg',
+        paint_page_char_regression_labels(page_image, output.page_char_regression_labels),
+    )
 
 
 def visualize_page_text_region_cropping_step_output(
@@ -311,29 +334,12 @@ def visualize_page_text_region_cropping_step_output(
             painter.image,
         )
 
-        points: List[Point] = []
-        color: List[str] = []
-        visited_char_indices: Set[int] = set()
-
-        for label in cropped_page_text_region.page_char_regression_labels:
-            points.append(label.label_point)
-            if label.tag == PageCharRegressionLabelTag.CENTROID:
-                color.append('red')
-            elif label.tag == PageCharRegressionLabelTag.DEVIATE:
-                color.append('green')
-            else:
-                raise NotImplementedError()
-
-            if label.char_idx not in visited_char_indices:
-                points.extend([label.up_left, label.up_right, label.down_right, label.down_left])
-                color.extend(['blue', 'yellow', 'white', '#00ffff'])
-                visited_char_indices.add(label.char_idx)
-
-        painter = Painter(cropped_page_text_region.page_image)
-        painter.paint_points(points, radius=2, color=color, alpha=0.9)
         cur_write_image(
             f'page_{seed}_cropped_text_region_{idx}_char_regression_label.jpg',
-            painter.image,
+            paint_page_char_regression_labels(
+                cropped_page_text_region.page_image,
+                cropped_page_text_region.page_char_regression_labels,
+            ),
         )
 
 
@@ -350,11 +356,11 @@ def test_debug_adaptive_scaling_dataset_steps():
         rng = default_rng(seed)
         output = pipeline.run(rng)
         visualize_page_distortion_step_output(seed, output.page_distortion_step_output)
-        if True:
+        if False:
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
-        if True:
+        if False:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
-        if True:
+        if False:
             visualize_page_text_region_step_output(
                 seed,
                 output.page_text_region_step_output,
