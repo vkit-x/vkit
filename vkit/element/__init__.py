@@ -9,5 +9,6 @@ from .score_map import ScoreMap, ScoreMapSetItemConfig
 from .image import Image, ImageKind, ImageSetItemConfig
 
 from .painter import Painter
+from .cropper import Cropper
 
 from .lexicon import Lexicon, LexiconCollection

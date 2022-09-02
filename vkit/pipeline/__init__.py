@@ -127,8 +127,18 @@ from .text_detection.page_text_region_label import (
     page_text_region_label_step_factory,
     PageTextRegionLabelStepConfig,
     PageTextRegionLabelStepInput,
+    PageCharRegressionLabelTag,
+    PageCharRegressionLabel,
     PageTextRegionLabelStepOutput,
     PageTextRegionLabelStep,
+)
+from .text_detection.page_text_region_cropping import (
+    page_text_region_cropping_step_factory,
+    PageTextRegionCroppingStepConfig,
+    PageTextRegionCroppingStepInput,
+    CroppedPageTextRegion,
+    PageTextRegionCroppingStepOutput,
+    PageTextRegionCroppingStep,
 )
 
 # Registry.
@@ -153,5 +163,6 @@ pipeline_step_collection_factory.register_step_factories(
         page_cropping_step_factory,
         page_text_region_step_factory,
         page_text_region_label_step_factory,
+        page_text_region_cropping_step_factory,
     ],
 )

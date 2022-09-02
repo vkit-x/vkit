@@ -70,6 +70,11 @@ def affine_polygons(trans_mat: np.ndarray, polygons: Sequence[Polygon]) -> Seque
     return new_polygons
 
 
+def convert_dsize_to_result_shape(dsize: Optional[Tuple[int, int]]):
+    if dsize:
+        return dsize[1], dsize[0]
+
+
 @attrs.define
 class ShearHoriConfig(DistortionConfig):
     # angle: int, (-90, 90), positive value for rightward direction.
@@ -96,22 +101,32 @@ class ShearHoriState(DistortionState[ShearHoriConfig]):
 
         if config.angle < 0:
             # Shear left & the negative part.
-            self.trans_mat = np.array([
-                (1, -tan_phi, 0),
-                (0, 1, 0),
-            ], dtype=np.float32)
+            self.trans_mat = np.array(
+                [
+                    (1, -tan_phi, 0),
+                    (0, 1, 0),
+                ],
+                dtype=np.float32,
+            )
 
         elif config.angle > 0:
             # Shear right.
-            self.trans_mat = np.array([
-                (1, -tan_phi, shift_x),
-                (0, 1, 0),
-            ], dtype=np.float32)
+            self.trans_mat = np.array(
+                [
+                    (1, -tan_phi, shift_x),
+                    (0, 1, 0),
+                ],
+                dtype=np.float32,
+            )
 
         else:
             # No need to transform.
             self.trans_mat = None
             self.dsize = None
+
+    @property
+    def result_shape(self):
+        return convert_dsize_to_result_shape(self.dsize)
 
 
 @attrs.define
@@ -160,6 +175,10 @@ class ShearVertState(DistortionState[ShearVertConfig]):
             # No need to transform.
             self.trans_mat = None
             self.dsize = None
+
+    @property
+    def result_shape(self):
+        return convert_dsize_to_result_shape(self.dsize)
 
 
 @attrs.define
@@ -237,6 +256,10 @@ class RotateState(DistortionState[RotateConfig]):
 
         self.dsize = (math.ceil(dst_width), math.ceil(dst_height))
 
+    @property
+    def result_shape(self):
+        return convert_dsize_to_result_shape(self.dsize)
+
 
 @attrs.define
 class SkewHoriConfig(DistortionConfig):
@@ -293,6 +316,10 @@ class SkewHoriState(DistortionState[SkewHoriConfig]):
         )
         self.dsize = (width, height)
 
+    @property
+    def result_shape(self):
+        return convert_dsize_to_result_shape(self.dsize)
+
 
 @attrs.define
 class SkewVertConfig(DistortionConfig):
@@ -348,6 +375,10 @@ class SkewVertState(DistortionState[SkewVertConfig]):
             cv.DECOMP_SVD,
         )
         self.dsize = (width, height)
+
+    @property
+    def result_shape(self):
+        return convert_dsize_to_result_shape(self.dsize)
 
 
 _T_AFFINE_CONFIG = TypeVar(

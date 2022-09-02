@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, DefaultDict, Sequence
+from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple
 from collections import defaultdict
 import math
 
@@ -65,6 +65,8 @@ class DebugPageTextRegionStep:
 class PageTextRegionStepOutput:
     page_image: Image
     page_char_polygons: Sequence[Polygon]
+    shape_before_rotate: Tuple[int, int]
+    rotate_angle: int
     debug: Optional[DebugPageTextRegionStep]
 
 
@@ -555,9 +557,14 @@ class PageTextRegionStep(
         # Stack text regions.
         image, char_polygons = self.stack_page_flat_text_regions(page_flat_text_regions)
 
+        # Post uniform rotation.
+        shape_before_rotate = image.shape
+        rotate_angle = 0
+
         if self.config.enable_post_uniform_rotate:
+            rotate_angle = int(rng.integers(0, 360))
             rotated_result = rotate.distort(
-                {'angle': int(rng.integers(0, 360))},
+                {'angle': rotate_angle},
                 image=image,
                 polygons=char_polygons,
             )
@@ -568,6 +575,8 @@ class PageTextRegionStep(
         return PageTextRegionStepOutput(
             page_image=image,
             page_char_polygons=char_polygons,
+            shape_before_rotate=shape_before_rotate,
+            rotate_angle=rotate_angle,
             debug=debug,
         )
 

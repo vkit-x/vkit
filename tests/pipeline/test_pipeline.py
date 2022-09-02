@@ -1,18 +1,21 @@
-from typing import List
+from typing import List, Set
 import functools
 
 import attrs
 from numpy.random import Generator as RandomGenerator, default_rng
 import pytest
 
-from vkit.element import Point, Polygon, Painter  # noqa
+from vkit.element import Point, Polygon, Image, Painter
 from vkit.pipeline import (
     pipeline_step_collection_factory,
     PageDistortionStepOutput,
     PageResizingStepOutput,
     PageCroppingStepOutput,
     PageTextRegionStepOutput,
+    PageCharRegressionLabel,
+    PageCharRegressionLabelTag,
     PageTextRegionLabelStepOutput,
+    PageTextRegionCroppingStepOutput,
     PipelinePostProcessor,
     PipelinePostProcessorFactory,
     Pipeline,
@@ -32,6 +35,7 @@ class DebugAdaptiveScalingPipelinePostProcessorInputOutput:
     page_cropping_step_output: PageCroppingStepOutput
     page_text_region_step_output: PageTextRegionStepOutput
     page_text_region_label_step_output: PageTextRegionLabelStepOutput
+    page_text_region_cropping_step_output: PageTextRegionCroppingStepOutput
 
 
 class DebugAdaptiveScalingPipelinePostProcessor(
@@ -210,13 +214,127 @@ def visualize_page_text_region_step_output(
 
 def visualize_page_text_region_label_step_output(
     seed: int,
+    page_image: Image,
     output: PageTextRegionLabelStepOutput,
 ):
     cur_write_image = functools.partial(write_image, frames_offset=1)
 
-    painter = Painter(output.page_image)
+    painter = Painter(page_image)
     painter.paint_score_map(output.page_score_map)
     cur_write_image(f'page_{seed}_stacked_image_label_char_score_map.jpg', painter.image)
+
+    def point_distance(point0: Point, point1: Point):
+        import math
+        return math.hypot(point0.y - point1.y, point0.x - point1.x)
+
+    def check_point_reconstruction(label: PageCharRegressionLabel):
+        import numpy as np
+
+        label_point = label.label_point
+
+        offset_y, offset_x = label.generate_up_left_offsets()
+        up_left = Point(y=label_point.y + offset_y, x=label_point.x + offset_x)
+        assert point_distance(up_left, label.up_left) == 0
+
+        theta = np.arctan2(offset_y, offset_x)
+        two_pi = 2 * np.pi
+        theta = theta % two_pi
+
+        angle_distrib = label.generate_clockwise_angle_distribution()
+        up_right_dis, down_right_dis, down_left_dis = label.generate_non_up_left_distances()
+
+        theta += angle_distrib[0] * two_pi
+        theta = theta % two_pi
+        up_right = Point(
+            y=label_point.y + np.sin(theta) * up_right_dis,
+            x=label_point.x + np.cos(theta) * up_right_dis,
+        )
+        assert point_distance(up_right, label.up_right) <= 2
+
+        theta += angle_distrib[1] * two_pi
+        theta = theta % two_pi
+        down_right = Point(
+            y=label_point.y + np.sin(theta) * down_right_dis,
+            x=label_point.x + np.cos(theta) * down_right_dis,
+        )
+        assert point_distance(down_right, label.down_right) <= 2
+
+        theta += angle_distrib[2] * two_pi
+        theta = theta % two_pi
+        down_left = Point(
+            y=label_point.y + np.sin(theta) * down_left_dis,
+            x=label_point.x + np.cos(theta) * down_left_dis,
+        )
+        assert point_distance(down_left, label.down_left) <= 2
+
+    points: List[Point] = []
+    color: List[str] = []
+    visited_char_indices: Set[int] = set()
+
+    for label in output.page_char_regression_labels:
+        check_point_reconstruction(label)
+
+        points.append(label.label_point)
+        if label.tag == PageCharRegressionLabelTag.CENTROID:
+            color.append('red')
+        elif label.tag == PageCharRegressionLabelTag.DEVIATE:
+            color.append('green')
+        else:
+            raise NotImplementedError()
+
+        if label.char_idx not in visited_char_indices:
+            points.extend([label.up_left, label.up_right, label.down_right, label.down_left])
+            color.extend(['blue', 'yellow', 'white', '#00ffff'])
+            visited_char_indices.add(label.char_idx)
+
+    painter = Painter(page_image)
+    painter.paint_points(points, radius=2, color=color, alpha=0.9)
+    cur_write_image(f'page_{seed}_stacked_image_label_char_regression.jpg', painter.image)
+
+
+def visualize_page_text_region_cropping_step_output(
+    seed: int,
+    output: PageTextRegionCroppingStepOutput,
+):
+    cur_write_image = functools.partial(write_image, frames_offset=1)
+
+    for idx, cropped_page_text_region in enumerate(output.cropped_page_text_regions[:3]):
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_image.jpg',
+            cropped_page_text_region.page_image,
+        )
+
+        painter = Painter(cropped_page_text_region.page_image)
+        painter.paint_score_map(cropped_page_text_region.page_score_map)
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_score_map.jpg',
+            painter.image,
+        )
+
+        points: List[Point] = []
+        color: List[str] = []
+        visited_char_indices: Set[int] = set()
+
+        for label in cropped_page_text_region.page_char_regression_labels:
+            points.append(label.label_point)
+            if label.tag == PageCharRegressionLabelTag.CENTROID:
+                color.append('red')
+            elif label.tag == PageCharRegressionLabelTag.DEVIATE:
+                color.append('green')
+            else:
+                raise NotImplementedError()
+
+            if label.char_idx not in visited_char_indices:
+                points.extend([label.up_left, label.up_right, label.down_right, label.down_left])
+                color.extend(['blue', 'yellow', 'white', '#00ffff'])
+                visited_char_indices.add(label.char_idx)
+
+        painter = Painter(cropped_page_text_region.page_image)
+        painter.paint_points(points, radius=2, color=color, alpha=0.9)
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_char_regression_label.jpg',
+            painter.image,
+        )
 
 
 @pytest.mark.local
@@ -234,7 +352,7 @@ def test_debug_adaptive_scaling_dataset_steps():
         visualize_page_distortion_step_output(seed, output.page_distortion_step_output)
         if True:
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
-        if False:
+        if True:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
         if True:
             visualize_page_text_region_step_output(
@@ -244,10 +362,16 @@ def test_debug_adaptive_scaling_dataset_steps():
         if True:
             visualize_page_text_region_label_step_output(
                 seed,
+                output.page_text_region_step_output.page_image,
                 output.page_text_region_label_step_output,
             )
+        if True:
+            visualize_page_text_region_cropping_step_output(
+                seed,
+                output.page_text_region_cropping_step_output,
+            )
 
-    # For profiling.
+    # # For profiling.
     # for seed in (0, 1):
     #     rng = default_rng(seed)
     #     pipeline.run(rng)
