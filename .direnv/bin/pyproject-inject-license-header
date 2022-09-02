@@ -14,7 +14,9 @@ _, license_txt, code_folder = sys.argv
 
 license_header_lines = []
 for line in io.read_text_lines(license_txt, strip=True):
-    license_header_lines.append('# ' + line)
+    line = '# ' + line
+    line = line.strip()
+    license_header_lines.append(line)
 license_header = '\n'.join(license_header_lines) + '\n'
 
 code_fd = io.folder(code_folder, exists=True)
