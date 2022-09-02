@@ -106,6 +106,10 @@ class DistortionStateImageGridBased(DistortionState[_T_CONFIG]):
             x=(point.x - self.shift_amount_x) * self.resize_ratio_x,
         )
 
+    @property
+    def result_shape(self):
+        return (self.dst_image_grid.image_height, self.dst_image_grid.image_width)
+
 
 _T_STATE = TypeVar('_T_STATE', bound=DistortionStateImageGridBased)
 

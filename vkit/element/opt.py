@@ -6,7 +6,7 @@ from .type import Shapable
 
 
 def clip_val(val: int, size: int):
-    return int(np.clip(val, 0, size - 1))
+    return max(0, min(val, size - 1))
 
 
 def resize_val(val: int, size: int, resized_size: int):

@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import attrs
 from numpy.random import Generator as RandomGenerator
 
@@ -5,7 +7,7 @@ from vkit.element import Shapable, Box, Image
 from vkit.engine.seal_impression import fill_text_line_to_seal_impression
 from vkit.engine.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
-from .page_layout import PageLayoutStepOutput
+from .page_layout import PageLayoutStepOutput, DisconnectedTextRegion
 from .page_background import PageBackgroundStepOutput
 from .page_image import PageImageStepOutput, PageImageCollection
 from .page_barcode import PageBarcodeStepOutput
@@ -41,6 +43,15 @@ class PageAssemblerStepInput:
 
 
 @attrs.define
+class PageDisconnectedTextRegionCollection:
+    disconnected_text_regions: Sequence[DisconnectedTextRegion]
+
+    def to_polygons(self):
+        for disconnected_text_region in self.disconnected_text_regions:
+            yield disconnected_text_region.polygon
+
+
+@attrs.define
 class Page(Shapable):
     image: Image
     page_image_collection: PageImageCollection
@@ -48,6 +59,7 @@ class Page(Shapable):
     page_seal_impression_text_line_collection: PageSealImpressionTextLineCollection
     page_char_polygon_collection: PageCharPolygonCollection
     page_text_line_polygon_collection: PageTextLinePolygonCollection
+    page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
 
     @property
     def height(self):
@@ -212,6 +224,11 @@ class PageAssemblerStep(
             box.fill_image(assembled_image, value=color, mask=background_mask, alpha=alpha)
             box.fill_image(assembled_image, value=color, alpha=text_line_filled_score_map)
 
+        # For char-level polygon regression.
+        page_disconnected_text_region_collection = PageDisconnectedTextRegionCollection(
+            page_layout.disconnected_text_regions
+        )
+
         page = Page(
             image=assembled_image,
             page_image_collection=page_image_collection,
@@ -219,6 +236,7 @@ class PageAssemblerStep(
             page_seal_impression_text_line_collection=page_seal_impression_text_line_collection,
             page_char_polygon_collection=page_char_polygon_collection,
             page_text_line_polygon_collection=page_text_line_polygon_collection,
+            page_disconnected_text_region_collection=page_disconnected_text_region_collection,
         )
         return PageAssemblerStepOutput(page=page)
 

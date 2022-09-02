@@ -59,15 +59,43 @@ class Box(Shapable):
     ##############
     # Conversion #
     ##############
-    def to_polygon(self):
-        return Polygon(
-            points=PointList.from_xy_pairs([
+    def to_polygon(self, step: Optional[int] = None):
+        if step is None:
+            points = PointList.from_xy_pairs([
                 (self.left, self.up),
                 (self.right, self.up),
                 (self.right, self.down),
                 (self.left, self.down),
             ])
-        )
+
+        else:
+            assert step > 0
+
+            xs = list(range(self.left, self.right + 1, step))
+            if xs[-1] < self.right:
+                xs.append(self.right)
+
+            ys = list(range(self.up, self.down + 1, step))
+            if ys[-1] == self.down:
+                # NOTE: check first to avoid oob error.
+                ys.pop()
+            ys.pop(0)
+
+            points = PointList()
+            # Up.
+            for x in xs:
+                points.append(Point(y=self.up, x=x))
+            # Right.
+            for y in ys:
+                points.append(Point(y=y, x=self.right))
+            # Down.
+            for x in reversed(xs):
+                points.append(Point(y=self.down, x=x))
+            # Left.
+            for y in reversed(ys):
+                points.append(Point(y=y, x=self.left))
+
+        return Polygon(points=points)
 
     ############
     # Operator #
@@ -318,8 +346,8 @@ class CharBox(Shapable):
     ##############
     # Conversion #
     ##############
-    def to_text_polygon(self):
-        return TextPolygon(text=self.char, polygon=self.box.to_polygon())
+    def to_text_polygon(self, step: Optional[int] = None):
+        return TextPolygon(text=self.char, polygon=self.box.to_polygon(step=step))
 
     ############
     # Property #

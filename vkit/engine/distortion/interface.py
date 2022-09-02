@@ -73,6 +73,10 @@ class DistortionState(Generic[_T_CONFIG]):
     ):
         raise NotImplementedError()
 
+    @property
+    def result_shape(self) -> Optional[Tuple[int, int]]:
+        return None
+
 
 class DistortionNopState(DistortionState[_T_CONFIG]):
 
@@ -810,22 +814,21 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         # If is geometric distortion, the shape will be updated.
         result = DistortionResult(shape=shape)
-        result_shape = None
+
+        result_shape = shape
+        if internals.state and internals.state.result_shape:
+            result_shape = internals.state.result_shape
 
         if image:
             result.image = self.distort_image_based_on_internals(internals, image)
-            result_shape = result.image.shape
+            assert result_shape == result.image.shape
 
         if mask:
             result.mask = self.distort_mask_based_on_internals(internals, mask)
-            if not result_shape:
-                result_shape = result.mask.shape
             assert result_shape == result.mask.shape
 
         if score_map:
             result.score_map = self.distort_score_map_based_on_internals(internals, score_map)
-            if not result_shape:
-                result_shape = result.score_map.shape
             assert result_shape == result.score_map.shape
 
         if point:
@@ -862,6 +865,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         if get_active_mask:
             result.active_mask = self.get_active_mask_based_on_internals(internals)
+            assert result_shape == result.active_mask.shape
 
         if get_config:
             result.config = internals.config
@@ -869,7 +873,6 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if get_state:
             result.state = internals.state
 
-        # Fallback to shape for photometric distortion.
-        result.shape = result_shape or shape
+        result.shape = result_shape
 
         return result

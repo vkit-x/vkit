@@ -1,4 +1,5 @@
-from typing import Optional, Union, Mapping, Any, List, Tuple, Sequence
+from typing import Optional, Union, Mapping, Any, List, Tuple, Sequence, TypeVar, Generic
+import itertools
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -19,11 +20,15 @@ from vkit.engine.distortion_policy.random_distortion import (
     RandomDistortionDebug,
 )
 from ..interface import PipelineStep, PipelineStepFactory
+from .page_layout import DisconnectedTextRegion
 from .page_text_line_label import (
     PageCharPolygonCollection,
     PageTextLinePolygonCollection,
 )
-from .page_assembler import PageAssemblerStepOutput
+from .page_assembler import (
+    PageAssemblerStepOutput,
+    PageDisconnectedTextRegionCollection,
+)
 
 
 @attrs.define
@@ -66,6 +71,30 @@ class PageDistortionStepOutput:
     page_text_line_height_score_map: Optional[ScoreMap]
     page_text_line_heights: Optional[Sequence[float]]
     page_text_line_heights_debug_image: Optional[Image]
+    page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
+
+
+_E = TypeVar('_E', Point, Polygon)
+
+
+class ElementFlattener(Generic[_E]):
+
+    def __init__(self, grouped_elements: Sequence[Sequence[_E]]):
+        self.grouped_elements = grouped_elements
+        self.group_sizes = [len(elements) for elements in grouped_elements]
+
+    def flatten(self):
+        return tuple(itertools.chain.from_iterable(self.grouped_elements))
+
+    def unflatten(self, flattened_elements: Sequence[_E]) -> Sequence[Sequence[_E]]:
+        assert len(flattened_elements) == sum(self.group_sizes)
+        grouped_elements: List[Sequence[_E]] = []
+        begin = 0
+        for group_size in self.group_sizes:
+            end = begin + group_size
+            grouped_elements.append(flattened_elements[begin:end])
+            begin = end
+        return grouped_elements
 
 
 class PageDistortionStep(
@@ -213,19 +242,29 @@ class PageDistortionStep(
         page = page_assembler_step_output.page
         page_char_polygon_collection = page.page_char_polygon_collection
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
+        page_disconnected_text_region_collection = \
+            page_assembler_step_output.page.page_disconnected_text_region_collection
 
-        polygons: List[Polygon] = []
-        points = PointList()
-
-        # Char level.
-        polygons.extend(page_char_polygon_collection.polygons)
-        points.extend(page_char_polygon_collection.height_points_up)
-        points.extend(page_char_polygon_collection.height_points_down)
-
-        # Text line level.
-        polygons.extend(page_text_line_polygon_collection.polygons)
-        points.extend(page_text_line_polygon_collection.height_points_up)
-        points.extend(page_text_line_polygon_collection.height_points_down)
+        # Flatten.
+        polygon_flattener = ElementFlattener([
+            # Char level.
+            page_char_polygon_collection.polygons,
+            # Text line level.
+            page_text_line_polygon_collection.polygons,
+            # For char-level polygon regression.
+            [
+                disconnected_text_region.polygon for disconnected_text_region in
+                page_disconnected_text_region_collection.disconnected_text_regions
+            ],
+        ])
+        point_flattener = ElementFlattener([
+            # Char level.
+            page_char_polygon_collection.height_points_up,
+            page_char_polygon_collection.height_points_down,
+            # Text line level.
+            page_text_line_polygon_collection.height_points_up,
+            page_text_line_polygon_collection.height_points_down,
+        ])
 
         # Distort.
         page_random_distortion_debug = None
@@ -234,8 +273,8 @@ class PageDistortionStep(
 
         result = self.random_distortion.distort(
             image=page.image,
-            polygons=polygons,
-            points=points,
+            polygons=polygon_flattener.flatten(),
+            points=PointList(point_flattener.flatten()),
             rng=rng,
             debug=page_random_distortion_debug,
         )
@@ -243,23 +282,25 @@ class PageDistortionStep(
         assert result.polygons
         assert result.points
 
-        # Unpack.
-        # TODO: enhance interface for packing & unpacking.
-        num_chars = len(page_char_polygon_collection.polygons)
-        text_line_points_begin = 2 * num_chars
+        # Unflatten.
+        (
+            # Char level.
+            char_polygons,
+            # Text line level.
+            text_line_polygons,
+            # For char-level polygon regression.
+            disconnected_text_region_polygons,
+        ) = polygon_flattener.unflatten(result.polygons)
 
-        char_polygons = result.polygons[:num_chars]
+        (
+            # Char level.
+            char_height_points_up,
+            char_height_points_down,
+            # Text line level.
+            text_line_height_points_up,
+            text_line_height_points_down,
+        ) = map(PointList, point_flattener.unflatten(result.points))
 
-        char_points = result.points[:text_line_points_begin]
-        char_height_points_up = PointList(char_points[:num_chars])
-        char_height_points_down = PointList(char_points[num_chars:])
-
-        text_line_polygons = result.polygons[num_chars:]
-
-        text_line_points = result.points[text_line_points_begin:]
-        num_half_text_line_points = len(text_line_points) // 2
-        text_line_height_points_up = PointList(text_line_points[:num_half_text_line_points])
-        text_line_height_points_down = PointList(text_line_points[num_half_text_line_points:])
         text_line_height_points_group_sizes = \
             page_text_line_polygon_collection.height_points_group_sizes
         assert len(text_line_polygons) == len(text_line_height_points_group_sizes)
@@ -316,6 +357,12 @@ class PageDistortionStep(
             page_text_line_height_score_map=text_line_height_score_map,
             page_text_line_heights=text_line_heights,
             page_text_line_heights_debug_image=text_line_heights_debug_image,
+            page_disconnected_text_region_collection=PageDisconnectedTextRegionCollection(
+                disconnected_text_regions=[
+                    DisconnectedTextRegion(disconnected_text_region_polygon)
+                    for disconnected_text_region_polygon in disconnected_text_region_polygons
+                ],
+            )
         )
 
 

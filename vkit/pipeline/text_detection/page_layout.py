@@ -1,14 +1,15 @@
-from typing import Optional, Sequence, List
+from typing import Optional, Sequence, List, DefaultDict
 import math
 import heapq
 from enum import Enum, unique
 import itertools
+from collections import defaultdict
 
 import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice, normalize_to_probs, normalize_to_keys_and_probs
-from vkit.element import Box
+from vkit.element import Box, Polygon
 from vkit.engine.font.type import FontEngineRunConfigGlyphSequence
 from .page_shape import PageShapeStepOutput
 from ..interface import PipelineStep, PipelineStepFactory
@@ -98,6 +99,9 @@ class PageLayoutStepConfig:
     seal_impression_general_ellipse_aspect_ratio_min: float = 0.75
     seal_impression_general_ellipse_aspect_ratio_max: float = 1.333
 
+    # For char-level polygon regression.
+    disconnected_text_region_polygons_height_ratio_max: float = 2.0
+
 
 @attrs.define
 class PageLayoutStepInput:
@@ -106,6 +110,13 @@ class PageLayoutStepInput:
 
 @attrs.define
 class LayoutTextLine:
+    # grid_idx:
+    #   == -1: for large text line.
+    #   >= 0: for normal text lines.
+    grid_idx: int
+    # text_line_idx: index within a grid.
+    text_line_idx: int
+    text_line_height: int
     box: Box
     glyph_sequence: FontEngineRunConfigGlyphSequence
 
@@ -146,6 +157,11 @@ class LayoutXcodePlacement(Enum):
 
 
 @attrs.define
+class DisconnectedTextRegion:
+    polygon: Polygon
+
+
+@attrs.define
 class PageLayout:
     height: int
     width: int
@@ -155,13 +171,14 @@ class PageLayout:
     layout_images: Sequence[LayoutImage]
     layout_barcode_qrs: Sequence[LayoutBarcodeQr]
     layout_barcode_code39s: Sequence[LayoutBarcodeCode39]
+    disconnected_text_regions: Sequence[DisconnectedTextRegion]
 
 
 @attrs.define
 class PageLayoutStepOutput:
     page_layout: PageLayout
     debug_large_text_line_gird: Optional[Box]
-    debug_normal_grids: Sequence[Box]
+    debug_grids: Sequence[Box]
 
 
 @attrs.define(order=True)
@@ -352,7 +369,7 @@ class PageLayoutStep(
         )
         return large_text_line_gird, idx + 1
 
-    def sample_normal_grids(
+    def sample_grids(
         self,
         vert_begins: Sequence[int],
         vert_ends: Sequence[int],
@@ -476,17 +493,18 @@ class PageLayoutStep(
         normal_text_line_heights: Sequence[int],
         normal_text_line_heights_expected_probs: Sequence[float],
         normal_text_line_heights_acc_areas: List[int],
-        normal_grid: Box,
+        grid_idx: int,
+        grid: Box,
         rng: RandomGenerator,
     ):
         normal_text_line_heights_indices = list(range(len(normal_text_line_heights)))
         normal_text_line_heights_max = normal_text_line_heights[-1]
 
         layout_text_lines: List[LayoutTextLine] = []
-        up = normal_grid.up
+        up = grid.up
         prev_text_line_height: Optional[int] = None
 
-        while up + normal_text_line_heights_max - 1 <= normal_grid.down:
+        while up + normal_text_line_heights_max - 1 <= grid.down:
             normal_text_line_heights_probs = self.calculate_normal_text_line_heights_probs(
                 normal_text_line_heights_expected_probs=normal_text_line_heights_expected_probs,
                 normal_text_line_heights_acc_areas=normal_text_line_heights_acc_areas,
@@ -510,26 +528,30 @@ class PageLayoutStep(
                     self.config.normal_text_line_gap_ratio_max,
                 )
                 gap = round(gap_ratio * normal_text_line_height)
-                gap = min(normal_grid.down - (up + normal_text_line_height - 1), gap)
+                gap = min(grid.down - (up + normal_text_line_height - 1), gap)
                 up += gap
             down = up + normal_text_line_height - 1
-            assert down <= normal_grid.down
+            assert down <= grid.down
 
             length_ratio = rng.uniform(
                 self.config.normal_text_line_length_ratio_min,
                 self.config.normal_text_line_length_ratio_max,
             )
-            normal_text_line_length = round(normal_grid.width * length_ratio)
+            normal_text_line_length = round(grid.width * length_ratio)
             normal_text_line_length = max(normal_text_line_height, normal_text_line_length)
 
-            pad_max = normal_grid.width - normal_text_line_length
+            pad_max = grid.width - normal_text_line_length
             pad = rng.integers(0, pad_max + 1)
-            left = normal_grid.left + pad
+            left = grid.left + pad
             right = left + normal_text_line_length - 1
-            assert right <= normal_grid.right
+            assert right <= grid.right
 
+            text_line_idx = len(layout_text_lines)
             layout_text_lines.append(
                 LayoutTextLine(
+                    grid_idx=grid_idx,
+                    text_line_idx=text_line_idx,
+                    text_line_height=normal_text_line_height,
                     box=Box(up=up, down=down, left=left, right=right),
                     glyph_sequence=FontEngineRunConfigGlyphSequence.HORI_DEFAULT,
                 )
@@ -561,6 +583,9 @@ class PageLayoutStep(
         assert right <= large_text_line_gird.right
 
         return LayoutTextLine(
+            grid_idx=-1,
+            text_line_idx=0,
+            text_line_height=large_text_line_gird.height,
             box=attrs.evolve(large_text_line_gird, left=left, right=right),
             glyph_sequence=FontEngineRunConfigGlyphSequence.HORI_DEFAULT,
         )
@@ -595,7 +620,7 @@ class PageLayoutStep(
                 vert_begins = vert_begins[vert_trim_idx:]
                 vert_ends = vert_ends[vert_trim_idx:]
 
-        normal_grids = self.sample_normal_grids(
+        grids = self.sample_grids(
             vert_begins=vert_begins,
             vert_ends=vert_ends,
             hori_begins=hori_begins,
@@ -607,13 +632,14 @@ class PageLayoutStep(
         ])
         normal_text_line_heights_acc_areas = [0] * len(normal_text_line_heights)
         layout_text_lines: List[LayoutTextLine] = []
-        for normal_grid in normal_grids:
+        for grid_idx, grid in enumerate(grids):
             layout_text_lines.extend(
                 self.fill_normal_text_lines_to_grid(
                     normal_text_line_heights=normal_text_line_heights,
                     normal_text_line_heights_expected_probs=normal_text_line_heights_expected_probs,
                     normal_text_line_heights_acc_areas=normal_text_line_heights_acc_areas,
-                    normal_grid=normal_grid,
+                    grid_idx=grid_idx,
+                    grid=grid,
                     rng=rng,
                 )
             )
@@ -627,7 +653,7 @@ class PageLayoutStep(
         return (
             layout_text_lines,
             large_text_line_gird,
-            normal_grids,
+            grids,
         )
 
     def sample_layout_images(self, height: int, width: int, rng: RandomGenerator):
@@ -1126,6 +1152,61 @@ class PageLayoutStep(
 
         return layout_seal_impressions
 
+    def generate_disconnected_text_regions(
+        self,
+        layout_text_lines: Sequence[LayoutTextLine],
+    ):
+        grid_idx_to_layout_text_lines: DefaultDict[int, List[LayoutTextLine]] = defaultdict(list)
+        for layout_text_line in layout_text_lines:
+            grid_idx_to_layout_text_lines[layout_text_line.grid_idx].append(layout_text_line)
+
+        disconnected_text_regions: List[DisconnectedTextRegion] = []
+
+        for _, layout_text_lines in sorted(
+            grid_idx_to_layout_text_lines.items(),
+            key=lambda p: p[0],
+        ):
+            layout_text_lines = sorted(layout_text_lines, key=lambda ltl: ltl.text_line_idx)
+
+            begin = 0
+            while begin < len(layout_text_lines):
+                text_line_height_min = layout_text_lines[begin].text_line_height
+                text_line_height_max = text_line_height_min
+
+                # Find [begin, end) interval satisfying the condition.
+                end = begin + 1
+                while end < len(layout_text_lines):
+                    text_line_height = layout_text_lines[end].text_line_height
+                    text_line_height_min = min(text_line_height_min, text_line_height)
+                    text_line_height_max = max(text_line_height_max, text_line_height)
+                    if text_line_height_max / text_line_height_min \
+                            > self.config.disconnected_text_region_polygons_height_ratio_max:
+                        break
+                    else:
+                        end += 1
+
+                # To polygon.
+                # NOTE: Simply using a bounding box is enough.
+                # This method is common to all glyph sequences.
+                cur_layout_text_lines = layout_text_lines[begin:end]
+                bounding_box = Box(
+                    up=min(ltl.box.up for ltl in cur_layout_text_lines),
+                    down=max(ltl.box.down for ltl in cur_layout_text_lines),
+                    left=min(ltl.box.left for ltl in cur_layout_text_lines),
+                    right=max(ltl.box.right for ltl in cur_layout_text_lines),
+                )
+                step = min(
+                    itertools.chain.from_iterable(ltl.box.shape for ltl in cur_layout_text_lines)
+                )
+                disconnected_text_regions.append(
+                    DisconnectedTextRegion(polygon=bounding_box.to_polygon(step=step))
+                )
+
+                # Move to next.
+                begin = end
+
+        return disconnected_text_regions
+
     def run(self, input: PageLayoutStepInput, rng: RandomGenerator):
         page_shape_step_output = input.page_shape_step_output
         height = page_shape_step_output.height
@@ -1135,7 +1216,7 @@ class PageLayoutStep(
         (
             layout_text_lines,
             large_text_line_gird,
-            normal_grids,
+            grids,
         ) = self.sample_layout_text_lines(height=height, width=width, rng=rng)
 
         # Images.
@@ -1170,6 +1251,11 @@ class PageLayoutStep(
             rng=rng,
         )
 
+        # For char-level polygon regression.
+        disconnected_text_regions = self.generate_disconnected_text_regions(
+            layout_text_lines=layout_text_lines,
+        )
+
         return PageLayoutStepOutput(
             page_layout=PageLayout(
                 height=height,
@@ -1180,9 +1266,10 @@ class PageLayoutStep(
                 layout_images=layout_images,
                 layout_barcode_qrs=layout_barcode_qrs,
                 layout_barcode_code39s=layout_barcode_code39s,
+                disconnected_text_regions=disconnected_text_regions,
             ),
             debug_large_text_line_gird=large_text_line_gird,
-            debug_normal_grids=normal_grids,
+            debug_grids=grids,
         )
 
 

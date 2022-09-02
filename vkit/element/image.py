@@ -716,6 +716,10 @@ class Image(Shapable):
         assert self.width == box.width
         return attrs.evolve(self, box=box)
 
+    def to_box_detached(self):
+        assert self.box
+        return attrs.evolve(self, box=None)
+
     def to_gcn_image(
         self,
         lamb: float = 0,
@@ -850,7 +854,7 @@ class Image(Shapable):
             resized_height=resized_height,
             resized_width=resized_width,
         )
-        resized_image = self.to_resized_image(
+        resized_image = self.to_box_detached().to_resized_image(
             resized_height=resized_box.height,
             resized_width=resized_box.width,
             cv_resize_interpolation=cv_resize_interpolation,

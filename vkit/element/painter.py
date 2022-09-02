@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Sequence, Iterable, Any, Optional
+from typing import cast, Union, Tuple, Sequence, Iterable, Any, Optional
 
 import cv2 as cv
 import numpy as np
@@ -76,18 +76,34 @@ class Painter:
     @staticmethod
     def get_rgba_tuples_from_color_names(
         num_elements: int,
-        color: Optional[Union[str, Iterable[str]]],
+        color: Optional[Union[str, Iterable[str], Iterable[int]]],
         alpha: float,
         palette: Sequence[str] = PALETTE,
     ):
         if color is None:
             rgb_tuples = Painter.get_rgb_tuples(num_elements, palette=palette)
+
         elif isinstance(color, str):
             rgb_tuple = Painter.get_rgb_tuple_from_color_name(color)
             rgb_tuples = (rgb_tuple,) * num_elements
+
         else:
+            colors = tuple(color)
+            if not colors:
+                color_names = ()
+
+            elif isinstance(colors[0], str):
+                color_names = cast(Tuple[str], colors)
+
+            elif isinstance(colors[0], int):
+                color_indices = cast(Tuple[int], colors)
+                color_names = [palette[color_idx % len(palette)] for color_idx in color_indices]
+
+            else:
+                raise NotImplementedError()
+
             rgb_tuples = tuple(
-                Painter.get_rgb_tuple_from_color_name(color_name) for color_name in color
+                Painter.get_rgb_tuple_from_color_name(color_name) for color_name in color_names
             )
 
         alpha_uint8 = round(255 * alpha)
@@ -168,7 +184,7 @@ class Painter:
         self,
         texts: Iterable[str],
         points: Iterable[Point],
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -177,14 +193,14 @@ class Painter:
         texts = tuple(texts)
         points = tuple(points)
         assert len(texts) == len(points)
-        rgba_tuples = Painter.get_rgba_tuples_from_color_names(
+        rgba_tuples = self.get_rgba_tuples_from_color_names(
             len(points),
             color,
             alpha,
             palette=palette,
         )
         for text, point, rgba_tuple in zip(texts, points, rgba_tuples):
-            Painter.paint_text_to_layer_image(
+            self.paint_text_to_layer_image(
                 layer_image=layer_image,
                 text=text,
                 point=point,
@@ -198,7 +214,7 @@ class Painter:
         points: Union[PointList, Iterable[Point]],
         radius: int = 1,
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -207,7 +223,7 @@ class Painter:
         if not isinstance(points, PointList):
             points = PointList(points)
 
-        rgba_tuples = Painter.get_rgba_tuples_from_color_names(
+        rgba_tuples = self.get_rgba_tuples_from_color_names(
             len(points),
             color,
             alpha,
@@ -224,7 +240,7 @@ class Painter:
             )
 
             if enable_index:
-                Painter.paint_text_to_layer_image(
+                self.paint_text_to_layer_image(
                     layer_image=layer_image,
                     text=str(idx),
                     point=point,
@@ -240,14 +256,14 @@ class Painter:
         enable_arrow: bool = False,
         arrow_length_ratio: float = 0.1,
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
         layer_image = self.generate_layer_image()
 
         lines = tuple(lines)
-        rgba_tuples = Painter.get_rgba_tuples_from_color_names(
+        rgba_tuples = self.get_rgba_tuples_from_color_names(
             len(lines),
             color,
             alpha,
@@ -276,7 +292,7 @@ class Painter:
 
             if enable_index:
                 center_point = line.get_center_point()
-                Painter.paint_text_to_layer_image(
+                self.paint_text_to_layer_image(
                     layer_image=layer_image,
                     text=str(idx),
                     point=center_point,
@@ -289,7 +305,7 @@ class Painter:
         self,
         boxes: Iterable[Box],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         border_thickness: Optional[int] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
@@ -297,7 +313,7 @@ class Painter:
         layer_image = self.generate_layer_image()
 
         boxes = tuple(boxes)
-        rgba_tuples = Painter.get_rgba_tuples_from_color_names(
+        rgba_tuples = self.get_rgba_tuples_from_color_names(
             len(boxes),
             color,
             alpha,
@@ -318,7 +334,7 @@ class Painter:
 
             if enable_index:
                 center_point = box.get_center_point()
-                Painter.paint_text_to_layer_image(
+                self.paint_text_to_layer_image(
                     layer_image=layer_image,
                     text=str(idx),
                     point=center_point,
@@ -332,7 +348,7 @@ class Painter:
         self,
         char_boxes: Iterable[CharBox],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         border_thickness: Optional[int] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
@@ -351,14 +367,14 @@ class Painter:
         self,
         polygons: Iterable[Polygon],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
         layer_image = self.generate_layer_image()
 
         polygons = tuple(polygons)
-        rgba_tuples = Painter.get_rgba_tuples_from_color_names(
+        rgba_tuples = self.get_rgba_tuples_from_color_names(
             len(polygons),
             color,
             alpha,
@@ -369,7 +385,7 @@ class Painter:
 
             if enable_index:
                 center_point = polygon.get_center_point()
-                Painter.paint_text_to_layer_image(
+                self.paint_text_to_layer_image(
                     layer_image=layer_image,
                     text=str(idx),
                     point=center_point,
@@ -382,7 +398,7 @@ class Painter:
         self,
         text_polygons: Iterable[TextPolygon],
         enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str]]] = None,
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
     ):
@@ -403,10 +419,29 @@ class Painter:
     ):
         layer_image = self.generate_layer_image()
 
-        rgb_tuple = Painter.get_rgb_tuple_from_color_name(color)
+        rgb_tuple = self.get_rgb_tuple_from_color_name(color)
         alpha_uint8 = round(255 * alpha)
         mask.fill_image(image=layer_image, value=(*rgb_tuple, alpha_uint8))
 
+        self.overlay_layer_image(layer_image)
+
+    def paint_masks(
+        self,
+        masks: Iterable[Mask],
+        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
+        alpha: float = 0.5,
+        palette: Sequence[str] = PALETTE,
+    ):
+        masks = tuple(masks)
+        rgba_tuples = self.get_rgba_tuples_from_color_names(
+            len(masks),
+            color,
+            alpha,
+            palette=palette,
+        )
+
+        layer_image = self.generate_layer_image()
+        layer_image.fill_by_mask_value_tuples(zip(masks, rgba_tuples))
         self.overlay_layer_image(layer_image)
 
     def paint_score_map(

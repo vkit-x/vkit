@@ -124,11 +124,11 @@ class ScoreMap(Shapable):
         )
 
         Hence,
-        u in [0.0, 1.0]
+        u in [0.0, 1.0], and
         u -> 0.0, x -> line (point0, point3)
-        x -> 1.0, x -> line (point1, point2)
+        u -> 1.0, x -> line (point1, point2)
 
-        v in [0.0, 1.0]
+        v in [0.0, 1.0], and
         v -> 0.0, x -> line (point0, point1)
         v -> 1.0, x -> line (point3, point2)
         '''
@@ -138,10 +138,9 @@ class ScoreMap(Shapable):
             point2,
             point3,
         ))
-        internals = polygon.to_fill_np_array_internals()
-        bounding_box = internals.bounding_box
-        shifted_polygon = internals.get_shifted_polygon()
-        np_mask = internals.get_np_mask()
+        bounding_box = polygon.fill_np_array_internals.bounding_box
+        shifted_polygon = polygon.fill_np_array_internals.get_shifted_polygon()
+        np_mask = polygon.fill_np_array_internals.get_np_mask()
 
         np_vec_0 = NpVec.from_point(shifted_polygon.points[0])
         np_vec_1 = NpVec.from_point(shifted_polygon.points[1])
@@ -551,7 +550,7 @@ class ScoreMap(Shapable):
             resized_height=resized_height,
             resized_width=resized_width,
         )
-        resized_score_map = self.to_resized_score_map(
+        resized_score_map = self.to_box_detached().to_resized_score_map(
             resized_height=resized_box.height,
             resized_width=resized_box.width,
             cv_resize_interpolation=cv_resize_interpolation,
@@ -601,6 +600,10 @@ class ScoreMap(Shapable):
         assert self.height == box.height
         assert self.width == box.width
         return attrs.evolve(self, box=box)
+
+    def to_box_detached(self):
+        assert self.box
+        return attrs.evolve(self, box=None)
 
     def fill_np_array(
         self,
