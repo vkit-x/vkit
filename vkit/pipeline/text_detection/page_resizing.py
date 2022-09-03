@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 @attrs.define
 class PageResizingStepConfig:
-    resized_text_line_height_min: float = 1.5
+    resized_text_line_height_min: float = 3.0
     resized_text_line_height_max: float = 10.0
     text_line_heights_filtering_thr: float = 1.0
 

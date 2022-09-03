@@ -206,12 +206,7 @@ class CropperState:
         if up < 0:
             vert_offset = abs(up)
             up = 0
-            down += vert_offset
-            assert down < height
-        elif height <= down:
-            up -= down - height + 1
-            down = height - 1
-            assert 0 <= up
+        down = min(height - 1, down)
 
         hori_offset = 0
         left = center_point.x - crop_size // 2
@@ -219,12 +214,7 @@ class CropperState:
         if left < 0:
             hori_offset = abs(left)
             left = 0
-            right += hori_offset
-            assert right < width
-        elif width <= right:
-            left -= right - width + 1
-            right = width - 1
-            assert 0 <= left
+        right = min(width - 1, right)
 
         return CropperState.create_from_cropping_positions(
             height=height,

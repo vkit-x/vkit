@@ -93,14 +93,24 @@ class PageCroppingStep(
         page_text_line_mask: Mask,
         page_text_line_height_score_map: ScoreMap,
         rng: RandomGenerator,
+        force_crop_center: bool = False,
     ):
-        cropper = Cropper.create(
-            shape=page_image.shape,
-            core_size=self.config.core_size,
-            pad_size=self.config.pad_size,
-            pad_value=self.config.pad_value,
-            rng=rng,
-        )
+        if not force_crop_center:
+            cropper = Cropper.create(
+                shape=page_image.shape,
+                core_size=self.config.core_size,
+                pad_size=self.config.pad_size,
+                pad_value=self.config.pad_value,
+                rng=rng,
+            )
+        else:
+            cropper = Cropper.create_from_center_point(
+                shape=page_image.shape,
+                core_size=self.config.core_size,
+                pad_size=self.config.pad_size,
+                pad_value=self.config.pad_value,
+                center_point=Box.from_shapable(page_image).get_center_point(),
+            )
 
         page_image = cropper.crop_image(page_image)
 
@@ -247,6 +257,7 @@ class PageCroppingStep(
                 page_text_line_mask=page_text_line_mask,
                 page_text_line_height_score_map=page_text_line_height_score_map,
                 rng=rng,
+                force_crop_center=(run_count == 0),
             )
             if cropped_page:
                 cropped_pages.append(cropped_page)
