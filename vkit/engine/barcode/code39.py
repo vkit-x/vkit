@@ -99,14 +99,14 @@ class BarcodeCode39Engine(
         np_hori_max = np.amax(mask.mat, axis=0)
         np_hori_nonzero = np.nonzero(np_hori_max)[0]
         assert len(np_hori_nonzero) >= 2
-        left = np_hori_nonzero[0]
-        right = np_hori_nonzero[-1]
+        left = int(np_hori_nonzero[0])
+        right = int(np_hori_nonzero[-1])
 
         np_vert_max = np.amax(mask.mat, axis=1)
         np_vert_nonzero = np.nonzero(np_vert_max)[0]
         assert len(np_vert_nonzero) >= 2
-        up = np_vert_nonzero[0]
-        down = np_vert_nonzero[-1]
+        up = int(np_vert_nonzero[0])
+        down = int(np_vert_nonzero[-1])
 
         mask = mask.to_cropped_mask(up=up, down=down, left=left, right=right)
         return mask

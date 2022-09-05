@@ -20,6 +20,7 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
+from sklearn.neighbors import KDTree
 
 from vkit.utility import normalize_to_probs
 from vkit.element import Point, PointList, Polygon, ScoreMap
@@ -35,6 +36,7 @@ class PageTextRegionLabelStepConfig:
     gaussian_map_length: int = 45
     # 1 centrod + n deviate points.
     num_deviate_char_regression_labels: int = 3
+    num_deviate_char_regression_labels_candiates_factor: int = 5
 
 
 @attrs.define
@@ -329,14 +331,19 @@ class PageTextRegionLabelStep(
     ):
         page_height, page_width = shape
 
+        # Build a KD tree to for removing deviate point that is too close to another center point.
+        center_points = PointList()
+        for polygon in page_char_polygons:
+            center_points.append(polygon.get_center_point())
+        kd_tree = KDTree(center_points.to_np_array())
+
         page_char_regression_labels: List[PageCharRegressionLabel] = []
 
-        for char_idx, polygon in enumerate(page_char_polygons):
+        for char_idx, (polygon, center_point) in enumerate(zip(page_char_polygons, center_points)):
             assert len(polygon.points) == 4
             up_left, up_right, down_right, down_left = polygon.points
 
             # 1. The centroid of char polygon.
-            center_point = polygon.get_center_point()
             label = PageCharRegressionLabel(
                 char_idx=char_idx,
                 tag=PageCharRegressionLabelTag.CENTROID,
@@ -357,7 +364,10 @@ class PageTextRegionLabelStep(
             deviate_points_in_bounding_box = PointList()
             # Some points are invalid, hence double the size of samplings.
             # Also not to sample the points lying on the border to increase the chance of valid.
-            for _ in range(2 * self.config.num_deviate_char_regression_labels):
+            for _ in range(
+                self.config.num_deviate_char_regression_labels_candiates_factor
+                * self.config.num_deviate_char_regression_labels
+            ):
                 y = int(rng.integers(1, bounding_box.height - 1))
                 x = int(rng.integers(1, bounding_box.width - 1))
                 deviate_points_in_bounding_box.append(Point(y=y, x=x))
@@ -379,7 +389,7 @@ class PageTextRegionLabelStep(
                 cv.DECOMP_SVD,
             )
 
-            deviate_points: List[Point] = []
+            deviate_points = PointList()
             for shifted_deviate_point in affine_points(trans_mat, deviate_points_in_bounding_box):
                 y = bounding_box.up + shifted_deviate_point.y
                 x = bounding_box.left + shifted_deviate_point.x
@@ -387,12 +397,22 @@ class PageTextRegionLabelStep(
                 assert 0 <= x < page_width
                 deviate_points.append(Point(y=y, x=x))
 
+            # Remove those are too close to another center point.
+            _, np_kd_nbr_indices = kd_tree.query(deviate_points.to_np_array())
+            preserve_flags: List[bool] = [
+                idx == char_idx for idx in np_kd_nbr_indices[:, 0].tolist()
+            ]
+
             # Build labels.
             num_valid_deviate_char_regression_labels = 0
-            for deviate_point in deviate_points:
+            for deviate_point, preserve_flag in zip(deviate_points, preserve_flags):
                 if num_valid_deviate_char_regression_labels \
                         >= self.config.num_deviate_char_regression_labels:
                     break
+
+                if not preserve_flag:
+                    continue
+
                 label = PageCharRegressionLabel(
                     char_idx=char_idx,
                     tag=PageCharRegressionLabelTag.DEVIATE,

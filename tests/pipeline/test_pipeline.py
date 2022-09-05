@@ -373,7 +373,7 @@ def test_debug_adaptive_scaling_dataset_steps():
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
         if False:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
-        if False:
+        if True:
             visualize_page_text_region_step_output(
                 seed,
                 output.page_text_region_step_output,

@@ -58,10 +58,13 @@ class Point:
 
     def to_clipped_point(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         height, width = extract_shape_from_shapable_or_shape(shapable_or_shape)
-        return Point(
-            y=clip_val(self.y, height),
-            x=clip_val(self.x, width),
-        )
+        if 0 <= self.y < height and 0 <= self.x < width:
+            return self
+        else:
+            return Point(
+                y=clip_val(self.y, height),
+                x=clip_val(self.x, width),
+            )
 
     def to_shifted_point(self, y_offset: int = 0, x_offset: int = 0):
         return Point(y=self.y + y_offset, x=self.x + x_offset)

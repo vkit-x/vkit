@@ -249,6 +249,16 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         self.func_polygon = func_polygon
         self.func_polygons = func_polygons
 
+    @property
+    def is_geometric(self):
+        return any((
+            self.func_point,
+            self.func_points,
+            self.func_polygon,
+            self.func_polygons,
+            self.func_active_mask,
+        ))
+
     # yapf: disable
     def prepare_config_and_rng(
         self,
@@ -594,6 +604,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             return distorted_points[0]
 
         else:
+            if self.is_geometric:
+                raise RuntimeError('Missing self.func_points or self.func_point.')
+
             # NOP.
             return point
 
@@ -784,6 +797,41 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         return Distortion.get_shape_from_shapable_or_shape(shapable_or_shape)
 
+    def clip_result_elements(self, result: DistortionResult):
+        if not self.is_geometric:
+            return
+
+        if result.point:
+            result.point = result.point.to_clipped_point(result.shape)
+
+        if result.points:
+            result.points = result.points.to_clipped_points(result.shape)
+
+        if result.corner_points:
+            result.corner_points = result.corner_points.to_clipped_points(result.shape)
+
+        if result.polygon:
+            result.polygon = result.polygon.to_clipped_polygon(result.shape)
+
+        if result.polygons:
+            result.polygons = [
+                polygon.to_clipped_polygon(result.shape) for polygon in result.polygons
+            ]
+
+        if result.text_polygon:
+            result.text_polygon = attrs.evolve(
+                result.text_polygon,
+                polygon=result.text_polygon.polygon.to_clipped_polygon(result.shape),
+            )
+
+        if result.text_polygons:
+            result.text_polygons = [
+                attrs.evolve(
+                    text_polygon,
+                    polygon=text_polygon.polygon.to_clipped_polygon(result.shape),
+                ) for text_polygon in result.text_polygons
+            ]
+
     # yapf: disable
     def distort(
         self,
@@ -828,21 +876,23 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         # If is geometric distortion, the shape will be updated.
         result = DistortionResult(shape=shape)
 
-        result_shape = shape
-        if internals.state and internals.state.result_shape:
-            result_shape = internals.state.result_shape
+        if self.is_geometric:
+            assert internals.state and internals.state.result_shape
+            result.shape = internals.state.result_shape
+        else:
+            result.shape = shape
 
         if image:
             result.image = self.distort_image_based_on_internals(internals, image)
-            assert result_shape == result.image.shape
+            assert result.shape == result.image.shape
 
         if mask:
             result.mask = self.distort_mask_based_on_internals(internals, mask)
-            assert result_shape == result.mask.shape
+            assert result.shape == result.mask.shape
 
         if score_map:
             result.score_map = self.distort_score_map_based_on_internals(internals, score_map)
-            assert result_shape == result.score_map.shape
+            assert result.shape == result.score_map.shape
 
         if point:
             result.point = self.distort_point_based_on_internals(internals, point)
@@ -878,7 +928,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         if get_active_mask:
             result.active_mask = self.get_active_mask_based_on_internals(internals)
-            assert result_shape == result.active_mask.shape
+            assert result.shape == result.active_mask.shape
 
         if get_config:
             result.config = internals.config
@@ -886,6 +936,6 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if get_state:
             result.state = internals.state
 
-        result.shape = result_shape
+        self.clip_result_elements(result)
 
         return result
