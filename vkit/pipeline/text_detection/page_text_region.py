@@ -20,7 +20,6 @@ from numpy.random import Generator as RandomGenerator
 import numpy as np
 from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
-from shapely.errors import TopologicalError as ShapelyTopologicalError
 from rectpack import newPacker as RectPacker
 
 from vkit.element import Box, Polygon, Mask, Image
@@ -121,14 +120,67 @@ class PageTextRegionStep(
         return intersected_mask.to_disconnected_polygons()
 
     @staticmethod
-    def strtree_query_intersected_polygons(strtree: STRtree, shapely_polygon: ShapelyPolygon):
-        for intersected_shapely_polygon in strtree.query(shapely_polygon):
-            try:
-                if not intersected_shapely_polygon.intersects(shapely_polygon):
-                    continue
-            except ShapelyTopologicalError:
+    def strtree_query_intersected_polygons(
+        strtree: STRtree,
+        id_to_anchor_polygon: Dict[int, Polygon],
+        id_to_anchor_mask: Dict[int, Mask],
+        id_to_anchor_np_mask: Dict[int, np.ndarray],
+        candidate_polygon: Polygon,
+    ):
+        candidate_shapely_polygon = candidate_polygon.to_shapely_polygon()
+        candidate_mask = candidate_polygon.to_mask()
+        candidate_box = candidate_mask.box
+        assert candidate_box
+
+        for anchor_shapely_polygon in strtree.query(candidate_shapely_polygon):
+            anchor_id = id(anchor_shapely_polygon)
+            anchor_polygon = id_to_anchor_polygon[anchor_id]
+
+            # Build mask if not exists.
+            if anchor_id not in id_to_anchor_mask:
+                id_to_anchor_mask[anchor_id] = anchor_polygon.to_mask()
+                id_to_anchor_np_mask[anchor_id] = id_to_anchor_mask[anchor_id].np_mask
+            anchor_mask = id_to_anchor_mask[anchor_id]
+            anchor_np_mask = id_to_anchor_np_mask[anchor_id]
+            anchor_box = anchor_mask.box
+            assert anchor_box
+
+            # Calculate intersection.
+            intersected_box = Box(
+                up=max(anchor_box.up, candidate_box.up),
+                down=min(anchor_box.down, candidate_box.down),
+                left=max(anchor_box.left, candidate_box.left),
+                right=min(anchor_box.right, candidate_box.right),
+            )
+            # strtree.query is based on envelope overlapping, enhance should be a valid box.
+            assert intersected_box.up <= intersected_box.down
+            assert intersected_box.left <= intersected_box.right
+
+            # For optimizing performance.
+            up = intersected_box.up - anchor_box.up
+            down = intersected_box.down - anchor_box.up
+            left = intersected_box.left - anchor_box.left
+            right = intersected_box.right - anchor_box.left
+            np_anchor_mask = anchor_np_mask[up:down + 1, left:right + 1]
+
+            up = intersected_box.up - candidate_box.up
+            down = intersected_box.down - candidate_box.up
+            left = intersected_box.left - candidate_box.left
+            right = intersected_box.right - candidate_box.left
+            np_candidate_mask = candidate_mask.np_mask[up:down + 1, left:right + 1]
+
+            np_intersected_mask = (np_anchor_mask & np_candidate_mask)
+            intersected_area = int(np_intersected_mask.sum())
+            if intersected_area == 0:
                 continue
-            yield intersected_shapely_polygon
+
+            yield (
+                anchor_id,
+                anchor_polygon,
+                anchor_mask,
+                candidate_mask,
+                intersected_area,
+            )
 
     @staticmethod
     def get_flat_rotation_angle(precise_text_region_polygon: Polygon):
@@ -225,14 +277,14 @@ class PageTextRegionStep(
         np_hori_max = np.amax(rotated_mask.mat, axis=0)
         np_hori_nonzero = np.nonzero(np_hori_max)[0]
         assert len(np_hori_nonzero) >= 2
-        left: int = np_hori_nonzero[0]
-        right: int = np_hori_nonzero[-1]
+        left = int(np_hori_nonzero[0])
+        right = int(np_hori_nonzero[-1])
 
         np_vert_max = np.amax(rotated_mask.mat, axis=1)
         np_vert_nonzero = np.nonzero(np_vert_max)[0]
         assert len(np_vert_nonzero) >= 2
-        up: int = np_vert_nonzero[0]
-        down: int = np_vert_nonzero[-1]
+        up = int(np_vert_nonzero[0])
+        down = int(np_vert_nonzero[-1])
 
         rotated_image = rotated_image.to_cropped_image(
             up=up,
@@ -412,6 +464,8 @@ class PageTextRegionStep(
             text_region_shapely_polygons.append(shapely_polygon)
 
         text_region_tree = STRtree(text_region_shapely_polygons)
+        id_to_text_region_mask: Dict[int, Mask] = {}
+        id_to_text_region_np_mask: Dict[int, np.ndarray] = {}
 
         # Get the precise text regions.
         precise_text_region_candidate_polygons: List[Polygon] = []
@@ -423,45 +477,18 @@ class PageTextRegionStep(
                 resized_width=page_image.width,
             )
 
-            # Prepare precise mask.
-            precise_bounding_box = precise_polygon.to_bounding_box()
-            precise_mask = Mask.from_shapable(precise_bounding_box)
-            precise_mask = precise_mask.to_box_attached(precise_bounding_box)
-
-            shifted_precise_polygon = precise_polygon.to_shifted_polygon(
-                y_offset=-precise_bounding_box.up,
-                x_offset=-precise_bounding_box.left,
-            )
-            shifted_precise_polygon.fill_mask(precise_mask)
-
             # Find all intersected text regions.
-            id_to_text_region_mask: Dict[int, Mask] = {}
-            precise_shapely_polygon = precise_polygon.to_shapely_polygon()
-
-            for text_region_shapely_polygon in self.strtree_query_intersected_polygons(
-                text_region_tree,
-                precise_shapely_polygon,
+            for _, _, text_region_mask, precise_mask, _ in self.strtree_query_intersected_polygons(
+                strtree=text_region_tree,
+                id_to_anchor_polygon=id_to_text_region_polygon,
+                id_to_anchor_mask=id_to_text_region_mask,
+                id_to_anchor_np_mask=id_to_text_region_np_mask,
+                candidate_polygon=precise_polygon,
             ):
-                text_region_id = id(text_region_shapely_polygon)
-
-                if text_region_id not in id_to_text_region_mask:
-                    text_region_polygon = id_to_text_region_polygon[text_region_id]
-                    text_region_bounding_box = text_region_polygon.to_bounding_box()
-                    text_region_mask = Mask.from_shapable(text_region_bounding_box)
-                    text_region_mask = text_region_mask.to_box_attached(text_region_bounding_box)
-
-                    shifted_text_region_polygon = text_region_polygon.to_shifted_polygon(
-                        y_offset=-text_region_bounding_box.up,
-                        x_offset=-text_region_bounding_box.left,
-                    )
-                    shifted_text_region_polygon.fill_mask(text_region_mask)
-
-                    id_to_text_region_mask[text_region_id] = text_region_mask
-
                 precise_text_region_candidate_polygons.extend(
                     self.generate_precise_text_region_candidate_polygons(
                         precise_mask=precise_mask,
-                        text_region_mask=id_to_text_region_mask[text_region_id],
+                        text_region_mask=text_region_mask,
                     )
                 )
 
@@ -470,9 +497,11 @@ class PageTextRegionStep(
             debug.precise_text_region_candidate_polygons = precise_text_region_candidate_polygons
 
         # Help gc.
-        del text_region_tree
-        del text_region_shapely_polygons
         del id_to_text_region_polygon
+        del text_region_shapely_polygons
+        del text_region_tree
+        del id_to_text_region_mask
+        del id_to_text_region_np_mask
 
         # Bind char-level polygon to precise text region.
         id_to_precise_text_region_polygon: Dict[int, Polygon] = {}
@@ -484,44 +513,33 @@ class PageTextRegionStep(
             precise_text_region_shapely_polygons.append(shapely_polygon)
 
         precise_text_region_tree = STRtree(precise_text_region_shapely_polygons)
+        id_to_precise_text_region_mask: Dict[int, Mask] = {}
+        id_to_precise_text_region_np_mask: Dict[int, np.ndarray] = {}
+
         id_to_char_polygons: DefaultDict[int, List[Polygon]] = defaultdict(list)
-
         for char_polygon in page_char_polygon_collection.polygons:
-            char_shapely_polygon = char_polygon.to_shapely_polygon()
+            best_precise_text_region_id = None
+            max_intersected_area = 0
 
-            intersected: List[ShapelyPolygon] = []
-            for precise_text_region_shapely_polygon in self.strtree_query_intersected_polygons(
-                precise_text_region_tree,
-                char_shapely_polygon,
+            for (
+                precise_text_region_id,
+                _,
+                _,
+                _,
+                intersected_area,
+            ) in self.strtree_query_intersected_polygons(
+                strtree=precise_text_region_tree,
+                id_to_anchor_polygon=id_to_precise_text_region_polygon,
+                id_to_anchor_mask=id_to_precise_text_region_mask,
+                id_to_anchor_np_mask=id_to_precise_text_region_np_mask,
+                candidate_polygon=char_polygon,
             ):
-                intersected.append(precise_text_region_shapely_polygon)  # type: ignore
+                if intersected_area > max_intersected_area:
+                    max_intersected_area = intersected_area
+                    best_precise_text_region_id = precise_text_region_id
 
-            if not intersected:
-                # Hit nothing.
-                continue
-
-            if len(intersected) == 1:
-                # Simple case.
-                id_to_char_polygons[id(intersected[0])].append(char_polygon)
-
-            else:
-                # If more than one, select the one with largest intersection area.
-                largest_intersection_area = 0
-                best_precise_text_region_shapely_polygon = None
-
-                for precise_text_region_shapely_polygon in intersected:
-                    intersection_result = \
-                        precise_text_region_shapely_polygon.intersection(char_shapely_polygon)
-                    intersection_area: int = intersection_result.area
-
-                    if intersection_area > largest_intersection_area:
-                        largest_intersection_area = intersection_area
-                        best_precise_text_region_shapely_polygon = \
-                            precise_text_region_shapely_polygon
-
-                assert best_precise_text_region_shapely_polygon
-                best_id = id(best_precise_text_region_shapely_polygon)
-                id_to_char_polygons[best_id].append(char_polygon)
+            if best_precise_text_region_id is not None:
+                id_to_char_polygons[best_precise_text_region_id].append(char_polygon)
 
         page_text_region_infos: List[PageTextRegionInfo] = []
         for precise_text_region_shapely_polygon in precise_text_region_shapely_polygons:
@@ -537,10 +555,11 @@ class PageTextRegionStep(
             )
 
         # Help gc.
-        del precise_text_region_tree
-        del id_to_char_polygons
-        del precise_text_region_shapely_polygons
         del id_to_precise_text_region_polygon
+        del precise_text_region_shapely_polygons
+        del precise_text_region_tree
+        del id_to_precise_text_region_mask
+        del id_to_precise_text_region_np_mask
 
         if debug:
             debug.page_text_region_infos = page_text_region_infos

@@ -210,7 +210,7 @@ class Polygon:
         return self.create(points=points)
 
     def to_bounding_box(self):
-        return self.fill_np_array_internals.bounding_box
+        return self.fill_np_array_internals.bounding_box.copy()
 
     def fill_np_array(
         self,
@@ -257,6 +257,12 @@ class Polygon:
             value,
             keep_max_value=keep_max_value,
             keep_min_value=keep_min_value,
+        )
+
+    def to_mask(self):
+        return Mask(
+            mat=self.fill_np_array_internals.get_np_mask().astype(np.uint8),
+            box=self.fill_np_array_internals.bounding_box.copy(),
         )
 
     def extract_score_map(self, score_map: 'ScoreMap'):
