@@ -12,6 +12,7 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Tuple, Union, Iterable, Callable, List, TypeVar
+from contextlib import ContextDecorator
 
 import attrs
 import numpy as np
@@ -57,10 +58,24 @@ class NpVec:
         return self.x * other.y - self.y * other.x  # type: ignore
 
 
+class WritableScoreMapContextDecorator(ContextDecorator):
+
+    def __init__(self, score_map: 'ScoreMap'):
+        super().__init__()
+        self.score_map = score_map
+
+    def __enter__(self):
+        assert not self.score_map.mat.flags.writeable
+        self.score_map.mat.flags.writeable = True
+
+    def __exit__(self, *exc):  # type: ignore
+        self.score_map.mat.flags.writeable = False
+
+
 _E = TypeVar('_E', 'Box', 'Polygon', 'Mask')
 
 
-@attrs.define
+@attrs.define(frozen=True, eq=False)
 class ScoreMap(Shapable):
     mat: np.ndarray
     box: Optional['Box'] = None
@@ -74,6 +89,9 @@ class ScoreMap(Shapable):
 
         if self.mat.dtype != np.float32:
             raise RuntimeError('mat.dtype != np.float32')
+
+        # For the control of write.
+        self.mat.flags.writeable = False
 
         if self.is_prob:
             score_min = self.mat.min()
@@ -264,11 +282,19 @@ class ScoreMap(Shapable):
     def width(self):
         return self.mat.shape[1]
 
+    @property
+    def writable_context(self):
+        return WritableScoreMapContextDecorator(self)
+
     ############
     # Operator #
     ############
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
+
+    def assign_mat(self, mat: np.ndarray):
+        with self.writable_context:
+            object.__setattr__(self, 'mat', mat)
 
     @staticmethod
     def unpack_element_value_pairs(
@@ -672,24 +698,25 @@ def generate_fill_by_score_maps_mask(
 
     score_maps_mask = Mask.from_shape(shape)
 
-    for score_map in score_maps:
-        if score_map.box:
-            boxed_mat = score_map.box.extract_np_array(score_maps_mask.mat)
+    with score_maps_mask.writable_context:
+        for score_map in score_maps:
+            if score_map.box:
+                boxed_mat = score_map.box.extract_np_array(score_maps_mask.mat)
+            else:
+                boxed_mat = score_maps_mask.mat
+
+            np_non_oob_mask = (boxed_mat < 255)
+            # NOTE: ScoreMap.np_mask requires is_prob=True.
+            boxed_mat[score_map.to_mask().np_mask & np_non_oob_mask] += 1
+
+        if mode == FillByElementsMode.DISTINCT:
+            score_maps_mask.mat[score_maps_mask.mat > 1] = 0
+
+        elif mode == FillByElementsMode.INTERSECT:
+            score_maps_mask.mat[score_maps_mask.mat == 1] = 0
+
         else:
-            boxed_mat = score_maps_mask.mat
-
-        np_non_oob_mask = (boxed_mat < 255)
-        # NOTE: ScoreMap.np_mask requires is_prob=True.
-        boxed_mat[score_map.to_mask().np_mask & np_non_oob_mask] += 1
-
-    if mode == FillByElementsMode.DISTINCT:
-        score_maps_mask.mat[score_maps_mask.mat > 1] = 0
-
-    elif mode == FillByElementsMode.INTERSECT:
-        score_maps_mask.mat[score_maps_mask.mat == 1] = 0
-
-    else:
-        raise NotImplementedError()
+            raise NotImplementedError()
 
     return score_maps_mask
 

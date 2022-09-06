@@ -92,7 +92,7 @@ class BarcodeCode39Engine(
 
     @staticmethod
     def convert_barcode_pil_image_to_mask(barcode_pil_image: PilImage.Image):
-        mat = np.array(barcode_pil_image)
+        mat = np.asarray(barcode_pil_image)
         mask = Mask(mat=mat).to_inverted_mask()
 
         # Trim.

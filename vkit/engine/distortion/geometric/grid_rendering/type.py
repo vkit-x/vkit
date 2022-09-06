@@ -73,6 +73,10 @@ class ImageGrid:
         return self._image_width
 
     @property
+    def image_shape(self):
+        return self.image_height, self.image_width
+
+    @property
     def cached_trans_mat(self):
         self.lazy_post_init()
         assert self._cached_trans_mat is not None
@@ -104,14 +108,14 @@ class ImageGrid:
         return self.shape == other.shape
 
     def generate_polygon(self, polygon_row: int, polygon_col: int):
-        return Polygon(
-            points=PointList([
+        return Polygon.create(
+            points=(
                 # Clockwise.
                 self.points_2d[polygon_row][polygon_col],
                 self.points_2d[polygon_row][polygon_col + 1],
                 self.points_2d[polygon_row + 1][polygon_col + 1],
                 self.points_2d[polygon_row + 1][polygon_col],
-            ]),
+            ),
         )
 
     def generate_polygon_row_col(self):
@@ -139,7 +143,7 @@ class ImageGrid:
         for row in reversed(range(1, self.num_rows - 1)):
             points.append(self.points_2d[row][0])
 
-        return Polygon(points=points)
+        return Polygon.create(points=points)
 
     def to_conducted_resized_image_grid(
         self,

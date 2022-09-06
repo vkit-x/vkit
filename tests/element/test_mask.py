@@ -64,7 +64,8 @@ def test_mask_setitem_box():
     mask = Mask.from_shape((400, 400))
     boxed_mask = Mask.from_shape(box0.shape)
     rng = default_rng(0)
-    boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
+    with boxed_mask.writable_context:
+        boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
     mask[box0] = boxed_mask
 
     painter = Painter.create(mask)

@@ -648,7 +648,7 @@ def resize_and_trim_text_line_hori_default(
 
         np_mask = np.zeros((run_config.height, image.width), dtype=np.uint8)
         np_mask[pad_up:-pad_down] = mask.mat
-        mask.mat = np_mask
+        mask.assign_mat(np_mask)
 
         padded_char_boxes = []
         for char_box in char_boxes:
@@ -662,7 +662,8 @@ def resize_and_trim_text_line_hori_default(
 
         if score_map:
             padded_score_map = ScoreMap.from_shape((run_config.height, image.width))
-            padded_score_map.mat[pad_up:-pad_down] = score_map.mat
+            with padded_score_map.writable_context:
+                padded_score_map.mat[pad_up:-pad_down] = score_map.mat
             score_map = padded_score_map
 
     # Trim.
@@ -725,10 +726,10 @@ def resize_and_trim_text_line_hori_default(
 
         char_boxes = char_boxes[:last_char_box_idx + 1]
         image.mat = image.mat[:, :last_char_box_right + 1]
-        mask.mat = mask.mat[:, :last_char_box_right + 1]
+        mask.assign_mat(mask.mat[:, :last_char_box_right + 1])
 
         if score_map:
-            score_map.mat = score_map.mat[:, :last_char_box_right + 1]
+            score_map.assign_mat(score_map.mat[:, :last_char_box_right + 1])
 
     return image, mask, score_map, char_boxes, cv_resize_interpolation
 
@@ -789,7 +790,7 @@ def resize_and_trim_text_line_vert_default(
 
         np_mask = np.zeros((image.height, run_config.width), dtype=np.uint8)
         np_mask[:, pad_left:-pad_right] = mask.mat
-        mask.mat = np_mask
+        mask.assign_mat(np_mask)
 
         padded_char_boxes = []
         for char_box in char_boxes:
@@ -822,10 +823,10 @@ def resize_and_trim_text_line_vert_default(
         last_char_box_down = char_boxes[last_char_box_idx].down
         char_boxes = char_boxes[:last_char_box_idx + 1]
         image.mat = image.mat[:last_char_box_down + 1]
-        mask.mat = mask.mat[:last_char_box_down + 1]
+        mask.assign_mat(mask.mat[:last_char_box_down + 1])
 
         if score_map:
-            score_map.mat = score_map.mat[:last_char_box_down + 1]
+            score_map.assign_mat(score_map.mat[:last_char_box_down + 1])
 
     return image, mask, score_map, char_boxes, cv_resize_interpolation
 
@@ -987,7 +988,7 @@ class FontFreetypeDefaultEngine(
         assert width == bitmap.pitch
 
         # (H, W), [0, 255]
-        np_image = np.array(bitmap.buffer, dtype=np.uint8).reshape(height, width)
+        np_image = np.asarray(bitmap.buffer, dtype=np.uint8).reshape(height, width)
 
         return build_char_glyph(run_config.style, char, glyph, np_image)
 
@@ -1044,7 +1045,7 @@ class FontFreetypeLcdEngine(
         width = flatten_width // 3
 
         # (H, W, 3), [0, 255]
-        np_image = np.array(bitmap.buffer, dtype=np.uint8).reshape(height, pitch)
+        np_image = np.asarray(bitmap.buffer, dtype=np.uint8).reshape(height, pitch)
         np_image = np_image[:, :width * 3].reshape(height, width, 3)
 
         return build_char_glyph(run_config.style, char, glyph, np_image)
@@ -1127,7 +1128,7 @@ class FontFreetypeMonochromeEngine(
                 row.extend(bit * 255 for bit in reversed(bits))
             data.append(row[:width])
 
-        np_image = np.array(data, dtype=np.uint8)
+        np_image = np.asarray(data, dtype=np.uint8)
         assert np_image.shape == (height, width)
 
         return build_char_glyph(run_config.style, char, glyph, np_image)

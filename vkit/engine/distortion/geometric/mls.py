@@ -64,9 +64,7 @@ class SimilarityMlsPointProjector(PointProjector):
 
         if src_xy_pair in self.src_xy_pair_to_dst_point:
             # Identity.
-            # NOTE: copy is important since this point could be changed later.
-            # TODO: re-think the immutable design.
-            return self.src_xy_pair_to_dst_point[src_xy_pair].copy()
+            return self.src_xy_pair_to_dst_point[src_xy_pair]
 
         # Calculate the distance to src handles.
         src_distance_squares = self.src_handle_np_points.copy()
@@ -97,7 +95,7 @@ class SimilarityMlsPointProjector(PointProjector):
         # Calculate matrix A.
         src_centroid_x, src_centroid_y = src_centroid
         src_mat_anchor = np.transpose(
-            np.array(
+            np.asarray(
                 [
                     # v - p*
                     (

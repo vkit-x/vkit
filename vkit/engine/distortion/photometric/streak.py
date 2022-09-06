@@ -39,13 +39,14 @@ def line_streak_image(
 ):
     mask = Mask.from_shapable(image)
 
-    step = config.thickness + config.gap
-    if config.enable_vert:
-        for x_offset in range(config.thickness):
-            mask.mat[:, x_offset::step] = 1
-    if config.enable_hori:
-        for y_offset in range(config.thickness):
-            mask.mat[y_offset::step] = 1
+    with mask.writable_context:
+        step = config.thickness + config.gap
+        if config.enable_vert:
+            for x_offset in range(config.thickness):
+                mask.mat[:, x_offset::step] = 1
+        if config.enable_hori:
+            for y_offset in range(config.thickness):
+                mask.mat[y_offset::step] = 1
 
     image = image.copy()
     mask.fill_image(image, config.color, alpha=config.alpha)
@@ -141,13 +142,15 @@ def rectangle_streak_image(
         bar_up = max(0, box.up)
         bar_down = inner_down
         if 0 <= inner_down < image.height and bar_left <= bar_right:
-            mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
+            with mask.writable_context:
+                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
 
         # Bottom bar.
         bar_up = inner_up
         bar_down = min(image.height - 1, box.down)
         if 0 <= bar_up < image.height and bar_left <= bar_right:
-            mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
+            with mask.writable_context:
+                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
 
         # Shared by left/right bars.
         bar_up = max(0, box.up)
@@ -157,13 +160,15 @@ def rectangle_streak_image(
         bar_left = max(0, box.left)
         bar_right = inner_right
         if 0 <= bar_right < image.width and bar_up <= bar_down:
-            mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
+            with mask.writable_context:
+                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
 
         # Right bar.
         bar_left = inner_left
         bar_right = min(image.width - 1, box.right)
         if 0 <= bar_left < image.width and bar_up <= bar_down:
-            mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
+            with mask.writable_context:
+                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
 
     image = image.copy()
     mask.fill_image(image, config.color, alpha=config.alpha)
@@ -210,15 +215,17 @@ def ellipse_streak_image(
     center_x = image.width // 2
     center = (center_x, center_y)
     for box in boxes:
-        mask.mat = cv.ellipse(
-            mask.mat,
-            center=center,
-            axes=(box.width // 2, box.height // 2),
-            angle=0,
-            startAngle=0,
-            endAngle=360,
-            color=1,
-            thickness=config.thickness,
+        mask.assign_mat(
+            cv.ellipse(
+                mask.mat,
+                center=center,
+                axes=(box.width // 2, box.height // 2),
+                angle=0,
+                startAngle=0,
+                endAngle=360,
+                color=1,
+                thickness=config.thickness,
+            )
         )
 
     image = image.copy()

@@ -69,7 +69,8 @@ def fill_text_line_to_seal_impression(
                         resized_width=char_glyph_shape[1],
                         cv_resize_interpolation=text_line.cv_resize_interpolation,
                     )
-                char_score_map.mat[box.up:box.down + 1] = char_glyph_score_map.mat
+                with char_score_map.writable_context:
+                    char_score_map.mat[box.up:box.down + 1] = char_glyph_score_map.mat
 
             else:
                 # LCD, fallback to mask.
@@ -77,13 +78,14 @@ def fill_text_line_to_seal_impression(
                     box=box,
                     cv_resize_interpolation=text_line.cv_resize_interpolation,
                 )
-                if char_glyph_mask != char_glyph_shape:
+                if char_glyph_mask.shape != char_glyph_shape:
                     char_glyph_mask = char_glyph_mask.to_resized_mask(
                         resized_height=char_glyph_shape[0],
                         resized_width=char_glyph_shape[1],
                         cv_resize_interpolation=text_line.cv_resize_interpolation,
                     )
-                char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
+                with char_score_map.writable_context:
+                    char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
 
             point_up = Point(y=0, x=char_score_map.width // 2)
 
@@ -160,6 +162,6 @@ def fill_text_line_to_seal_impression(
 
     # Adjust alpha.
     score_map_max = score_map.mat.max()
-    score_map.mat = score_map.mat * seal_impression.alpha / score_map_max
+    score_map.assign_mat(score_map.mat * seal_impression.alpha / score_map_max)
 
     return score_map

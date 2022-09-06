@@ -25,6 +25,7 @@ from vkit.element import (
     Mask,
     Point,
     PointList,
+    PointTuple,
     Polygon,
 )
 from ..interface import (
@@ -63,9 +64,9 @@ def affine_np_points(trans_mat: np.ndarray, np_points: np.ndarray) -> np.ndarray
     return new_np_points.transpose()
 
 
-def affine_points(trans_mat: np.ndarray, points: PointList):
+def affine_points(trans_mat: np.ndarray, points: PointTuple):
     new_np_points = affine_np_points(trans_mat, points.to_np_array())
-    return PointList.from_np_array(new_np_points)
+    return PointTuple.from_np_array(new_np_points)
 
 
 def affine_polygons(trans_mat: np.ndarray, polygons: Sequence[Polygon]) -> Sequence[Polygon]:
@@ -78,7 +79,7 @@ def affine_polygons(trans_mat: np.ndarray, polygons: Sequence[Polygon]) -> Seque
     new_np_points = affine_np_points(trans_mat, points.to_np_array())
     new_polygons = []
     for begin, end in points_ranges:
-        new_polygons.append(Polygon.from_xy_pairs(new_np_points[begin:end]))
+        new_polygons.append(Polygon.from_np_array(new_np_points[begin:end]))
 
     return new_polygons
 
@@ -114,7 +115,7 @@ class ShearHoriState(DistortionState[ShearHoriConfig]):
 
         if config.angle < 0:
             # Shear left & the negative part.
-            self.trans_mat = np.array(
+            self.trans_mat = np.asarray(
                 [
                     (1, -tan_phi, 0),
                     (0, 1, 0),
@@ -124,7 +125,7 @@ class ShearHoriState(DistortionState[ShearHoriConfig]):
 
         elif config.angle > 0:
             # Shear right.
-            self.trans_mat = np.array(
+            self.trans_mat = np.asarray(
                 [
                     (1, -tan_phi, shift_x),
                     (0, 1, 0),
@@ -168,7 +169,7 @@ class ShearVertState(DistortionState[ShearVertConfig]):
 
         if config.angle < 0:
             # Shear up.
-            self.trans_mat = np.array(
+            self.trans_mat = np.asarray(
                 [
                     (1, 0, 0),
                     (-tan_abs_phi, 1, shift_y),
@@ -177,7 +178,7 @@ class ShearVertState(DistortionState[ShearVertConfig]):
             )
         elif config.angle > 0:
             # Shear down & the negative part.
-            self.trans_mat = np.array(
+            self.trans_mat = np.asarray(
                 [
                     (1, 0, 0),
                     (tan_abs_phi, 1, 0),
@@ -259,7 +260,7 @@ class RotateState(DistortionState[RotateConfig]):
         shift_x = math.ceil(shift_x)
         shift_y = math.ceil(shift_y)
 
-        self.trans_mat = np.array(
+        self.trans_mat = np.asarray(
             [
                 (math.cos(rad), -math.sin(rad), shift_x),
                 (math.sin(rad), math.cos(rad), shift_y),
@@ -323,8 +324,8 @@ class SkewHoriState(DistortionState[SkewHoriConfig]):
             ]
 
         self.trans_mat = cv.getPerspectiveTransform(
-            np.array(src_xy_pairs, dtype=np.float32),
-            np.array(dst_xy_pairs, dtype=np.float32),
+            np.asarray(src_xy_pairs, dtype=np.float32),
+            np.asarray(dst_xy_pairs, dtype=np.float32),
             cv.DECOMP_SVD,
         )
         self.dsize = (width, height)
@@ -383,8 +384,8 @@ class SkewVertState(DistortionState[SkewVertConfig]):
             ]
 
         self.trans_mat = cv.getPerspectiveTransform(
-            np.array(src_xy_pairs, dtype=np.float32),
-            np.array(dst_xy_pairs, dtype=np.float32),
+            np.asarray(src_xy_pairs, dtype=np.float32),
+            np.asarray(dst_xy_pairs, dtype=np.float32),
             cv.DECOMP_SVD,
         )
         self.dsize = (width, height)
@@ -459,11 +460,11 @@ def affine_trait_func_points(
     config: _T_AFFINE_CONFIG,
     state: Optional[_T_AFFINE_STATE],
     shape: Tuple[int, int],
-    points: Union[PointList, Iterable[Point]],
+    points: Union[PointList, PointTuple, Iterable[Point]],
     rng: Optional[RandomGenerator],
 ):
     assert state
-    points = PointList(points)
+    points = PointTuple(points)
     if config.is_nop:
         return points
     else:

@@ -12,6 +12,7 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Tuple, Union, List, Sequence, Iterable
+from itertools import chain
 
 import attrs
 import numpy as np
@@ -27,7 +28,7 @@ from .opt import (
 T_VAL = Union[float, str]
 
 
-@attrs.define
+@attrs.define(frozen=True)
 class Point:
     y: int
     x: int
@@ -53,9 +54,6 @@ class Point:
     ############
     # Operator #
     ############
-    def copy(self):
-        return attrs.evolve(self)
-
     def to_clipped_point(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         height, width = extract_shape_from_shapable_or_shape(shapable_or_shape)
         if 0 <= self.y < height and 0 <= self.x < width:
@@ -127,10 +125,7 @@ class PointList(List[Point]):
         return points
 
     def to_flatten_xy_pairs(self):
-        flatten_xy_pairs: List[int] = []
-        for point in self:
-            flatten_xy_pairs.extend(point.to_xy_pair())
-        return flatten_xy_pairs
+        return list(chain.from_iterable(point.to_xy_pair() for point in self))
 
     @staticmethod
     def from_np_array(np_points: np.ndarray):
@@ -148,14 +143,14 @@ class PointList(List[Point]):
     def to_np_array(self):
         return np.array(self.to_xy_pairs(), dtype=np.int32)
 
+    def to_point_tuple(self):
+        return PointTuple(self)
+
     ############
     # Operator #
     ############
     def copy(self):
-        points = PointList()
-        for point in self:
-            points.append(point.copy())
-        return points
+        return PointList(self)
 
     def to_clipped_points(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         return PointList(point.to_clipped_point(shapable_or_shape) for point in self)
@@ -175,6 +170,68 @@ class PointList(List[Point]):
         resized_width: Optional[int] = None,
     ):
         return PointList(
+            point.to_conducted_resized_point(
+                shapable_or_shape=shapable_or_shape,
+                resized_height=resized_height,
+                resized_width=resized_width,
+            ) for point in self
+        )
+
+
+class PointTuple(Tuple[Point, ...]):
+
+    ###############
+    # Constructor #
+    ###############
+    @staticmethod
+    def from_point(point: Point):
+        return PointTuple((point,))
+
+    ##############
+    # Conversion #
+    ##############
+    @staticmethod
+    def from_xy_pairs(xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+        return PointTuple(Point.from_xy_pair(xy_pair) for xy_pair in xy_pairs)
+
+    def to_xy_pairs(self):
+        return tuple(point.to_xy_pair() for point in self)
+
+    @staticmethod
+    def from_flatten_xy_pairs(flatten_xy_pairs: Sequence[T_VAL]):
+        return PointList.from_flatten_xy_pairs(flatten_xy_pairs).to_point_tuple()
+
+    def to_flatten_xy_pairs(self):
+        return tuple(chain.from_iterable(point.to_xy_pair() for point in self))
+
+    @staticmethod
+    def from_np_array(np_points: np.ndarray):
+        return PointList.from_np_array(np_points).to_point_tuple()
+
+    def to_np_array(self):
+        return np.asarray(self.to_xy_pairs(), dtype=np.int32)
+
+    ############
+    # Operator #
+    ############
+    def to_clipped_points(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
+        return PointTuple(point.to_clipped_point(shapable_or_shape) for point in self)
+
+    def to_shifted_points(self, y_offset: int = 0, x_offset: int = 0):
+        return PointTuple(
+            point.to_shifted_point(
+                y_offset=y_offset,
+                x_offset=x_offset,
+            ) for point in self
+        )
+
+    def to_conducted_resized_points(
+        self,
+        shapable_or_shape: Union[Shapable, Tuple[int, int]],
+        resized_height: Optional[int] = None,
+        resized_width: Optional[int] = None,
+    ):
+        return PointTuple(
             point.to_conducted_resized_point(
                 shapable_or_shape=shapable_or_shape,
                 resized_height=resized_height,

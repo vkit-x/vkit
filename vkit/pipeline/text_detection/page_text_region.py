@@ -13,12 +13,14 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple
 from collections import defaultdict
+import itertools
 import math
+import warnings
 
 import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
-from shapely.strtree import STRtree
+from shapely.strtree import STRtree, ShapelyDeprecationWarning
 from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
 
@@ -27,6 +29,9 @@ from vkit.engine.distortion.geometric.affine import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
 from .page_resizing import PageResizingStepOutput
+
+# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
+warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 
 @attrs.define
@@ -227,14 +232,13 @@ class PageTextRegionStep(
         precise_text_region_polygon = page_text_region_info.precise_text_region_polygon
         char_polygons = page_text_region_info.char_polygons
 
-        bounding_box = precise_text_region_polygon.to_bounding_box()
         # Need to make sure all char polygons are included.
-        for char_polygon in char_polygons:
-            char_bounding_box = char_polygon.to_bounding_box()
-            bounding_box.up = min(bounding_box.up, char_bounding_box.up)
-            bounding_box.down = max(bounding_box.down, char_bounding_box.down)
-            bounding_box.left = min(bounding_box.left, char_bounding_box.left)
-            bounding_box.right = max(bounding_box.right, char_bounding_box.right)
+        bounding_box = Box.from_boxes(
+            itertools.chain(
+                (precise_text_region_polygon.to_bounding_box(),),
+                (char_polygon.to_bounding_box() for char_polygon in char_polygons),
+            )
+        )
 
         shifted_precise_text_region_polygon = precise_text_region_polygon.to_shifted_polygon(
             y_offset=-bounding_box.up,

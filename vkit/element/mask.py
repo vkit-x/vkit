@@ -12,6 +12,7 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import cast, Optional, Tuple, Union, List, Iterable, TypeVar, Sequence
+from contextlib import ContextDecorator
 import logging
 
 import attrs
@@ -37,19 +38,45 @@ class MaskSetItemConfig:
     keep_min_value: bool = False
 
 
+class WritableMaskContextDecorator(ContextDecorator):
+
+    def __init__(self, mask: 'Mask'):
+        super().__init__()
+        self.mask = mask
+
+    def __enter__(self):
+        assert not self.mask.mat.flags.writeable
+        self.mask.mat.flags.writeable = True
+
+    def __exit__(self, *exc):  # type: ignore
+        self.mask.mat.flags.writeable = False
+        self.mask.set_np_mask_out_of_date()
+
+
 _E = TypeVar('_E', 'Box', 'Polygon')
 
 
-@attrs.define
+@attrs.define(frozen=True, eq=False)
 class Mask(Shapable):
     mat: np.ndarray
     box: Optional['Box'] = None
+
+    _np_mask: np.ndarray = attrs.field(init=False, repr=False)
+    _np_mask_is_out_of_date: bool = attrs.field(default=False, repr=False)
 
     def __attrs_post_init__(self):
         if self.mat.dtype != np.uint8:
             raise RuntimeError('mat.dtype != np.uint8')
         if self.mat.ndim != 2:
             raise RuntimeError('ndim should == 2.')
+
+        # For the control of write.
+        self.mat.flags.writeable = False
+
+        # Initialize mask.
+        self.set_np_mask_out_of_date()
+        self.update_np_mask_if_needed()
+
         if self.box and self.shape != self.box.shape:
             raise RuntimeError('self.shape != box.shape.')
 
@@ -84,13 +111,30 @@ class Mask(Shapable):
 
     @property
     def np_mask(self):
-        return (self.mat > 0)
+        self.update_np_mask_if_needed()
+        return self._np_mask
+
+    @property
+    def writable_context(self):
+        return WritableMaskContextDecorator(self)
 
     ############
     # Operator #
     ############
     def copy(self):
         return attrs.evolve(self, mat=self.mat.copy())
+
+    def set_np_mask_out_of_date(self):
+        object.__setattr__(self, '_np_mask_is_out_of_date', True)
+
+    def update_np_mask_if_needed(self):
+        if self._np_mask_is_out_of_date:
+            object.__setattr__(self, '_np_mask', (self.mat > 0))
+            object.__setattr__(self, '_np_mask_is_out_of_date', False)
+
+    def assign_mat(self, mat: np.ndarray):
+        with self.writable_context:
+            object.__setattr__(self, 'mat', mat)
 
     @staticmethod
     def unpack_element_value_pairs(
@@ -376,12 +420,13 @@ class Mask(Shapable):
         if isinstance(value, Mask):
             value = value.mat
 
-        self.fill_np_array(
-            mask.mat,
-            value,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with mask.writable_context:
+            self.fill_np_array(
+                mask.mat,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
     def extract_score_map(self, score_map: 'ScoreMap'):
         if self.box:
@@ -401,12 +446,13 @@ class Mask(Shapable):
         if isinstance(value, ScoreMap):
             value = value.mat
 
-        self.fill_np_array(
-            score_map.mat,
-            value,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with score_map.writable_context:
+            self.fill_np_array(
+                score_map.mat,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
     def to_score_map(self):
         mat = self.np_mask.astype(np.float32)
@@ -523,23 +569,24 @@ def generate_fill_by_masks_mask(
 
     masks_mask = Mask.from_shape(shape)
 
-    for mask in masks:
-        if mask.box:
-            boxed_mat = mask.box.extract_np_array(masks_mask.mat)
+    with masks_mask.writable_context:
+        for mask in masks:
+            if mask.box:
+                boxed_mat = mask.box.extract_np_array(masks_mask.mat)
+            else:
+                boxed_mat = masks_mask.mat
+
+            np_non_oob_mask = (boxed_mat < 255)
+            boxed_mat[mask.np_mask & np_non_oob_mask] += 1
+
+        if mode == FillByElementsMode.DISTINCT:
+            masks_mask.mat[masks_mask.mat > 1] = 0
+
+        elif mode == FillByElementsMode.INTERSECT:
+            masks_mask.mat[masks_mask.mat == 1] = 0
+
         else:
-            boxed_mat = masks_mask.mat
-
-        np_non_oob_mask = (boxed_mat < 255)
-        boxed_mat[mask.np_mask & np_non_oob_mask] += 1
-
-    if mode == FillByElementsMode.DISTINCT:
-        masks_mask.mat[masks_mask.mat > 1] = 0
-
-    elif mode == FillByElementsMode.INTERSECT:
-        masks_mask.mat[masks_mask.mat == 1] = 0
-
-    else:
-        raise NotImplementedError()
+            raise NotImplementedError()
 
     return masks_mask
 

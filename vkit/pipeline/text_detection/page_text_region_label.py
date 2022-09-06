@@ -275,7 +275,7 @@ class PageTextRegionLabelStep(
         np_gaussian_map = np.exp(-0.5 * np.square(np_distance))
 
         # For perspective transformation.
-        np_points = np.array(
+        np_points = np.asarray(
             [
                 (0, 0),
                 (length - 1, 0),
@@ -374,7 +374,7 @@ class PageTextRegionLabelStep(
 
             # Then transform to the polygon space.
             np_dst_points = polygon.fill_np_array_internals.shifted_np_points.astype(np.float32)
-            np_src_points = np.array(
+            np_src_points = np.asarray(
                 [
                     (0, 0),
                     (bounding_box.width - 1, 0),
@@ -390,7 +390,10 @@ class PageTextRegionLabelStep(
             )
 
             deviate_points = PointList()
-            for shifted_deviate_point in affine_points(trans_mat, deviate_points_in_bounding_box):
+            for shifted_deviate_point in affine_points(
+                trans_mat,
+                deviate_points_in_bounding_box.to_point_tuple(),
+            ):
                 y = bounding_box.up + shifted_deviate_point.y
                 x = bounding_box.left + shifted_deviate_point.x
                 assert 0 <= y < page_height

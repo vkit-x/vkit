@@ -332,7 +332,7 @@ class Image(Shapable):
     ##############
     @staticmethod
     def from_pil_image(pil_image: PilImage.Image):
-        # NOTE: Make a copy explicitly.
+        # NOTE: Make a copy explicitly, otherwise is not writable.
         mat = np.array(pil_image, dtype=np.uint8)
         return Image(mat=mat)
 
