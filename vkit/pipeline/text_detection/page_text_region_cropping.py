@@ -17,7 +17,8 @@ import warnings
 
 import attrs
 from numpy.random import Generator as RandomGenerator
-from shapely.strtree import STRtree, ShapelyDeprecationWarning
+from shapely.errors import ShapelyDeprecationWarning
+from shapely.strtree import STRtree
 from shapely.geometry import Point as ShapelyPoint
 
 from vkit.element import Box, ScoreMap, Image, Cropper

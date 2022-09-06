@@ -20,7 +20,8 @@ import warnings
 import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
-from shapely.strtree import STRtree, ShapelyDeprecationWarning
+from shapely.errors import ShapelyDeprecationWarning
+from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
 
