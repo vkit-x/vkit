@@ -203,7 +203,8 @@ class PageTextRegionCroppingStep(
         rotate_angle = page_text_region_step_output.rotate_angle
 
         page_text_region_label_step_output = input.page_text_region_label_step_output
-        page_char_gaussian_score_map = page_text_region_label_step_output.page_char_gaussian_score_map
+        page_char_gaussian_score_map = \
+            page_text_region_label_step_output.page_char_gaussian_score_map
         page_char_regression_labels = \
             page_text_region_label_step_output.page_char_regression_labels
 
