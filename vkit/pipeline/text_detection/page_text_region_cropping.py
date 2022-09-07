@@ -56,7 +56,7 @@ class PageTextRegionCroppingStepInput:
 @attrs.define
 class CroppedPageTextRegion:
     page_image: Image
-    page_score_map: ScoreMap
+    page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
     core_box: Box
 
@@ -96,7 +96,7 @@ class PageTextRegionCroppingStep(
         page_image: Image,
         shape_before_rotate: Tuple[int, int],
         rotate_angle: int,
-        page_score_map: ScoreMap,
+        page_char_gaussian_score_map: ScoreMap,
         centroid_strtree: STRtree,
         centroid_xy_pair_to_labels: Mapping[Tuple[int, int], Sequence[PageCharRegressionLabel]],
         deviate_strtree: STRtree,
@@ -181,14 +181,14 @@ class PageTextRegionCroppingStep(
 
         # Crop image and score map.
         page_image = cropper.crop_image(page_image)
-        page_score_map = cropper.crop_score_map(
-            page_score_map,
+        page_char_gaussian_score_map = cropper.crop_score_map(
+            page_char_gaussian_score_map,
             core_only=True,
         )
 
         return CroppedPageTextRegion(
             page_image=page_image,
-            page_score_map=page_score_map,
+            page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=shifted_centroid_labels + shifted_deviate_labels,
             core_box=cropper.core_box,
         )
@@ -203,7 +203,7 @@ class PageTextRegionCroppingStep(
         rotate_angle = page_text_region_step_output.rotate_angle
 
         page_text_region_label_step_output = input.page_text_region_label_step_output
-        page_score_map = page_text_region_label_step_output.page_score_map
+        page_char_gaussian_score_map = page_text_region_label_step_output.page_char_gaussian_score_map
         page_char_regression_labels = \
             page_text_region_label_step_output.page_char_regression_labels
 
@@ -236,7 +236,7 @@ class PageTextRegionCroppingStep(
                 page_image=page_image,
                 shape_before_rotate=shape_before_rotate,
                 rotate_angle=rotate_angle,
-                page_score_map=page_score_map,
+                page_char_gaussian_score_map=page_char_gaussian_score_map,
                 centroid_strtree=centroid_strtree,
                 centroid_xy_pair_to_labels=centroid_xy_pair_to_labels,
                 deviate_strtree=deviate_strtree,

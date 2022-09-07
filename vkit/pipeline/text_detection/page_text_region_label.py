@@ -239,7 +239,7 @@ class PageCharRegressionLabel:
 
 @attrs.define
 class PageTextRegionLabelStepOutput:
-    page_score_map: ScoreMap
+    page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
 
 
@@ -287,7 +287,7 @@ class PageTextRegionLabelStep(
 
         return np_gaussian_map, np_points
 
-    def generate_page_score_map(
+    def generate_page_char_gaussian_score_map(
         self,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
@@ -440,7 +440,7 @@ class PageTextRegionLabelStep(
         page_image = page_text_region_step_output.page_image
         page_char_polygons = page_text_region_step_output.page_char_polygons
 
-        page_score_map = self.generate_page_score_map(
+        page_char_gaussian_score_map = self.generate_page_char_gaussian_score_map(
             page_image.shape,
             page_char_polygons,
         )
@@ -451,7 +451,7 @@ class PageTextRegionLabelStep(
         )
 
         return PageTextRegionLabelStepOutput(
-            page_score_map=page_score_map,
+            page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=page_char_regression_labels,
         )
 
