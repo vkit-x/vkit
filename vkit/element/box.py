@@ -257,15 +257,7 @@ class Box(Shapable):
         if mat_shape_before_extraction != self.shape:
             mat = self.extract_np_array(mat)
 
-        if not isinstance(value, np.ndarray):
-            if mat.ndim == 3:
-                num_channels = mat.shape[2]
-                if isinstance(value, tuple) and len(value) != num_channels:
-                    raise RuntimeError('value is tuple but len(value) != num_channels.')
-
-            value = np.full_like(mat, value)
-
-        else:
+        if isinstance(value, np.ndarray):
             value_shape_before_extraction = (value.shape[0], value.shape[1])
             if value_shape_before_extraction != (mat.shape[0], mat.shape[1]):
                 assert value_shape_before_extraction == mat_shape_before_extraction
