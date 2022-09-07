@@ -341,9 +341,23 @@ def visualize_page_text_region_cropping_step_output(
         )
 
         painter = Painter(cropped_page_text_region.page_image)
+        painter.paint_mask(cropped_page_text_region.page_char_mask)
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_mask.jpg',
+            painter.image,
+        )
+
+        painter = Painter(cropped_page_text_region.page_image)
+        painter.paint_score_map(cropped_page_text_region.page_char_height_score_map)
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_height_score_map.jpg',
+            painter.image,
+        )
+
+        painter = Painter(cropped_page_text_region.page_image)
         painter.paint_score_map(cropped_page_text_region.page_char_gaussian_score_map)
         cur_write_image(
-            f'page_{seed}_cropped_text_region_{idx}_score_map.jpg',
+            f'page_{seed}_cropped_text_region_{idx}_gaussian_score_map.jpg',
             painter.image,
         )
 
