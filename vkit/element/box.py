@@ -27,7 +27,7 @@ from .opt import (
 )
 
 
-@attrs.define
+@attrs.define(frozen=True)
 class Box(Shapable):
     up: int
     down: int
@@ -49,6 +49,25 @@ class Box(Shapable):
     @staticmethod
     def from_shapable(shapable: Shapable):
         return Box.from_shape(height=shapable.height, width=shapable.width)
+
+    @staticmethod
+    def from_boxes(boxes: Iterable['Box']):
+        # Build a bounding box.
+        boxes_iter = iter(boxes)
+
+        first_box = next(boxes_iter)
+        up = first_box.up
+        down = first_box.down
+        left = first_box.left
+        right = first_box.right
+
+        for box in boxes_iter:
+            up = min(up, box.up)
+            down = max(down, box.down)
+            left = min(left, box.left)
+            right = max(right, box.right)
+
+        return Box(up=up, down=down, left=left, right=right)
 
     ############
     # Property #
@@ -74,12 +93,12 @@ class Box(Shapable):
     ##############
     def to_polygon(self, step: Optional[int] = None):
         if step is None:
-            points = PointList.from_xy_pairs([
+            points = PointTuple.from_xy_pairs((
                 (self.left, self.up),
                 (self.right, self.up),
                 (self.right, self.down),
                 (self.left, self.down),
-            ])
+            ))
 
         else:
             assert step > 0
@@ -108,14 +127,11 @@ class Box(Shapable):
             for y in reversed(ys):
                 points.append(Point(y=y, x=self.left))
 
-        return Polygon(points=points)
+        return Polygon.create(points=points)
 
     ############
     # Operator #
     ############
-    def copy(self):
-        return attrs.evolve(self)
-
     def get_center_point(self):
         return Point(y=(self.up + self.down) // 2, x=(self.left + self.right) // 2)
 
@@ -163,15 +179,12 @@ class Box(Shapable):
         )
 
     def to_shifted_box(self, y_offset: int = 0, x_offset: int = 0):
-        shifted_box = self.copy()
-
-        shifted_box.up += y_offset
-        shifted_box.down += y_offset
-
-        shifted_box.left += x_offset
-        shifted_box.right += x_offset
-
-        return shifted_box
+        return Box(
+            up=self.up + y_offset,
+            down=self.down + y_offset,
+            left=self.left + x_offset,
+            right=self.right + x_offset,
+        )
 
     def to_dilated_box(self, ratio: float, clip_long_side: bool = False):
         expand_vert = math.ceil(self.height * ratio / 2)
@@ -244,15 +257,7 @@ class Box(Shapable):
         if mat_shape_before_extraction != self.shape:
             mat = self.extract_np_array(mat)
 
-        if not isinstance(value, np.ndarray):
-            if mat.ndim == 3:
-                num_channels = mat.shape[2]
-                if isinstance(value, tuple) and len(value) != num_channels:
-                    raise RuntimeError('value is tuple but len(value) != num_channels.')
-
-            value = np.full_like(mat, value)
-
-        else:
+        if isinstance(value, np.ndarray):
             value_shape_before_extraction = (value.shape[0], value.shape[1])
             if value_shape_before_extraction != (mat.shape[0], mat.shape[1]):
                 assert value_shape_before_extraction == mat_shape_before_extraction
@@ -306,12 +311,13 @@ class Box(Shapable):
             else:
                 np_mask = mask
 
-        self.fill_np_array(
-            image.mat,
-            value,
-            np_mask=np_mask,
-            alpha=alpha,
-        )
+        with image.writable_context:
+            self.fill_np_array(
+                image.mat,
+                value,
+                np_mask=np_mask,
+                alpha=alpha,
+            )
 
     def fill_mask(
         self,
@@ -323,12 +329,13 @@ class Box(Shapable):
         if isinstance(value, Mask):
             value = value.mat
 
-        self.fill_np_array(
-            mask.mat,
-            value,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with mask.writable_context:
+            self.fill_np_array(
+                mask.mat,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
     def fill_score_map(
         self,
@@ -340,27 +347,22 @@ class Box(Shapable):
         if isinstance(value, ScoreMap):
             value = value.mat
 
-        self.fill_np_array(
-            score_map.mat,
-            value,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with score_map.writable_context:
+            self.fill_np_array(
+                score_map.mat,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
 
-@attrs.define
+@attrs.define(frozen=True)
 class CharBox(Shapable):
     char: str
     box: Box
 
     def __attrs_post_init__(self):
         assert len(self.char) == 1 and not self.char.isspace()
-
-    ##############
-    # Conversion #
-    ##############
-    def to_text_polygon(self, step: Optional[int] = None):
-        return TextPolygon(text=self.char, polygon=self.box.to_polygon(step=step))
 
     ############
     # Property #
@@ -392,9 +394,6 @@ class CharBox(Shapable):
     ############
     # Operator #
     ############
-    def copy(self):
-        return attrs.evolve(self, box=self.box.copy())
-
     def to_conducted_resized_char_box(
         self,
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
@@ -440,26 +439,27 @@ def generate_fill_by_boxes_mask(
 
     boxes_mask = Mask.from_shape(shape)
 
-    for box in boxes:
-        boxed_mat = box.extract_np_array(boxes_mask.mat)
-        np_non_oob_mask = (boxed_mat < 255)
-        boxed_mat[np_non_oob_mask] += 1
+    with boxes_mask.writable_context:
+        for box in boxes:
+            boxed_mat = box.extract_np_array(boxes_mask.mat)
+            np_non_oob_mask = (boxed_mat < 255)
+            boxed_mat[np_non_oob_mask] += 1
 
-    if mode == FillByElementsMode.DISTINCT:
-        boxes_mask.mat[boxes_mask.mat > 1] = 0
+        if mode == FillByElementsMode.DISTINCT:
+            boxes_mask.mat[boxes_mask.mat > 1] = 0
 
-    elif mode == FillByElementsMode.INTERSECT:
-        boxes_mask.mat[boxes_mask.mat == 1] = 0
+        elif mode == FillByElementsMode.INTERSECT:
+            boxes_mask.mat[boxes_mask.mat == 1] = 0
 
-    else:
-        raise NotImplementedError()
+        else:
+            raise NotImplementedError()
 
     return boxes_mask
 
 
 # Cyclic dependency, by design.
-from .point import Point, PointList  # noqa: E402
-from .polygon import Polygon, TextPolygon  # noqa: E402
+from .point import Point, PointList, PointTuple  # noqa: E402
+from .polygon import Polygon  # noqa: E402
 from .mask import Mask  # noqa: E402
 from .score_map import ScoreMap  # noqa: E402
 from .image import Image  # noqa: E402

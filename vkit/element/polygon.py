@@ -11,9 +11,8 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import cast, Optional, Tuple, Union, Sequence, Iterable, Dict, Any, List
+from typing import cast, Optional, Tuple, Union, Sequence, Iterable, List
 import logging
-import copy
 import math
 
 import attrs
@@ -42,7 +41,7 @@ class PolygonFillNpArrayInternals:
     bounding_box: 'Box'
     shifted_np_points: np.ndarray
 
-    _np_mask: Optional[np.ndarray] = None
+    _np_mask: Optional[np.ndarray] = attrs.field(default=None, repr=False)
 
     def lazy_post_init_np_mask(self):
         if self._np_mask is not None:
@@ -60,12 +59,13 @@ class PolygonFillNpArrayInternals:
         return self.lazy_post_init_np_mask()
 
 
-@attrs.define
+@attrs.define(frozen=True, eq=False)
 class Polygon:
-    points: 'PointList'
+    points: 'PointTuple'
 
-    _area: Optional[int] = None
-    _fill_np_array_internals: Optional[PolygonFillNpArrayInternals] = None
+    _area: Optional[int] = attrs.field(default=None, repr=False)
+    _fill_np_array_internals: Optional[PolygonFillNpArrayInternals] = \
+        attrs.field(default=None, repr=False)
 
     def __attrs_post_init__(self):
         assert self.points
@@ -74,8 +74,12 @@ class Polygon:
         if self._area is not None:
             return self._area
 
-        self._area = cast(int, ShapelyPolygon(self.to_xy_pairs()).area)
-        return self._area
+        object.__setattr__(
+            self,
+            '_area',
+            ShapelyPolygon(self.to_xy_pairs()).area,
+        )
+        return cast(int, self._area)
 
     def lazy_post_init_fill_np_array_internals(self):
         if self._fill_np_array_internals is not None:
@@ -94,18 +98,22 @@ class Polygon:
         np_points[:, 0] -= x_min
         np_points[:, 1] -= y_min
 
-        self._fill_np_array_internals = PolygonFillNpArrayInternals(
-            bounding_box=bounding_box,
-            shifted_np_points=np_points,
+        object.__setattr__(
+            self,
+            '_fill_np_array_internals',
+            PolygonFillNpArrayInternals(
+                bounding_box=bounding_box,
+                shifted_np_points=np_points,
+            ),
         )
-        return self._fill_np_array_internals
+        return cast(PolygonFillNpArrayInternals, self._fill_np_array_internals)
 
     ###############
     # Constructor #
     ###############
     @staticmethod
-    def create(points: Union['PointList', Iterable['Point']]):
-        return Polygon(points=PointList(points))
+    def create(points: Union['PointList', 'PointTuple', Iterable['Point']]):
+        return Polygon(points=PointTuple(points))
 
     ############
     # Property #
@@ -123,21 +131,21 @@ class Polygon:
     ##############
     @staticmethod
     def from_xy_pairs(xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
-        return Polygon(points=PointList.from_xy_pairs(xy_pairs))
+        return Polygon(points=PointTuple.from_xy_pairs(xy_pairs))
 
     def to_xy_pairs(self):
         return self.points.to_xy_pairs()
 
     @staticmethod
     def from_flatten_xy_pairs(flatten_xy_pairs: Sequence[T_VAL]):
-        return Polygon(points=PointList.from_flatten_xy_pairs(flatten_xy_pairs))
+        return Polygon(points=PointTuple.from_flatten_xy_pairs(flatten_xy_pairs))
 
     def to_flatten_xy_pairs(self):
         return self.points.to_flatten_xy_pairs()
 
     @staticmethod
     def from_np_array(np_points: np.ndarray):
-        return Polygon(points=PointList.from_np_array(np_points))
+        return Polygon(points=PointTuple.from_np_array(np_points))
 
     def to_np_array(self):
         return self.points.to_np_array()
@@ -154,9 +162,6 @@ class Polygon:
     ############
     # Operator #
     ############
-    def copy(self):
-        return Polygon(points=self.points.copy())
-
     def get_center_point(self):
         xy_pairs = self.to_xy_pairs()
 
@@ -204,13 +209,13 @@ class Polygon:
 
     def to_bounding_rectangular_polygon(self):
         shapely_polygon = ShapelyMultiPoint(self.to_xy_pairs()).minimum_rotated_rectangle
-        np_points = np.array(shapely_polygon.exterior.coords).astype(np.int32)  # type: ignore
+        np_points = np.asarray(shapely_polygon.exterior.coords).astype(np.int32)  # type: ignore
         points = PointList.from_np_array(np_points)
         assert len(points) == 4
         return self.create(points=points)
 
     def to_bounding_box(self):
-        return self.fill_np_array_internals.bounding_box.copy()
+        return self.fill_np_array_internals.bounding_box
 
     def fill_np_array(
         self,
@@ -252,17 +257,18 @@ class Polygon:
         if isinstance(value, Mask):
             value = value.mat
 
-        self.fill_np_array(
-            mask.mat,
-            value,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with mask.writable_context:
+            self.fill_np_array(
+                mask.mat,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
     def to_mask(self):
         return Mask(
             mat=self.fill_np_array_internals.get_np_mask().astype(np.uint8),
-            box=self.fill_np_array_internals.bounding_box.copy(),
+            box=self.fill_np_array_internals.bounding_box,
         )
 
     def extract_score_map(self, score_map: 'ScoreMap'):
@@ -286,12 +292,13 @@ class Polygon:
         if isinstance(value, ScoreMap):
             value = value.mat
 
-        self.fill_np_array(
-            score_map.mat,
-            value,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with score_map.writable_context:
+            self.fill_np_array(
+                score_map.mat,
+                value,
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
     def extract_image(self, image: 'Image'):
         extracted_image = self.fill_np_array_internals.bounding_box.extract_image(image)
@@ -316,7 +323,8 @@ class Polygon:
             assert alpha.is_prob
             alpha = alpha.mat
 
-        self.fill_np_array(image.mat, value, alpha=alpha)
+        with image.writable_context:
+            self.fill_np_array(image.mat, value, alpha=alpha)
 
     @staticmethod
     def remove_duplicated_xy_pairs(xy_pairs: Sequence[Tuple[int, int]]):
@@ -472,41 +480,6 @@ def unionize_polygons(polygons: Iterable[Polygon]):
     return unionized_polygons, scatter_indices
 
 
-@attrs.define
-class TextPolygon:
-    text: str
-    polygon: Polygon
-    meta: Optional[Dict[str, Any]] = None
-
-    def __attrs_post_init__(self):
-        assert self.text
-
-    ############
-    # Operator #
-    ############
-    def copy(self):
-        return attrs.evolve(
-            self,
-            polygon=self.polygon.copy(),
-            meta=None if not self.meta else copy.deepcopy(self.meta),
-        )
-
-    def to_conducted_resized_text_polygon(
-        self,
-        shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        resized_height: Optional[int] = None,
-        resized_width: Optional[int] = None,
-    ):
-        return attrs.evolve(
-            self,
-            polygon=self.polygon.to_conducted_resized_polygon(
-                shapable_or_shape=shapable_or_shape,
-                resized_height=resized_height,
-                resized_width=resized_width,
-            ),
-        )
-
-
 def generate_fill_by_polygons_mask(
     shape: Tuple[int, int],
     polygons: Iterable[Polygon],
@@ -517,26 +490,29 @@ def generate_fill_by_polygons_mask(
 
     polygons_mask = Mask.from_shape(shape)
 
-    for polygon in polygons:
-        boxed_mat = polygon.fill_np_array_internals.bounding_box.extract_np_array(polygons_mask.mat)
-        np_polygon_mask = polygon.fill_np_array_internals.get_np_mask()
-        np_non_oob_mask = (boxed_mat < 255)
-        boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
+    with polygons_mask.writable_context:
+        for polygon in polygons:
+            boxed_mat = polygon.fill_np_array_internals.bounding_box.extract_np_array(
+                polygons_mask.mat
+            )
+            np_polygon_mask = polygon.fill_np_array_internals.get_np_mask()
+            np_non_oob_mask = (boxed_mat < 255)
+            boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
 
-    if mode == FillByElementsMode.DISTINCT:
-        polygons_mask.mat[polygons_mask.mat > 1] = 0
+        if mode == FillByElementsMode.DISTINCT:
+            polygons_mask.mat[polygons_mask.mat > 1] = 0
 
-    elif mode == FillByElementsMode.INTERSECT:
-        polygons_mask.mat[polygons_mask.mat == 1] = 0
+        elif mode == FillByElementsMode.INTERSECT:
+            polygons_mask.mat[polygons_mask.mat == 1] = 0
 
-    else:
-        raise NotImplementedError()
+        else:
+            raise NotImplementedError()
 
     return polygons_mask
 
 
 # Cyclic dependency, by design.
-from .point import Point, PointList  # noqa: E402
+from .point import Point, PointList, PointTuple  # noqa: E402
 from .box import Box  # noqa: E402
 from .mask import Mask  # noqa: E402
 from .score_map import ScoreMap  # noqa: E402

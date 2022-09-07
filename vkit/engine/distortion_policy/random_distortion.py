@@ -38,9 +38,9 @@ from vkit.element import (
     Image,
     Point,
     PointList,
+    PointTuple,
     Box,
     Polygon,
-    TextPolygon,
     Mask,
     ScoreMap,
 )
@@ -175,7 +175,7 @@ class RandomDistortionStage:
                 for x in xs:
                     corner_points.append(Point(y=y, x=x))
 
-            distortion_result.corner_points = corner_points
+            distortion_result.corner_points = corner_points.to_point_tuple()
 
         distortion_policies = self.sample_distortion_policies(rng)
 
@@ -194,8 +194,6 @@ class RandomDistortionStage:
                 corner_points=distortion_result.corner_points,
                 polygon=distortion_result.polygon,
                 polygons=distortion_result.polygons,
-                text_polygon=distortion_result.text_polygon,
-                text_polygons=distortion_result.text_polygons,
                 rng=rng,
                 debug=bool(debug),
             )
@@ -243,13 +241,6 @@ class RandomDistortion:
         if distortion_result.polygons:
             for polygon in distortion_result.polygons:
                 yield from polygon.points
-
-        if distortion_result.text_polygon:
-            yield from distortion_result.text_polygon.polygon.points
-
-        if distortion_result.text_polygons:
-            for text_polygon in distortion_result.text_polygons:
-                yield from text_polygon.polygon.points
 
     @staticmethod
     def get_distortion_result_element_bounding_box(distortion_result: DistortionResult):
@@ -350,26 +341,6 @@ class RandomDistortion:
                 ) for polygon in distortion_result.polygons
             ]
 
-        if distortion_result.text_polygon:
-            distortion_result.text_polygon = attrs.evolve(
-                distortion_result.text_polygon,
-                polygon=distortion_result.text_polygon.polygon.to_shifted_points(
-                    y_offset=-pad_up,
-                    x_offset=-pad_left,
-                )
-            )
-
-        if distortion_result.text_polygons:
-            distortion_result.text_polygons = [
-                attrs.evolve(
-                    text_polygon,
-                    polygon=text_polygon.polygon.to_shifted_points(
-                        y_offset=-pad_up,
-                        x_offset=-pad_left,
-                    )
-                ) for text_polygon in distortion_result.text_polygons
-            ]
-
         return distortion_result
 
     def distort(
@@ -380,11 +351,9 @@ class RandomDistortion:
         mask: Optional[Mask] = None,
         score_map: Optional[ScoreMap] = None,
         point: Optional[Point] = None,
-        points: Optional[PointList] = None,
+        points: Optional[Union[PointList, PointTuple, Iterable[Point]]] = None,
         polygon: Optional[Polygon] = None,
         polygons: Optional[Iterable[Polygon]] = None,
-        text_polygon: Optional[TextPolygon] = None,
-        text_polygons: Optional[Iterable[TextPolygon]] = None,
         debug: Optional[RandomDistortionDebug] = None,
     ):
         # Pack.
@@ -399,13 +368,10 @@ class RandomDistortion:
         distortion_result.mask = mask
         distortion_result.score_map = score_map
         distortion_result.point = point
-        distortion_result.points = points
+        distortion_result.points = PointTuple(points) if points else None
         distortion_result.polygon = polygon
         if polygons:
             distortion_result.polygons = tuple(polygons)
-        distortion_result.text_polygon = text_polygon
-        if text_polygons:
-            distortion_result.text_polygons = tuple(text_polygons)
 
         # Apply distortions.
         level = rng.integers(self.level_min, self.level_max + 1)

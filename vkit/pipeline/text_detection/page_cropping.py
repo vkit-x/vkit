@@ -168,8 +168,7 @@ class PageCroppingStep(
                 right=downsampled_core_end,
             )
 
-            downsampled_page_char_mask = page_char_mask.copy()
-            downsampled_page_char_mask.box = None
+            downsampled_page_char_mask = page_char_mask.to_box_detached()
             downsampled_page_char_mask = \
                 downsampled_page_char_mask.to_resized_mask(
                     resized_height=downsampled_core_size,
@@ -177,8 +176,7 @@ class PageCroppingStep(
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
 
-            downsampled_page_char_height_score_map = page_char_height_score_map.copy()
-            downsampled_page_char_height_score_map.box = None
+            downsampled_page_char_height_score_map = page_char_height_score_map.to_box_detached()
             downsampled_page_char_height_score_map = \
                 downsampled_page_char_height_score_map.to_resized_score_map(
                     resized_height=downsampled_core_size,
@@ -186,8 +184,7 @@ class PageCroppingStep(
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
 
-            downsampled_page_text_line_mask = page_text_line_mask.copy()
-            downsampled_page_text_line_mask.box = None
+            downsampled_page_text_line_mask = page_text_line_mask.to_box_detached()
             downsampled_page_text_line_mask = \
                 downsampled_page_text_line_mask.to_resized_mask(
                     resized_height=downsampled_core_size,
@@ -195,8 +192,8 @@ class PageCroppingStep(
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
 
-            downsampled_page_text_line_height_score_map = page_text_line_height_score_map.copy()
-            downsampled_page_text_line_height_score_map.box = None
+            downsampled_page_text_line_height_score_map = \
+                page_text_line_height_score_map.to_box_detached()
             downsampled_page_text_line_height_score_map = \
                 downsampled_page_text_line_height_score_map.to_resized_score_map(
                     resized_height=downsampled_core_size,

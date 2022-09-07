@@ -451,7 +451,7 @@ class TextLine:
             if self.box.up < y_mid < self.box.down:
                 points.append(Point(y=y_mid, x=xs[0]))
 
-            return Polygon(points=points)
+            return Polygon.create(points=points)
 
         else:
             ys = [self.box.up]
@@ -478,7 +478,7 @@ class TextLine:
             if self.box.left < x_mid < self.box.right:
                 points.append(Point(y=ys[0], x=x_mid))
 
-            return Polygon(points=points)
+            return Polygon.create(points=points)
 
     def to_char_polygons(
         self,

@@ -13,10 +13,10 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from .type import Shapable, FillByElementsMode
 
-from .point import Point, PointList
+from .point import Point, PointList, PointTuple
 from .line import Line
 from .box import Box, CharBox
-from .polygon import Polygon, TextPolygon
+from .polygon import Polygon
 from .mask import Mask, MaskSetItemConfig
 from .score_map import ScoreMap, ScoreMapSetItemConfig
 from .image import Image, ImageKind, ImageSetItemConfig

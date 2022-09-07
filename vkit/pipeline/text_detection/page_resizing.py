@@ -67,7 +67,7 @@ class PageResizingStep(
         assert text_line_heights
         # 2. Remove outliers.
         # https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm
-        text_line_heights = np.array(text_line_heights)
+        text_line_heights = np.asarray(text_line_heights)
         deltas = np.abs(text_line_heights - np.median(text_line_heights))
         deltas_median = np.median(deltas)
         delta_ratios = deltas / (deltas_median or 1.0)
@@ -139,7 +139,7 @@ class PageResizingStep(
             cv_resize_interpolation=cv_resize_interpolation,
         )
         # Scores are resized as well.
-        page_char_height_score_map.mat *= resize_ratio
+        page_char_height_score_map.assign_mat(page_char_height_score_map.mat * resize_ratio)
 
         assert page_text_line_mask.shape == (height, width)
         page_text_line_mask = page_text_line_mask.to_resized_mask(
@@ -155,7 +155,9 @@ class PageResizingStep(
             cv_resize_interpolation=cv_resize_interpolation,
         )
         # Scores are resized as well.
-        page_text_line_height_score_map.mat *= resize_ratio
+        page_text_line_height_score_map.assign_mat(
+            page_text_line_height_score_map.mat * resize_ratio
+        )
 
         return PageResizingStepOutput(
             page_image=page_image,

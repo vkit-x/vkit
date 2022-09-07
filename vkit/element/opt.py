@@ -121,6 +121,16 @@ def fill_np_array(
     keep_max_value: bool = False,
     keep_min_value: bool = False,
 ):
+    if not isinstance(value, np.ndarray) \
+            and np_mask is not None \
+            and isinstance(alpha, float) \
+            and alpha == 1.0 \
+            and not keep_max_value \
+            and not keep_min_value:
+        # Most common case, hence optimize the performance here.
+        mat[np_mask] = value
+        return
+
     mat_origin = mat
     np_value = prep_value(mat, value)
 

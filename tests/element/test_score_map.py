@@ -57,7 +57,7 @@ def test_quad_interpolation():
                 func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 0]
             )
             image = Image.from_shapable(score_map)
-            image.mat = (score_map.mat * 255).astype(np.uint8)
+            image.assign_mat((score_map.mat * 255).astype(np.uint8))
             write_image(f'{idx}_shift_{shift}_u.png', image)
 
             score_map = ScoreMap.from_quad_interpolation(
@@ -68,7 +68,7 @@ def test_quad_interpolation():
                 func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1]
             )
             image = Image.from_shapable(score_map)
-            image.mat = (score_map.mat * 255).astype(np.uint8)
+            image.assign_mat((score_map.mat * 255).astype(np.uint8))
             write_image(f'{idx}_shift_{shift}_v.png', image)
 
     score_map = ScoreMap.from_shape((300, 300))
@@ -87,7 +87,7 @@ def test_quad_interpolation():
         func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
     )
     image = Image.from_shapable(score_map)
-    image.mat = (score_map.mat * 255).astype(np.uint8)
+    image.assign_mat((score_map.mat * 255).astype(np.uint8))
     write_image('fill_by.png', image)
 
 
@@ -191,7 +191,8 @@ def test_score_map_setitem_mask():
     box0 = Box(up=100, down=200, left=100, right=200)
     boxed_mask = Mask.from_shape(box0.shape).to_box_attached(box0)
     rng = default_rng(0)
-    boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
+    with boxed_mask.writable_context:
+        boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
     score_map[boxed_mask] = 1.0
 
     painter = Painter.create(score_map)
@@ -201,7 +202,8 @@ def test_score_map_setitem_mask():
     score_map = ScoreMap.from_shape((400, 400))
     boxed_mask = Mask.from_shapable(score_map)
     rng = default_rng(0)
-    boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
+    with boxed_mask.writable_context:
+        boxed_mask.mat[rng.random(size=boxed_mask.shape) > 0.5] = 1
     score_map[boxed_mask] = 1.0
 
     painter = Painter.create(score_map)

@@ -107,7 +107,10 @@ class CameraModel:
         # (0, 0, camera_distance) after transformation.
         #
         # "cc_" is for camera coordinate and "wc_" is for world coordinate.
-        cc_principal_point_vec = np.array([0, 0, camera_distance], dtype=np.float32).reshape(-1, 1)
+        cc_principal_point_vec = np.asarray(
+            [0, 0, camera_distance],
+            dtype=np.float32,
+        ).reshape(-1, 1)
         wc_shifted_origin_vec = np.matmul(
             # NOTE: The rotation matrix is orthogonal,
             # hence it's inverse is equal to it's transpose.
@@ -153,7 +156,7 @@ class CameraModel:
 
     @staticmethod
     def generate_intrinsic_mat(focal_length: float):
-        return np.array(
+        return np.asarray(
             [
                 [focal_length, 0, 0],
                 [0, focal_length, 0],
@@ -336,7 +339,7 @@ class CameraCubicCurvePoint2dTo3dStrategy(Point2dTo3dStrategy):
         # Plane projection direction.
         self.curve_direction = (curve_direction % 180) / 180 * np.pi
 
-        self.rotation_mat = np.array(
+        self.rotation_mat = np.asarray(
             [
                 [
                     math.cos(self.curve_direction),
@@ -350,7 +353,7 @@ class CameraCubicCurvePoint2dTo3dStrategy(Point2dTo3dStrategy):
             dtype=np.float32,
         )
 
-        corners = np.array(
+        corners = np.asarray(
             [
                 [0, 0],
                 [self.width - 1, 0],
@@ -376,7 +379,7 @@ class CameraCubicCurvePoint2dTo3dStrategy(Point2dTo3dStrategy):
         ) / self.plane_projection_range
 
         # Axis-z.
-        poly = np.array([
+        poly = np.asarray([
             self.curve_alpha + self.curve_beta,
             -2 * self.curve_alpha - self.curve_beta,
             self.curve_alpha,
@@ -439,11 +442,11 @@ class CameraPlaneLinePoint2dTo3dStrategy(Point2dTo3dStrategy):
         self.width = width
 
         # Define a line.
-        self.point = np.array(point, dtype=np.float32)
+        self.point = np.asarray(point, dtype=np.float32)
         direction = (direction % 180) / 180 * np.pi
         cos_theta = np.cos(direction)
         sin_theta = np.sin(direction)
-        self.line_params_a_b = np.array([sin_theta, -cos_theta], dtype=np.float32)
+        self.line_params_a_b = np.asarray([sin_theta, -cos_theta], dtype=np.float32)
         self.line_param_c = -self.point[0] * sin_theta + self.point[1] * cos_theta
 
         # For weight calculationn.
@@ -452,7 +455,7 @@ class CameraPlaneLinePoint2dTo3dStrategy(Point2dTo3dStrategy):
         self.weights_func = weights_func
 
         # Deformation vector.
-        self.perturb_vec = np.array(perturb_vec, dtype=np.float32)
+        self.perturb_vec = np.asarray(perturb_vec, dtype=np.float32)
 
     def generate_np_3d_points(self, points: PointList) -> np.ndarray:
         np_2d_points = points.to_np_array().astype(np.float32)

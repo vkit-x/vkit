@@ -268,16 +268,17 @@ class ImageCombinerEngine(
             mat[up:down + 1, left:right + 1] = \
                 segment_image.mat[:down + 1 - up, :right + 1 - left]
 
-            ImageCombinerEngine.fill_np_edge_mask(
-                np_edge_mask=edge_mask.mat,
-                height=height,
-                width=width,
-                gaussian_blur_half_kernel_size=gaussian_blur_half_kernel_size,
-                up=up,
-                down=down,
-                left=left,
-                right=right,
-            )
+            with edge_mask.writable_context:
+                ImageCombinerEngine.fill_np_edge_mask(
+                    np_edge_mask=edge_mask.mat,
+                    height=height,
+                    width=width,
+                    gaussian_blur_half_kernel_size=gaussian_blur_half_kernel_size,
+                    up=up,
+                    down=down,
+                    left=left,
+                    right=right,
+                )
 
             # Update segments.
             if right == cur_segment.right:

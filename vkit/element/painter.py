@@ -22,7 +22,7 @@ from .type import Shapable
 from .point import Point, PointList
 from .line import Line
 from .box import Box, CharBox
-from .polygon import Polygon, TextPolygon
+from .polygon import Polygon
 from .mask import Mask
 from .score_map import ScoreMap
 from .image import Image, ImageKind
@@ -407,23 +407,6 @@ class Painter:
 
         self.overlay_layer_image(layer_image)
 
-    def paint_text_polygons(
-        self,
-        text_polygons: Iterable[TextPolygon],
-        enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
-        alpha: float = 0.5,
-        palette: Sequence[str] = PALETTE,
-    ):
-        # TODO: render char.
-        self.paint_polygons(
-            polygons=[text_polygon.polygon for text_polygon in text_polygons],
-            enable_index=enable_index,
-            color=color,
-            alpha=alpha,
-            palette=palette,
-        )
-
     def paint_mask(
         self,
         mask: Mask,
@@ -499,7 +482,7 @@ class Painter:
         if score_map.box:
             score_map.box.fill_image(layer_image, color_mat)
         else:
-            layer_image.mat = color_mat
+            layer_image.assign_mat(color_mat)
 
         self.overlay_layer_image(layer_image)
 

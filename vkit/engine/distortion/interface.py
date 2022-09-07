@@ -35,8 +35,8 @@ from vkit.element import (
     Image,
     Point,
     PointList,
+    PointTuple,
     Polygon,
-    TextPolygon,
     Mask,
     ScoreMap,
 )
@@ -113,12 +113,10 @@ class DistortionResult:
     score_map: Optional[ScoreMap] = None
     active_mask: Optional[Mask] = None
     point: Optional[Point] = None
-    points: Optional[PointList] = None
-    corner_points: Optional[PointList] = None
+    points: Optional[PointTuple] = None
+    corner_points: Optional[PointTuple] = None
     polygon: Optional[Polygon] = None
     polygons: Optional[Sequence[Polygon]] = None
-    text_polygon: Optional[TextPolygon] = None
-    text_polygons: Optional[Sequence[TextPolygon]] = None
     config: Optional[Any] = None
     state: Optional[Any] = None
     meta: Optional[Mapping[str, Any]] = None
@@ -204,10 +202,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                     _T_CONFIG,
                     Optional[_T_STATE],
                     Tuple[int, int],
-                    Union[PointList, Iterable[Point]],
+                    Union[PointList, PointTuple, Iterable[Point]],
                     Optional[RandomGenerator],
                 ],
-                PointList,
+                PointTuple,
             ]
         ] = None,
         func_polygon: Optional[
@@ -637,7 +635,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
     def distort_points_based_on_internals(
         self,
         internals: DistortionInternals[_T_CONFIG, _T_STATE],
-        points: Union[PointList, Iterable[Point]],
+        points: Union[PointList, PointTuple, Iterable[Point]],
     ):
         internals.restore_rng_if_supported()
 
@@ -657,7 +655,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             for point in points:
                 new_point = self.distort_point_based_on_internals(internals, point)
                 new_points.append(new_point)
-            return new_points
+            return new_points.to_point_tuple()
 
     # yapf: disable
     def distort_points(
@@ -670,7 +668,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             ],
         ],
         shapable_or_shape: Union[Shapable, Tuple[int, int]],
-        points: Union[PointList, Iterable[Point]],
+        points: Union[PointList, PointTuple, Iterable[Point]],
         state: Optional[_T_STATE] = None,
         rng: Optional[RandomGenerator] = None,
     ):
@@ -711,7 +709,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         else:
             new_points = self.distort_points_based_on_internals(internals, polygon.points)
-            return Polygon(points=new_points)
+            return Polygon.create(points=new_points)
 
     # yapf: disable
     def distort_polygon(
@@ -818,20 +816,6 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 polygon.to_clipped_polygon(result.shape) for polygon in result.polygons
             ]
 
-        if result.text_polygon:
-            result.text_polygon = attrs.evolve(
-                result.text_polygon,
-                polygon=result.text_polygon.polygon.to_clipped_polygon(result.shape),
-            )
-
-        if result.text_polygons:
-            result.text_polygons = [
-                attrs.evolve(
-                    text_polygon,
-                    polygon=text_polygon.polygon.to_clipped_polygon(result.shape),
-                ) for text_polygon in result.text_polygons
-            ]
-
     # yapf: disable
     def distort(
         self,
@@ -847,12 +831,10 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         mask: Optional[Mask] = None,
         score_map: Optional[ScoreMap] = None,
         point: Optional[Point] = None,
-        points: Optional[PointList] = None,
-        corner_points: Optional[PointList] = None,
+        points: Optional[Union[PointList, PointTuple, Iterable[Point]]] = None,
+        corner_points: Optional[Union[PointList, PointTuple, Iterable[Point]]] = None,
         polygon: Optional[Polygon] = None,
         polygons: Optional[Iterable[Polygon]] = None,
-        text_polygon: Optional[TextPolygon] = None,
-        text_polygons: Optional[Iterable[TextPolygon]] = None,
         get_active_mask: bool = False,
         get_config: bool = False,
         get_state: bool = False,
@@ -908,23 +890,6 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         if polygons:
             result.polygons = self.distort_polygons_based_on_internals(internals, polygons)
-
-        if text_polygon:
-            result.text_polygon = attrs.evolve(
-                text_polygon,
-                polygon=self.distort_polygon_based_on_internals(internals, text_polygon.polygon),
-            )
-
-        if text_polygons:
-            text_polygons = tuple(text_polygons)
-            distorted_polygons = self.distort_polygons_based_on_internals(
-                internals,
-                [text_polygon.polygon for text_polygon in text_polygons],
-            )
-            result.text_polygons = [
-                attrs.evolve(text_polygon, polygon=distorted_polygon)
-                for text_polygon, distorted_polygon in zip(text_polygons, distorted_polygons)
-            ]
 
         if get_active_mask:
             result.active_mask = self.get_active_mask_based_on_internals(internals)

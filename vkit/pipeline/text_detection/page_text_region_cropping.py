@@ -13,9 +13,11 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Sequence, Mapping, Tuple, DefaultDict, List
 from collections import defaultdict
+import warnings
 
 import attrs
 from numpy.random import Generator as RandomGenerator
+from shapely.errors import ShapelyDeprecationWarning
 from shapely.strtree import STRtree
 from shapely.geometry import Point as ShapelyPoint
 
@@ -29,6 +31,9 @@ from .page_text_region_label import (
     PageCharRegressionLabel,
     PageTextRegionLabelStepOutput,
 )
+
+# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
+warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 
 @attrs.define

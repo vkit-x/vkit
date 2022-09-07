@@ -72,9 +72,13 @@ def create_dst_image_grid_and_shift_amounts_and_resize_ratios(
     shift_amount_y = y_min
     shift_amount_x = x_min
 
-    for point in chain.from_iterable(dst_points_2d):
-        point.y -= shift_amount_y
-        point.x -= shift_amount_x
+    for row_idx in range(src_image_grid.num_rows):
+        for col_idx in range(src_image_grid.num_cols):
+            point = dst_points_2d[row_idx][col_idx]
+            dst_points_2d[row_idx][col_idx] = point.to_shifted_point(
+                y_offset=-shift_amount_y,
+                x_offset=-shift_amount_x,
+            )
 
     src_image_height = src_image_grid.image_height
     src_image_width = src_image_grid.image_width
@@ -84,18 +88,21 @@ def create_dst_image_grid_and_shift_amounts_and_resize_ratios(
 
     if resize_as_src:
         raw_dst_image_grid = ImageGrid(points_2d=dst_points_2d)
-        raw_dst_image_height = raw_dst_image_grid.image_height
-        raw_dst_image_width = raw_dst_image_grid.image_width
+
+        resize_ratio_y = src_image_height / raw_dst_image_grid.image_height
+        resize_ratio_x = src_image_width / raw_dst_image_grid.image_width
+
+        raw_dst_image_grid_image_shape = raw_dst_image_grid.image_shape
         del raw_dst_image_grid
 
-        resize_ratio_y = (src_image_height - 1) / (raw_dst_image_height - 1)
-        resize_ratio_x = (src_image_width - 1) / (raw_dst_image_width - 1)
-
-        for point in chain.from_iterable(dst_points_2d):
-            if raw_dst_image_height != src_image_height:
-                point.y = round(point.y * resize_ratio_y)
-            if raw_dst_image_width != src_image_width:
-                point.x = round(point.x * resize_ratio_x)
+        for row_idx in range(src_image_grid.num_rows):
+            for col_idx in range(src_image_grid.num_cols):
+                point = dst_points_2d[row_idx][col_idx]
+                dst_points_2d[row_idx][col_idx] = point.to_conducted_resized_point(
+                    raw_dst_image_grid_image_shape,
+                    resized_height=src_image_height,
+                    resized_width=src_image_width,
+                )
 
     dst_image_grid = ImageGrid(points_2d=dst_points_2d)
 
