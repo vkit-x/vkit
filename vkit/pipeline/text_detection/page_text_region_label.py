@@ -23,10 +23,10 @@ import cv2 as cv
 from sklearn.neighbors import KDTree
 
 from vkit.utility import normalize_to_probs
-from vkit.element import Point, PointList, Polygon, ScoreMap
+from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
 from vkit.engine.distortion.geometric.affine import affine_points
 from ..interface import PipelineStep, PipelineStepFactory
-from .page_text_region import PageTextRegionStepOutput
+from .page_text_region import PageTextRegionStep, PageTextRegionStepOutput
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +239,9 @@ class PageCharRegressionLabel:
 
 @attrs.define
 class PageTextRegionLabelStepOutput:
-    page_score_map: ScoreMap
+    page_char_mask: Mask
+    page_char_height_score_map: ScoreMap
+    page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
 
 
@@ -250,6 +252,29 @@ class PageTextRegionLabelStep(
         PageTextRegionLabelStepOutput,
     ]
 ):  # yapf: disable
+
+    @staticmethod
+    def generate_page_char_mask(
+        shape: Tuple[int, int],
+        page_char_polygons: Sequence[Polygon],
+    ):
+        page_char_mask = Mask.from_shape(shape)
+        for polygon in page_char_polygons:
+            polygon.fill_mask(page_char_mask)
+        return page_char_mask
+
+    @staticmethod
+    def generate_page_char_height_score_map(
+        shape: Tuple[int, int],
+        page_char_polygons: Sequence[Polygon],
+    ):
+        page_char_height_score_map = ScoreMap.from_shape(shape, is_prob=False)
+        for polygon in page_char_polygons:
+            polygon.fill_score_map(
+                page_char_height_score_map,
+                value=PageTextRegionStep.get_char_height(polygon),
+            )
+        return page_char_height_score_map
 
     @staticmethod
     def generate_np_gaussian_map(
@@ -287,7 +312,7 @@ class PageTextRegionLabelStep(
 
         return np_gaussian_map, np_points
 
-    def generate_page_score_map(
+    def generate_page_char_gaussian_score_map(
         self,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
@@ -440,7 +465,16 @@ class PageTextRegionLabelStep(
         page_image = page_text_region_step_output.page_image
         page_char_polygons = page_text_region_step_output.page_char_polygons
 
-        page_score_map = self.generate_page_score_map(
+        page_char_mask = self.generate_page_char_mask(
+            page_image.shape,
+            page_char_polygons,
+        )
+        page_char_height_score_map = self.generate_page_char_height_score_map(
+            page_image.shape,
+            page_char_polygons,
+        )
+
+        page_char_gaussian_score_map = self.generate_page_char_gaussian_score_map(
             page_image.shape,
             page_char_polygons,
         )
@@ -451,7 +485,9 @@ class PageTextRegionLabelStep(
         )
 
         return PageTextRegionLabelStepOutput(
-            page_score_map=page_score_map,
+            page_char_mask=page_char_mask,
+            page_char_height_score_map=page_char_height_score_map,
+            page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=page_char_regression_labels,
         )
 
