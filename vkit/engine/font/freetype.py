@@ -644,7 +644,7 @@ def resize_and_trim_text_line_hori_default(
 
         np_image = np.full((run_config.height, image.width, 3), 255, dtype=np.uint8)
         np_image[pad_up:-pad_down] = image.mat
-        image.mat = np_image
+        image.assign_mat(np_image)
 
         np_mask = np.zeros((run_config.height, image.width), dtype=np.uint8)
         np_mask[pad_up:-pad_down] = mask.mat
@@ -725,7 +725,7 @@ def resize_and_trim_text_line_hori_default(
                 )
 
         char_boxes = char_boxes[:last_char_box_idx + 1]
-        image.mat = image.mat[:, :last_char_box_right + 1]
+        image.assign_mat(image.mat[:, :last_char_box_right + 1])
         mask.assign_mat(mask.mat[:, :last_char_box_right + 1])
 
         if score_map:
@@ -786,7 +786,7 @@ def resize_and_trim_text_line_vert_default(
 
         np_image = np.full((image.height, run_config.width, 3), 255, dtype=np.uint8)
         np_image[:, pad_left:-pad_right] = image.mat
-        image.mat = np_image
+        image.assign_mat(np_image)
 
         np_mask = np.zeros((image.height, run_config.width), dtype=np.uint8)
         np_mask[:, pad_left:-pad_right] = mask.mat
@@ -822,7 +822,7 @@ def resize_and_trim_text_line_vert_default(
 
         last_char_box_down = char_boxes[last_char_box_idx].down
         char_boxes = char_boxes[:last_char_box_idx + 1]
-        image.mat = image.mat[:last_char_box_down + 1]
+        image.assign_mat(image.mat[:last_char_box_down + 1])
         mask.assign_mat(mask.mat[:last_char_box_down + 1])
 
         if score_map:

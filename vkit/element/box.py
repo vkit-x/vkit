@@ -319,12 +319,13 @@ class Box(Shapable):
             else:
                 np_mask = mask
 
-        self.fill_np_array(
-            image.mat,
-            value,
-            np_mask=np_mask,
-            alpha=alpha,
-        )
+        with image.writable_context:
+            self.fill_np_array(
+                image.mat,
+                value,
+                np_mask=np_mask,
+                alpha=alpha,
+            )
 
     def fill_mask(
         self,

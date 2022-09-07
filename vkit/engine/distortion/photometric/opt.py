@@ -64,7 +64,8 @@ def generate_new_image(
 ):
     if channels:
         new_image = image.copy()
-        new_image.mat[:, :, channels] = new_mat
+        with new_image.writable_context:
+            new_image.mat[:, :, channels] = new_mat
     else:
         assert image.mat.shape == new_mat.shape
         new_image = attrs.evolve(image, mat=new_mat)

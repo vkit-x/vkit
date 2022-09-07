@@ -45,8 +45,19 @@ class WritableMaskContextDecorator(ContextDecorator):
         self.mask = mask
 
     def __enter__(self):
-        assert not self.mask.mat.flags.writeable
-        self.mask.mat.flags.writeable = True
+        if self.mask.mat.flags.c_contiguous:
+            assert not self.mask.mat.flags.writeable
+
+        try:
+            self.mask.mat.flags.writeable = True
+        except ValueError:
+            # Copy on write.
+            object.__setattr__(
+                self.mask,
+                'mat',
+                np.array(self.mask.mat),
+            )
+            assert self.mask.mat.flags.writeable
 
     def __exit__(self, *exc):  # type: ignore
         self.mask.mat.flags.writeable = False
@@ -478,7 +489,8 @@ class Mask(Shapable):
             assert alpha.is_prob
             alpha = alpha.mat
 
-        self.fill_np_array(image.mat, value, alpha=alpha)
+        with image.writable_context:
+            self.fill_np_array(image.mat, value, alpha=alpha)
 
     def to_disconnected_polygons(
         self,

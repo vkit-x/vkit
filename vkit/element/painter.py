@@ -482,7 +482,7 @@ class Painter:
         if score_map.box:
             score_map.box.fill_image(layer_image, color_mat)
         else:
-            layer_image.mat = color_mat
+            layer_image.assign_mat(color_mat)
 
         self.overlay_layer_image(layer_image)
 

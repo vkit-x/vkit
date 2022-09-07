@@ -14,6 +14,7 @@
 from typing import cast, Mapping, Sequence, Tuple, Union, Optional, Iterable, List, TypeVar
 from enum import Enum, unique
 from collections import abc
+from contextlib import ContextDecorator
 
 import attrs
 import numpy as np
@@ -232,10 +233,35 @@ class ImageSetItemConfig:
     alpha: Union[np.ndarray, float] = 1.0
 
 
+class WritableImageContextDecorator(ContextDecorator):
+
+    def __init__(self, image: 'Image'):
+        super().__init__()
+        self.image = image
+
+    def __enter__(self):
+        if self.image.mat.flags.c_contiguous:
+            assert not self.image.mat.flags.writeable
+
+        try:
+            self.image.mat.flags.writeable = True
+        except ValueError:
+            # Copy on write.
+            object.__setattr__(
+                self.image,
+                'mat',
+                np.array(self.image.mat),
+            )
+            assert self.image.mat.flags.writeable
+
+    def __exit__(self, *exc):  # type: ignore
+        self.image.mat.flags.writeable = False
+
+
 _E = TypeVar('_E', 'Box', 'Polygon', 'Mask', 'ScoreMap')
 
 
-@attrs.define
+@attrs.define(frozen=True, eq=False)
 class Image(Shapable):
     mat: np.ndarray
     kind: ImageKind = ImageKind.NONE
@@ -255,18 +281,25 @@ class Image(Shapable):
             elif self.mat.dtype == np.uint8:
                 if self.mat.ndim == 2:
                     # Defaults to GRAYSCALE.
-                    self.kind = ImageKind.GRAYSCALE
+                    kind = ImageKind.GRAYSCALE
                 elif self.mat.ndim == 3:
                     if self.mat.shape[2] == 4:
-                        self.kind = ImageKind.RGBA
+                        kind = ImageKind.RGBA
                     elif self.mat.shape[2] == 3:
                         # Defaults to RGB.
-                        self.kind = ImageKind.RGB
+                        kind = ImageKind.RGB
                     else:
                         raise NotImplementedError(f'Invalid num_channels={self.mat.shape[2]}.')
+                else:
+                    raise NotImplementedError(f'mat.ndim={self.mat.ndim} not supported.')
+
+                object.__setattr__(self, 'kind', kind)
 
             else:
                 raise NotImplementedError(f'Invalid mat.dtype={self.mat.dtype}.')
+
+        # For the control of write.
+        self.mat.flags.writeable = False
 
         if self.box and self.shape != self.box.shape:
             raise RuntimeError('self.shape != box.shape.')
@@ -327,6 +360,10 @@ class Image(Shapable):
             assert self.mat.ndim == 3
             return self.mat.shape[2]
 
+    @property
+    def writable_context(self):
+        return WritableImageContextDecorator(self)
+
     ##############
     # Conversion #
     ##############
@@ -370,8 +407,11 @@ class Image(Shapable):
     # Operator #
     ############
     def copy(self):
-        mat = self.mat.copy()
-        return attrs.evolve(self, mat=mat)
+        return attrs.evolve(self, mat=self.mat.copy())
+
+    def assign_mat(self, mat: np.ndarray):
+        with self.writable_context:
+            object.__setattr__(self, 'mat', mat)
 
     @staticmethod
     def check_values_and_alphas_uniqueness(

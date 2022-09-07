@@ -65,8 +65,19 @@ class WritableScoreMapContextDecorator(ContextDecorator):
         self.score_map = score_map
 
     def __enter__(self):
-        assert not self.score_map.mat.flags.writeable
-        self.score_map.mat.flags.writeable = True
+        if self.score_map.mat.flags.c_contiguous:
+            assert not self.score_map.mat.flags.writeable
+
+        try:
+            self.score_map.mat.flags.writeable = True
+        except ValueError:
+            # Copy on write.
+            object.__setattr__(
+                self.score_map,
+                'mat',
+                np.array(self.score_map.mat),
+            )
+            assert self.score_map.mat.flags.writeable
 
     def __exit__(self, *exc):  # type: ignore
         self.score_map.mat.flags.writeable = False
@@ -681,7 +692,8 @@ class ScoreMap(Shapable):
         if isinstance(value, Image):
             value = value.mat
 
-        self.fill_np_array(image.mat, value)
+        with image.writable_context:
+            self.fill_np_array(image.mat, value)
 
     def to_mask(self, threshold: float = 0.0):
         mat = (self.mat > threshold).astype(np.uint8)

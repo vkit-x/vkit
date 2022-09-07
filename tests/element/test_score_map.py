@@ -57,7 +57,7 @@ def test_quad_interpolation():
                 func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 0]
             )
             image = Image.from_shapable(score_map)
-            image.mat = (score_map.mat * 255).astype(np.uint8)
+            image.assign_mat((score_map.mat * 255).astype(np.uint8))
             write_image(f'{idx}_shift_{shift}_u.png', image)
 
             score_map = ScoreMap.from_quad_interpolation(
@@ -68,7 +68,7 @@ def test_quad_interpolation():
                 func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1]
             )
             image = Image.from_shapable(score_map)
-            image.mat = (score_map.mat * 255).astype(np.uint8)
+            image.assign_mat((score_map.mat * 255).astype(np.uint8))
             write_image(f'{idx}_shift_{shift}_v.png', image)
 
     score_map = ScoreMap.from_shape((300, 300))
@@ -87,7 +87,7 @@ def test_quad_interpolation():
         func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
     )
     image = Image.from_shapable(score_map)
-    image.mat = (score_map.mat * 255).astype(np.uint8)
+    image.assign_mat((score_map.mat * 255).astype(np.uint8))
     write_image('fill_by.png', image)
 
 

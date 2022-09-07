@@ -323,7 +323,8 @@ class Polygon:
             assert alpha.is_prob
             alpha = alpha.mat
 
-        self.fill_np_array(image.mat, value, alpha=alpha)
+        with image.writable_context:
+            self.fill_np_array(image.mat, value, alpha=alpha)
 
     @staticmethod
     def remove_duplicated_xy_pairs(xy_pairs: Sequence[Tuple[int, int]]):
