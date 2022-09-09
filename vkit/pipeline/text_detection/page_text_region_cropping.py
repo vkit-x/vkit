@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Sequence, Mapping, Tuple, DefaultDict, List
+from typing import Sequence, Mapping, Tuple, DefaultDict, List, Optional
 from collections import defaultdict
 import warnings
 
@@ -20,6 +20,7 @@ from numpy.random import Generator as RandomGenerator
 from shapely.errors import ShapelyDeprecationWarning
 from shapely.strtree import STRtree
 from shapely.geometry import Point as ShapelyPoint
+import cv2 as cv
 
 from vkit.element import Box, Mask, ScoreMap, Image, Cropper
 from vkit.engine.distortion.geometric.affine import rotate
@@ -44,6 +45,8 @@ class PageTextRegionCroppingStepConfig:
     num_centroid_points_min: int = 10
     num_deviate_points_min: int = 10
     pad_value: int = 0
+    enable_downsample_labeling: bool = True
+    downsample_labeling_factor: int = 2
 
 
 @attrs.define
@@ -54,6 +57,17 @@ class PageTextRegionCroppingStepInput:
 
 
 @attrs.define
+class DownsampledLabel:
+    shape: Tuple[int, int]
+    page_char_mask: Mask
+    page_char_height_score_map: ScoreMap
+    # TODO
+    # page_char_gaussian_score_map: ScoreMap
+    # page_char_regression_labels: Sequence[PageCharRegressionLabel]
+    core_box: Box
+
+
+@attrs.define
 class CroppedPageTextRegion:
     page_image: Image
     page_char_mask: Mask
@@ -61,6 +75,7 @@ class CroppedPageTextRegion:
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
     core_box: Box
+    downsampled_label: Optional[DownsampledLabel]
 
 
 @attrs.define
@@ -198,6 +213,53 @@ class PageTextRegionCroppingStep(
             core_only=True,
         )
 
+        downsampled_label: Optional[DownsampledLabel] = None
+        if self.config.enable_downsample_labeling:
+            downsample_labeling_factor = self.config.downsample_labeling_factor
+
+            assert cropper.crop_size % downsample_labeling_factor == 0
+            downsampled_size = cropper.crop_size // downsample_labeling_factor
+            downsampled_shape = (downsampled_size, downsampled_size)
+
+            assert self.config.pad_size % downsample_labeling_factor == 0
+            assert self.config.core_size % downsample_labeling_factor == 0
+            assert cropper.core_box.height == cropper.core_box.width == self.config.core_size
+
+            downsampled_pad_size = self.config.pad_size // downsample_labeling_factor
+            downsampled_core_size = self.config.core_size // downsample_labeling_factor
+
+            downsampled_core_begin = downsampled_pad_size
+            downsampled_core_end = downsampled_core_begin + downsampled_core_size - 1
+            downsampled_core_box = Box(
+                up=downsampled_core_begin,
+                down=downsampled_core_end,
+                left=downsampled_core_begin,
+                right=downsampled_core_end,
+            )
+
+            downsampled_page_char_mask = page_char_mask.to_box_detached()
+            downsampled_page_char_mask = \
+                downsampled_page_char_mask.to_resized_mask(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
+            downsampled_page_char_height_score_map = page_char_height_score_map.to_box_detached()
+            downsampled_page_char_height_score_map = \
+                downsampled_page_char_height_score_map.to_resized_score_map(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
+            downsampled_label = DownsampledLabel(
+                shape=downsampled_shape,
+                page_char_mask=downsampled_page_char_mask,
+                page_char_height_score_map=downsampled_page_char_height_score_map,
+                core_box=downsampled_core_box,
+            )
+
         return CroppedPageTextRegion(
             page_image=page_image,
             page_char_mask=page_char_mask,
@@ -205,6 +267,7 @@ class PageTextRegionCroppingStep(
             page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=shifted_centroid_labels + shifted_deviate_labels,
             core_box=cropper.core_box,
+            downsampled_label=downsampled_label,
         )
 
     def run(self, input: PageTextRegionCroppingStepInput, rng: RandomGenerator):

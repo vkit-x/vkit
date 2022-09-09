@@ -38,10 +38,6 @@ class PageCroppingStepConfig:
     enable_downsample_labeling: bool = True
     downsample_labeling_factor: int = 2
 
-    @property
-    def crop_size(self):
-        return 2 * self.pad_size + self.core_size
-
 
 @attrs.define
 class PageCroppingStepInput:
@@ -51,11 +47,11 @@ class PageCroppingStepInput:
 @attrs.define
 class DownsampledLabel:
     shape: Tuple[int, int]
-    core_box: Box
     page_char_mask: Mask
     page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
+    core_box: Box
 
 
 @attrs.define
@@ -148,8 +144,8 @@ class PageCroppingStep(
         if self.config.enable_downsample_labeling:
             downsample_labeling_factor = self.config.downsample_labeling_factor
 
-            assert self.config.crop_size % downsample_labeling_factor == 0
-            downsampled_size = self.config.crop_size // downsample_labeling_factor
+            assert cropper.crop_size % downsample_labeling_factor == 0
+            downsampled_size = cropper.crop_size // downsample_labeling_factor
             downsampled_shape = (downsampled_size, downsampled_size)
 
             assert self.config.pad_size % downsample_labeling_factor == 0
@@ -203,11 +199,11 @@ class PageCroppingStep(
 
             downsampled_label = DownsampledLabel(
                 shape=downsampled_shape,
-                core_box=downsampled_core_box,
                 page_char_mask=downsampled_page_char_mask,
                 page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_text_line_mask=downsampled_page_text_line_mask,
                 page_text_line_height_score_map=downsampled_page_text_line_height_score_map,
+                core_box=downsampled_core_box,
             )
 
         return CroppedPage(

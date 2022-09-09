@@ -300,6 +300,10 @@ class Cropper:
         return self.cropper_state.need_post_filling
 
     @property
+    def crop_size(self):
+        return self.cropper_state.crop_size
+
+    @property
     def cropped_shape(self):
         return self.cropper_state.cropped_shape
 

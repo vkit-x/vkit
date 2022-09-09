@@ -369,6 +369,22 @@ def visualize_page_text_region_cropping_step_output(
             ),
         )
 
+        downsampled_label = cropped_page_text_region.downsampled_label
+        assert downsampled_label
+
+        page_downsampled_char_mask = downsampled_label.page_char_mask
+        assert page_downsampled_char_mask
+        page_downsampled_char_height_score_map = downsampled_label.page_char_height_score_map
+        assert page_downsampled_char_height_score_map
+
+        painter = Painter.create(page_downsampled_char_mask)
+        painter.paint_mask(page_downsampled_char_mask)
+        cur_write_image(f'page_{seed}_cropped_text_region_{idx}_ds_mask.png', painter.image)
+
+        painter = Painter.create(page_downsampled_char_height_score_map)
+        painter.paint_score_map(page_downsampled_char_height_score_map)
+        cur_write_image(f'page_{seed}_cropped_text_region_{idx}_ds_score_map.png', painter.image)
+
 
 @pytest.mark.local
 def test_debug_adaptive_scaling_dataset_steps():
