@@ -237,7 +237,8 @@ def paint_page_char_regression_labels(
     lines_color: List[str] = []
 
     for label in page_char_regression_labels:
-        points.append(label.label_point)
+        label_point = Point.create(y=label.label_point_y, x=label.label_point_x)
+        points.append(label_point)
         if label.tag == PageCharRegressionLabelTag.CENTROID:
             points_color.append('red')
         elif label.tag == PageCharRegressionLabelTag.DEVIATE:
@@ -251,10 +252,10 @@ def paint_page_char_regression_labels(
             visited_char_indices.add(label.char_idx)
 
         lines.extend([
-            Line(point_begin=label.label_point, point_end=label.up_left),
-            Line(point_begin=label.label_point, point_end=label.up_right),
-            Line(point_begin=label.label_point, point_end=label.down_right),
-            Line(point_begin=label.label_point, point_end=label.down_left),
+            Line(point_begin=label_point, point_end=label.up_left),
+            Line(point_begin=label_point, point_end=label.up_right),
+            Line(point_begin=label_point, point_end=label.down_right),
+            Line(point_begin=label_point, point_end=label.down_left),
         ])
         lines_color.extend(['blue', 'yellow', 'white', '#00ffff'])
 
@@ -282,10 +283,10 @@ def visualize_page_text_region_label_step_output(
     def check_point_reconstruction(label: PageCharRegressionLabel):
         import numpy as np
 
-        label_point = label.label_point
+        label_point = Point.create(y=label.label_point_y, x=label.label_point_x)
 
         offset_y, offset_x = label.generate_up_left_offsets()
-        up_left = Point(y=label_point.y + offset_y, x=label_point.x + offset_x)
+        up_left = Point.create(y=label_point.y + offset_y, x=label_point.x + offset_x)
         assert point_distance(up_left, label.up_left) == 0
 
         theta = np.arctan2(offset_y, offset_x)
@@ -297,7 +298,7 @@ def visualize_page_text_region_label_step_output(
 
         theta += angle_distrib[0] * two_pi
         theta = theta % two_pi
-        up_right = Point(
+        up_right = Point.create(
             y=label_point.y + np.sin(theta) * up_right_dis,
             x=label_point.x + np.cos(theta) * up_right_dis,
         )
@@ -305,7 +306,7 @@ def visualize_page_text_region_label_step_output(
 
         theta += angle_distrib[1] * two_pi
         theta = theta % two_pi
-        down_right = Point(
+        down_right = Point.create(
             y=label_point.y + np.sin(theta) * down_right_dis,
             x=label_point.x + np.cos(theta) * down_right_dis,
         )
@@ -313,7 +314,7 @@ def visualize_page_text_region_label_step_output(
 
         theta += angle_distrib[2] * two_pi
         theta = theta % two_pi
-        down_left = Point(
+        down_left = Point.create(
             y=label_point.y + np.sin(theta) * down_left_dis,
             x=label_point.x + np.cos(theta) * down_left_dis,
         )

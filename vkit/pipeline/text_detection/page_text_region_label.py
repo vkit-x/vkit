@@ -56,8 +56,8 @@ TWO_PI = float(2 * np.pi)
 
 @attrs.define
 class Vector:
-    y: int
-    x: int
+    y: float
+    x: float
 
     _distance: Optional[float] = None
     _theta: Optional[float] = None
@@ -101,7 +101,10 @@ class Vector:
 class PageCharRegressionLabel:
     char_idx: int
     tag: PageCharRegressionLabelTag
-    label_point: Point
+    label_point_y: float
+    label_point_x: float
+    downsampled_label_point_y: int
+    downsampled_label_point_x: int
     up_left: Point
     up_right: Point
     down_right: Point
@@ -125,20 +128,20 @@ class PageCharRegressionLabel:
             return
 
         self._up_left_vector = Vector(
-            y=self.up_left.y - self.label_point.y,
-            x=self.up_left.x - self.label_point.x,
+            y=self.up_left.y - self.label_point_y,
+            x=self.up_left.x - self.label_point_x,
         )
         self._up_right_vector = Vector(
-            y=self.up_right.y - self.label_point.y,
-            x=self.up_right.x - self.label_point.x,
+            y=self.up_right.y - self.label_point_y,
+            x=self.up_right.x - self.label_point_x,
         )
         self._down_right_vector = Vector(
-            y=self.down_right.y - self.label_point.y,
-            x=self.down_right.x - self.label_point.x,
+            y=self.down_right.y - self.label_point_y,
+            x=self.down_right.x - self.label_point_x,
         )
         self._down_left_vector = Vector(
-            y=self.down_left.y - self.label_point.y,
-            x=self.down_left.x - self.label_point.x,
+            y=self.down_left.y - self.label_point_y,
+            x=self.down_left.x - self.label_point_x,
         )
 
         self._up_left_to_up_right_angle = Vector.calculate_theta_delta(
@@ -180,8 +183,12 @@ class PageCharRegressionLabel:
 
     def to_shifted_page_char_regression_label(self, y_offset: int, x_offset: int):
         assert self.valid
+        # Only can be called before downsampling.
+        assert self.label_point_y == self.downsampled_label_point_y
+        assert self.label_point_x == self.downsampled_label_point_x
 
-        label_point = self.label_point.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
+        label_point_y = self.label_point_y + y_offset
+        label_point_x = self.label_point_x + x_offset
         up_left = self.up_left.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
         up_right = self.up_right.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
         down_right = self.down_right.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
@@ -190,7 +197,10 @@ class PageCharRegressionLabel:
         shifted_page_char_regression_label = PageCharRegressionLabel(
             char_idx=self.char_idx,
             tag=self.tag,
-            label_point=label_point,
+            label_point_y=label_point_y,
+            label_point_x=label_point_x,
+            downsampled_label_point_y=label_point_y,
+            downsampled_label_point_x=label_point_x,
             up_left=up_left,
             up_right=up_right,
             down_right=down_right,
@@ -208,6 +218,34 @@ class PageCharRegressionLabel:
             clockwise_angle_distribution=self._clockwise_angle_distribution,  # type: ignore
         )
         return shifted_page_char_regression_label
+
+    def to_downsampled_page_char_regression_label(self, downsample_labeling_factor: int):
+        assert self.valid
+        # Only can be called before downsampling.
+        assert self.label_point_y == self.downsampled_label_point_y
+        assert self.label_point_x == self.downsampled_label_point_x
+
+        downsampled_label_point_y = int(self.label_point_y // downsample_labeling_factor)
+        downsampled_label_point_x = int(self.label_point_x // downsample_labeling_factor)
+
+        # label_point_* are shifted to the center of upsampled positions.
+        offset = (downsample_labeling_factor - 1) / 2
+        label_point_y = downsampled_label_point_y * downsample_labeling_factor + offset
+        label_point_x = downsampled_label_point_x * downsample_labeling_factor + offset
+
+        downsampled_page_char_regression_label = PageCharRegressionLabel(
+            char_idx=self.char_idx,
+            tag=self.tag,
+            label_point_y=label_point_y,
+            label_point_x=label_point_x,
+            downsampled_label_point_y=downsampled_label_point_y,
+            downsampled_label_point_x=downsampled_label_point_x,
+            up_left=self.up_left,
+            up_right=self.up_right,
+            down_right=self.down_right,
+            down_left=self.down_left,
+        )
+        return downsampled_page_char_regression_label
 
     @property
     def valid(self):
@@ -372,7 +410,10 @@ class PageTextRegionLabelStep(
             label = PageCharRegressionLabel(
                 char_idx=char_idx,
                 tag=PageCharRegressionLabelTag.CENTROID,
-                label_point=center_point,
+                label_point_y=center_point.y,
+                label_point_x=center_point.x,
+                downsampled_label_point_y=center_point.y,
+                downsampled_label_point_x=center_point.x,
                 up_left=up_left,
                 up_right=up_right,
                 down_right=down_right,
@@ -444,7 +485,10 @@ class PageTextRegionLabelStep(
                 label = PageCharRegressionLabel(
                     char_idx=char_idx,
                     tag=PageCharRegressionLabelTag.DEVIATE,
-                    label_point=deviate_point,
+                    label_point_y=deviate_point.y,
+                    label_point_x=deviate_point.x,
+                    downsampled_label_point_y=deviate_point.y,
+                    downsampled_label_point_x=deviate_point.x,
                     up_left=up_left,
                     up_right=up_right,
                     down_right=down_right,
