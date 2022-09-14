@@ -87,11 +87,11 @@ class Polygon:
 
         np_points = self.to_np_array()
 
-        x_min = np_points[:, 0].min()
-        y_min = np_points[:, 1].min()
+        x_min = int(np_points[:, 0].min())
+        y_min = int(np_points[:, 1].min())
 
-        x_max = np_points[:, 0].max()
-        y_max = np_points[:, 1].max()
+        x_max = int(np_points[:, 0].max())
+        y_max = int(np_points[:, 1].max())
 
         bounding_box = Box(up=y_min, down=y_max, left=x_min, right=x_max)
 

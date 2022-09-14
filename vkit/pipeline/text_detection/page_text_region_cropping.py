@@ -13,6 +13,7 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Sequence, Mapping, Tuple, DefaultDict, List, Optional
 from collections import defaultdict
+import itertools
 import warnings
 
 import attrs
@@ -61,9 +62,8 @@ class DownsampledLabel:
     shape: Tuple[int, int]
     page_char_mask: Mask
     page_char_height_score_map: ScoreMap
-    # TODO
-    # page_char_gaussian_score_map: ScoreMap
-    # page_char_regression_labels: Sequence[PageCharRegressionLabel]
+    page_char_gaussian_score_map: ScoreMap
+    page_char_regression_labels: Sequence[PageCharRegressionLabel]
     core_box: Box
 
 
@@ -101,9 +101,11 @@ class PageTextRegionCroppingStep(
         ] = defaultdict(list)  # yapf: disable
 
         for label in labels:
-            label_point = label.label_point
-            shapely_points.append(ShapelyPoint(label_point.x, label_point.y))
-            xy_pair_to_labels[label_point.to_xy_pair()].append(label)
+            assert isinstance(label.label_point_x, int)
+            assert isinstance(label.label_point_y, int)
+            xy_pair = (label.label_point_x, label.label_point_y)
+            shapely_points.append(ShapelyPoint(*xy_pair))
+            xy_pair_to_labels[xy_pair].append(label)
 
         strtree = STRtree(shapely_points)
         return strtree, xy_pair_to_labels
@@ -253,10 +255,27 @@ class PageTextRegionCroppingStep(
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
 
+            downsampled_page_char_gaussian_score_map = \
+                page_char_gaussian_score_map.to_box_detached()
+            downsampled_page_char_gaussian_score_map = \
+                downsampled_page_char_gaussian_score_map.to_resized_score_map(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
+            downsampled_page_char_regression_labels = [
+                label.to_downsampled_page_char_regression_label(
+                    self.config.downsample_labeling_factor
+                ) for label in itertools.chain(shifted_centroid_labels, shifted_deviate_labels)
+            ]
+
             downsampled_label = DownsampledLabel(
                 shape=downsampled_shape,
                 page_char_mask=downsampled_page_char_mask,
                 page_char_height_score_map=downsampled_page_char_height_score_map,
+                page_char_gaussian_score_map=downsampled_page_char_gaussian_score_map,
+                page_char_regression_labels=downsampled_page_char_regression_labels,
                 core_box=downsampled_core_box,
             )
 
