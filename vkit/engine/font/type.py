@@ -350,23 +350,23 @@ class TextLine:
     def glyph_color(self):
         return self.style.glyph_color
 
-    def to_shifted_text_line(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_text_line(self, offset_y: int = 0, offset_x: int = 0):
         self.shifted = True
 
-        shifted_image = self.image.to_shifted_image(y_offset=y_offset, x_offset=x_offset)
-        shifted_mask = self.mask.to_shifted_mask(y_offset=y_offset, x_offset=x_offset)
+        shifted_image = self.image.to_shifted_image(offset_y=offset_y, offset_x=offset_x)
+        shifted_mask = self.mask.to_shifted_mask(offset_y=offset_y, offset_x=offset_x)
 
         shifted_score_map = None
         if self.score_map:
             shifted_score_map = self.score_map.to_shifted_score_map(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             )
 
         shifted_char_boxes = [
             char_box.to_shifted_char_box(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             ) for char_box in self.char_boxes
         ]
 

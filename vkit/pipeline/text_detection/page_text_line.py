@@ -295,8 +295,8 @@ class PageTextLineStep(
             )
             if text_line:
                 text_line = text_line.to_shifted_text_line(
-                    y_offset=layout_text_line.box.up,
-                    x_offset=layout_text_line.box.left,
+                    offset_y=layout_text_line.box.up,
+                    offset_x=layout_text_line.box.left,
                 )
                 split_text_lines = text_line.split()
                 text_lines.extend(split_text_lines)

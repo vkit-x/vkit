@@ -313,9 +313,9 @@ class Mask(Shapable):
         mat = (~self.np_mask).astype(np.uint8)
         return attrs.evolve(self, mat=mat)
 
-    def to_shifted_mask(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_mask(self, offset_y: int = 0, offset_x: int = 0):
         assert self.box
-        shifted_box = self.box.to_shifted_box(y_offset=y_offset, x_offset=x_offset)
+        shifted_box = self.box.to_shifted_box(offset_y=offset_y, offset_x=offset_x)
         return attrs.evolve(self, box=shifted_box)
 
     def to_resized_mask(
@@ -428,6 +428,8 @@ class Mask(Shapable):
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
+        assert mask.box is None
+
         if isinstance(value, Mask):
             value = value.mat
 
@@ -454,6 +456,8 @@ class Mask(Shapable):
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
+        assert score_map.box is None
+
         if isinstance(value, ScoreMap):
             value = value.mat
 
@@ -483,6 +487,8 @@ class Mask(Shapable):
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
+        assert image.box is None
+
         if isinstance(value, Image):
             value = value.mat
         if isinstance(alpha, ScoreMap):

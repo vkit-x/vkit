@@ -218,8 +218,8 @@ class SealImpressionEllipseEngine(
     def sample_ellipse_points(
         ellipse_height: int,
         ellipse_width: int,
-        ellipse_y_offset: int,
-        ellipse_x_offset: int,
+        ellipse_offset_y: int,
+        ellipse_offset_x: int,
         angle_begin: int,
         angle_end: int,
         angle_step: int,
@@ -244,8 +244,8 @@ class SealImpressionEllipseEngine(
         for x, y in unit_circle_xy_pairs:
             points.append(
                 Point.create(
-                    y=y * half_ellipse_height + ellipse_y_offset,
-                    x=x * half_ellipse_width + ellipse_x_offset,
+                    y=y * half_ellipse_height + ellipse_offset_y,
+                    x=x * half_ellipse_width + ellipse_offset_x,
                 )
             )
         return points
@@ -256,8 +256,8 @@ class SealImpressionEllipseEngine(
         ellipse_up_width: int,
         ellipse_down_height: int,
         ellipse_down_width: int,
-        ellipse_y_offset: int,
-        ellipse_x_offset: int,
+        ellipse_offset_y: int,
+        ellipse_offset_x: int,
         angle_begin: int,
         angle_end: int,
         angle_step: int,
@@ -271,8 +271,8 @@ class SealImpressionEllipseEngine(
         point_ups = SealImpressionEllipseEngine.sample_ellipse_points(
             ellipse_height=ellipse_up_height,
             ellipse_width=ellipse_up_width,
-            ellipse_y_offset=ellipse_y_offset,
-            ellipse_x_offset=ellipse_x_offset,
+            ellipse_offset_y=ellipse_offset_y,
+            ellipse_offset_x=ellipse_offset_x,
             angle_begin=angle_begin,
             angle_end=angle_end,
             angle_step=angle_step,
@@ -281,8 +281,8 @@ class SealImpressionEllipseEngine(
         point_downs = SealImpressionEllipseEngine.sample_ellipse_points(
             ellipse_height=ellipse_down_height,
             ellipse_width=ellipse_down_width,
-            ellipse_y_offset=ellipse_y_offset,
-            ellipse_x_offset=ellipse_x_offset,
+            ellipse_offset_y=ellipse_offset_y,
+            ellipse_offset_x=ellipse_offset_x,
             angle_begin=angle_begin,
             angle_end=angle_end,
             angle_step=angle_step,
@@ -415,8 +415,8 @@ class SealImpressionEllipseEngine(
         rough_placements: Sequence[TextLineRoughPlacement],
         rng: RandomGenerator,
     ):
-        ellipse_y_offset = height // 2
-        ellipse_x_offset = width // 2
+        ellipse_offset_y = height // 2
+        ellipse_offset_x = width // 2
 
         text_line_slots: List[TextLineSlot] = []
 
@@ -437,7 +437,7 @@ class SealImpressionEllipseEngine(
             )
             char_space_ref = max(1, round(rough_placement.text_line_height * char_space_ratio))
 
-            radius_ref = max(1, ellipse_y_offset)
+            radius_ref = max(1, ellipse_offset_y)
             angle_step = max(
                 self.init_config.angle_step_min,
                 round(360 * (char_width_ref + char_space_ref) / (2 * np.pi * radius_ref)),
@@ -449,8 +449,8 @@ class SealImpressionEllipseEngine(
                     ellipse_up_width=rough_placement.ellipse_outer_width,
                     ellipse_down_height=rough_placement.ellipse_inner_height,
                     ellipse_down_width=rough_placement.ellipse_inner_width,
-                    ellipse_y_offset=ellipse_y_offset,
-                    ellipse_x_offset=ellipse_x_offset,
+                    ellipse_offset_y=ellipse_offset_y,
+                    ellipse_offset_x=ellipse_offset_x,
                     angle_begin=rough_placement.angle_begin,
                     angle_end=rough_placement.angle_end,
                     angle_step=angle_step,
@@ -463,8 +463,8 @@ class SealImpressionEllipseEngine(
                     ellipse_up_width=rough_placement.ellipse_inner_width,
                     ellipse_down_height=rough_placement.ellipse_outer_height,
                     ellipse_down_width=rough_placement.ellipse_outer_width,
-                    ellipse_y_offset=ellipse_y_offset,
-                    ellipse_x_offset=ellipse_x_offset,
+                    ellipse_offset_y=ellipse_offset_y,
+                    ellipse_offset_x=ellipse_offset_x,
                     angle_begin=rough_placement.angle_begin,
                     angle_end=rough_placement.angle_end,
                     angle_step=angle_step,

@@ -242,13 +242,13 @@ class PageTextRegionStep(
         )
 
         shifted_precise_text_region_polygon = precise_text_region_polygon.to_shifted_polygon(
-            y_offset=-bounding_box.up,
-            x_offset=-bounding_box.left,
+            offset_y=-bounding_box.up,
+            offset_x=-bounding_box.left,
         )
         shifted_char_polygons = [
             char_polygon.to_shifted_polygon(
-                y_offset=-bounding_box.up,
-                x_offset=-bounding_box.left,
+                offset_y=-bounding_box.up,
+                offset_x=-bounding_box.left,
             ) for char_polygon in char_polygons
         ]
 
@@ -305,8 +305,8 @@ class PageTextRegionStep(
         )
         rotated_char_polygons = [
             rotated_char_polygon.to_shifted_polygon(
-                y_offset=-up,
-                x_offset=-left,
+                offset_y=-up,
+                offset_x=-left,
             ) for rotated_char_polygon in rotated_char_polygons
         ]
 
@@ -438,8 +438,8 @@ class PageTextRegionStep(
             box.fill_image(image, page_flat_text_region.image)
             for char_polygon in page_flat_text_region.char_polygons:
                 char_polygons.append(char_polygon.to_shifted_polygon(
-                    y_offset=up,
-                    x_offset=left,
+                    offset_y=up,
+                    offset_x=left,
                 ))
 
         return image, char_polygons

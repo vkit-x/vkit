@@ -176,11 +176,17 @@ class Polygon:
     def to_clipped_polygon(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         return Polygon(points=self.to_clipped_points(shapable_or_shape))
 
-    def to_shifted_points(self, y_offset: int = 0, x_offset: int = 0):
-        return self.points.to_shifted_points(y_offset=y_offset, x_offset=x_offset)
+    def to_shifted_points(self, offset_y: int = 0, offset_x: int = 0):
+        return self.points.to_shifted_points(offset_y=offset_y, offset_x=offset_x)
 
-    def to_shifted_polygon(self, y_offset: int = 0, x_offset: int = 0):
-        return Polygon(points=self.to_shifted_points(y_offset=y_offset, x_offset=x_offset))
+    def to_relative_points(self, origin_y: int, origin_x: int):
+        return self.points.to_relative_points(origin_y=origin_y, origin_x=origin_x)
+
+    def to_shifted_polygon(self, offset_y: int = 0, offset_x: int = 0):
+        return Polygon(points=self.to_shifted_points(offset_y=offset_y, offset_x=offset_x))
+
+    def to_relative_polygon(self, origin_y: int, origin_x: int):
+        return Polygon(points=self.to_relative_points(origin_y=origin_y, origin_x=origin_x))
 
     def to_conducted_resized_polygon(
         self,
@@ -254,6 +260,8 @@ class Polygon:
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
+        assert mask.box is None
+
         if isinstance(value, Mask):
             value = value.mat
 
@@ -289,6 +297,8 @@ class Polygon:
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
+        assert score_map.box is None
+
         if isinstance(value, ScoreMap):
             value = value.mat
 
@@ -317,6 +327,8 @@ class Polygon:
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
+        assert image.box is None
+
         if isinstance(value, Image):
             value = value.mat
         if isinstance(alpha, ScoreMap):

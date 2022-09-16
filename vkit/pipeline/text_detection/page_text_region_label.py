@@ -181,18 +181,18 @@ class PageCharRegressionLabel:
             self._down_left_to_up_left_angle,
         ])
 
-    def to_shifted_page_char_regression_label(self, y_offset: int, x_offset: int):
+    def to_shifted_page_char_regression_label(self, offset_y: int, offset_x: int):
         assert self.valid
         # Only can be called before downsampling.
         assert self.label_point_y == self.downsampled_label_point_y
         assert self.label_point_x == self.downsampled_label_point_x
 
-        label_point_y = self.label_point_y + y_offset
-        label_point_x = self.label_point_x + x_offset
-        up_left = self.up_left.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
-        up_right = self.up_right.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
-        down_right = self.down_right.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
-        down_left = self.down_left.to_shifted_point(y_offset=y_offset, x_offset=x_offset)
+        label_point_y = self.label_point_y + offset_y
+        label_point_x = self.label_point_x + offset_x
+        up_left = self.up_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        up_right = self.up_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        down_right = self.down_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        down_left = self.down_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
 
         shifted_page_char_regression_label = PageCharRegressionLabel(
             char_idx=self.char_idx,

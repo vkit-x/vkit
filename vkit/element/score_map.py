@@ -582,9 +582,9 @@ class ScoreMap(Shapable):
             keep_min_value=keep_min_value,
         )
 
-    def to_shifted_score_map(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_score_map(self, offset_y: int = 0, offset_x: int = 0):
         assert self.box
-        shifted_box = self.box.to_shifted_box(y_offset=y_offset, x_offset=x_offset)
+        shifted_box = self.box.to_shifted_box(offset_y=offset_y, offset_x=offset_x)
         return attrs.evolve(self, box=shifted_box)
 
     def to_conducted_resized_polygon(
@@ -689,6 +689,8 @@ class ScoreMap(Shapable):
         image: 'Image',
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
     ):
+        assert image.box is None
+
         if isinstance(value, Image):
             value = value.mat
 
