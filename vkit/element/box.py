@@ -214,6 +214,7 @@ class Box(Shapable):
             assert element_box.up <= self.up <= self.down <= element_box.down
             assert element_box.left <= self.left <= self.right <= element_box.right
 
+            # NOTE: Some shape, implicitly.
             relative_box = self.to_relative_box(
                 origin_y=element_box.up,
                 origin_x=element_box.left,
@@ -334,7 +335,9 @@ class Box(Shapable):
         relative_box, _ = self.get_boxes_for_box_attached_opt(mask.box)
 
         if isinstance(value, Mask):
-            value = self.extract_mask(value).mat
+            if value.shape != self.shape:
+                value = self.extract_mask(value)
+            value = value.mat
 
         np_mask = self.get_np_mask_from_element_mask(mask_mask)
 
@@ -358,7 +361,9 @@ class Box(Shapable):
         relative_box, _ = self.get_boxes_for_box_attached_opt(score_map.box)
 
         if isinstance(value, ScoreMap):
-            value = self.extract_score_map(value).mat
+            if value.shape != self.shape:
+                value = self.extract_score_map(value)
+            value = value.mat
 
         np_mask = self.get_np_mask_from_element_mask(score_map_mask)
 
@@ -381,7 +386,9 @@ class Box(Shapable):
         relative_box, _ = self.get_boxes_for_box_attached_opt(image.box)
 
         if isinstance(value, Image):
-            value = self.extract_image(value).mat
+            if value.shape != self.shape:
+                value = self.extract_image(value)
+            value = value.mat
 
         np_mask = self.get_np_mask_from_element_mask(image_mask)
 
