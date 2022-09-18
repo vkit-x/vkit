@@ -26,7 +26,7 @@ from shapely.geometry import (
 from shapely.validation import make_valid as shapely_make_valid
 
 from .type import Shapable, FillByElementsMode
-from .opt import generate_resized_shape, fill_np_array
+from .opt import generate_resized_shape
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +72,9 @@ class Mask(Shapable):
     mat: np.ndarray
     box: Optional['Box'] = None
 
+    # TODO: Don't hack.
     _np_mask: np.ndarray = attrs.field(init=False, repr=False)
-    _np_mask_is_out_of_date: bool = attrs.field(default=False, repr=False)
+    _np_mask_is_out_of_date: bool = attrs.field(default=False, init=False, repr=False)
 
     def __attrs_post_init__(self):
         if self.mat.dtype != np.uint8:
@@ -119,6 +120,10 @@ class Mask(Shapable):
     @property
     def width(self):
         return self.mat.shape[1]
+
+    @property
+    def equivalent_box(self):
+        return self.box or Box.from_shapable(self)
 
     @property
     def np_mask(self):
@@ -397,29 +402,25 @@ class Mask(Shapable):
         self,
         mat: np.ndarray,
         value: Union[np.ndarray, Tuple[float, ...], float],
-        alpha: Union[np.ndarray, float] = 1.0,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        if self.box:
-            self.box.fill_np_array(
-                mat=mat,
-                value=value,
-                np_mask=self.np_mask,
-                alpha=alpha,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+        self.equivalent_box.fill_np_array(
+            mat=mat,
+            value=value,
+            np_mask=self.np_mask,
+            alpha=alpha,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
-        else:
-            fill_np_array(
-                mat=mat,
-                value=value,
-                np_mask=self.np_mask,
-                alpha=alpha,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+    def extract_mask(self, mask: 'Mask'):
+        mask = self.equivalent_box.extract_mask(mask)
+
+        mask = mask.copy()
+        self.to_inverted_mask().fill_mask(mask, value=0)
+        return mask
 
     def fill_mask(
         self,
@@ -428,22 +429,16 @@ class Mask(Shapable):
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        assert mask.box is None
-
-        if isinstance(value, Mask):
-            value = value.mat
-
-        with mask.writable_context:
-            self.fill_np_array(
-                mask.mat,
-                value,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+        self.equivalent_box.fill_mask(
+            mask=mask,
+            value=value,
+            mask_mask=self,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def extract_score_map(self, score_map: 'ScoreMap'):
-        if self.box:
-            score_map = self.box.extract_score_map(score_map)
+        score_map = self.equivalent_box.extract_score_map(score_map)
 
         score_map = score_map.copy()
         self.to_inverted_mask().fill_score_map(score_map, value=0.0)
@@ -456,26 +451,20 @@ class Mask(Shapable):
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        assert score_map.box is None
-
-        if isinstance(value, ScoreMap):
-            value = value.mat
-
-        with score_map.writable_context:
-            self.fill_np_array(
-                score_map.mat,
-                value,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+        self.equivalent_box.fill_score_map(
+            score_map=score_map,
+            value=value,
+            score_map_mask=self,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def to_score_map(self):
         mat = self.np_mask.astype(np.float32)
         return ScoreMap(mat=mat, box=self.box)
 
     def extract_image(self, image: 'Image'):
-        if self.box:
-            image = self.box.extract_image(image)
+        image = self.equivalent_box.extract_image(image)
 
         image = image.copy()
         self.to_inverted_mask().fill_image(image, value=0)
@@ -487,16 +476,12 @@ class Mask(Shapable):
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
-        assert image.box is None
-
-        if isinstance(value, Image):
-            value = value.mat
-        if isinstance(alpha, ScoreMap):
-            assert alpha.is_prob
-            alpha = alpha.mat
-
-        with image.writable_context:
-            self.fill_np_array(image.mat, value, alpha=alpha)
+        self.equivalent_box.fill_image(
+            image=image,
+            value=value,
+            image_mask=self,
+            alpha=alpha,
+        )
 
     def to_disconnected_polygons(
         self,

@@ -32,10 +32,15 @@ import re
 from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 import iolite as io
+import attrs
 import cattrs
 from cattrs.errors import ClassValidationError
 
 from vkit.utility import PathType
+
+
+def attrs_lazy_field():
+    return attrs.field(default=None, init=False, repr=False)
 
 
 def is_path_type(path: Any):

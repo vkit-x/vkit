@@ -18,6 +18,7 @@ import attrs
 import numpy as np
 import cv2 as cv
 
+from vkit.utility import attrs_lazy_field
 from vkit.element import Shapable, Point, Polygon, PointList
 
 
@@ -28,14 +29,14 @@ class ImageGrid:
     # If set, then this is a src image grid.
     grid_size: Optional[int] = None
 
-    cached_map_y: Optional[np.ndarray] = None
-    cached_map_x: Optional[np.ndarray] = None
+    _cached_map_y: Optional[np.ndarray] = attrs_lazy_field()
+    _cached_map_x: Optional[np.ndarray] = attrs_lazy_field()
 
-    _image_height: Optional[int] = None
-    _image_width: Optional[int] = None
+    _image_height: Optional[int] = attrs_lazy_field()
+    _image_width: Optional[int] = attrs_lazy_field()
 
-    _cached_trans_mat: Optional[List[List[Optional[np.ndarray]]]] = None
-    _cached_inv_trans_mat: Optional[List[List[Optional[np.ndarray]]]] = None
+    _cached_trans_mat: Optional[List[List[Optional[np.ndarray]]]] = attrs_lazy_field()
+    _cached_inv_trans_mat: Optional[List[List[Optional[np.ndarray]]]] = attrs_lazy_field()
 
     def lazy_post_init(self):
         initialized = (self._image_height is not None)
@@ -201,17 +202,17 @@ class ImageGrid:
 
     @staticmethod
     def get_np_y_x_points_within_polygon(polygon: Polygon):
-        box = polygon.fill_np_array_internals.bounding_box
-        np_mask = polygon.fill_np_array_internals.get_np_mask()
+        box = polygon.bounding_box
+        np_active_mask = polygon.internals.np_mask
 
-        y, x = np_mask.nonzero()
+        y, x = np_active_mask.nonzero()
         y += box.up
         x += box.left
         return y, x
 
     def generate_remap_params(self, dst_image_grid: 'ImageGrid'):
-        if self.cached_map_y is not None:
-            return self.cached_map_y, self.cached_map_x
+        if self._cached_map_y is not None:
+            return self._cached_map_y, self._cached_map_x
 
         map_y = np.zeros(
             (dst_image_grid.image_height, dst_image_grid.image_width),
@@ -258,7 +259,7 @@ class ImageGrid:
             map_y[dst_y, dst_x] = src_y
             map_x[dst_y, dst_x] = src_x
 
-        self.cached_map_y = map_y
-        self.cached_map_x = map_x
+        self._cached_map_y = map_y
+        self._cached_map_x = map_x
 
-        return self.cached_map_y, self.cached_map_x
+        return self._cached_map_y, self._cached_map_x

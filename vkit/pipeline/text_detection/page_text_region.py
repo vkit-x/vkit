@@ -134,7 +134,7 @@ class PageTextRegionStep(
         candidate_polygon: Polygon,
     ):
         candidate_shapely_polygon = candidate_polygon.to_shapely_polygon()
-        candidate_mask = candidate_polygon.to_mask()
+        candidate_mask = candidate_polygon.mask
         candidate_box = candidate_mask.box
         assert candidate_box
 
@@ -144,7 +144,7 @@ class PageTextRegionStep(
 
             # Build mask if not exists.
             if anchor_id not in id_to_anchor_mask:
-                id_to_anchor_mask[anchor_id] = anchor_polygon.to_mask()
+                id_to_anchor_mask[anchor_id] = anchor_polygon.mask
                 id_to_anchor_np_mask[anchor_id] = id_to_anchor_mask[anchor_id].np_mask
             anchor_mask = id_to_anchor_mask[anchor_id]
             anchor_np_mask = id_to_anchor_np_mask[anchor_id]

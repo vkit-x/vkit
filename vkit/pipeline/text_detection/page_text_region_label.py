@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Tuple, Sequence, List, Optional
+from typing import cast, Tuple, Sequence, List, Optional
 from enum import Enum, unique
 import math
 import logging
@@ -22,7 +22,7 @@ import numpy as np
 import cv2 as cv
 from sklearn.neighbors import KDTree
 
-from vkit.utility import normalize_to_probs
+from vkit.utility import attrs_lazy_field, normalize_to_probs
 from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
 from vkit.engine.distortion.geometric.affine import affine_points
 from ..interface import PipelineStep, PipelineStepFactory
@@ -59,8 +59,8 @@ class Vector:
     y: float
     x: float
 
-    _distance: Optional[float] = None
-    _theta: Optional[float] = None
+    _distance: Optional[float] = attrs_lazy_field()
+    _theta: Optional[float] = attrs_lazy_field()
 
     def lazy_post_init(self):
         initialized = (self._distance is not None)
@@ -110,17 +110,17 @@ class PageCharRegressionLabel:
     down_right: Point
     down_left: Point
 
-    _up_left_vector: Optional[Vector] = None
-    _up_right_vector: Optional[Vector] = None
-    _down_right_vector: Optional[Vector] = None
-    _down_left_vector: Optional[Vector] = None
+    _up_left_vector: Optional[Vector] = attrs_lazy_field()
+    _up_right_vector: Optional[Vector] = attrs_lazy_field()
+    _down_right_vector: Optional[Vector] = attrs_lazy_field()
+    _down_left_vector: Optional[Vector] = attrs_lazy_field()
 
-    _up_left_to_up_right_angle: Optional[float] = None
-    _up_right_to_down_right_angle: Optional[float] = None
-    _down_right_to_down_left_angle: Optional[float] = None
-    _down_left_to_up_left_angle: Optional[float] = None
-    _valid: Optional[bool] = None
-    _clockwise_angle_distribution: Optional[Sequence[float]] = None
+    _up_left_to_up_right_angle: Optional[float] = attrs_lazy_field()
+    _up_right_to_down_right_angle: Optional[float] = attrs_lazy_field()
+    _down_right_to_down_left_angle: Optional[float] = attrs_lazy_field()
+    _down_left_to_up_left_angle: Optional[float] = attrs_lazy_field()
+    _valid: Optional[bool] = attrs_lazy_field()
+    _clockwise_angle_distribution: Optional[Sequence[float]] = attrs_lazy_field()
 
     def lazy_post_init(self):
         initialized = (self._up_left_vector is not None)
@@ -187,14 +187,14 @@ class PageCharRegressionLabel:
         assert self.label_point_y == self.downsampled_label_point_y
         assert self.label_point_x == self.downsampled_label_point_x
 
-        label_point_y = self.label_point_y + offset_y
-        label_point_x = self.label_point_x + offset_x
+        label_point_y = cast(int, self.label_point_y + offset_y)
+        label_point_x = cast(int, self.label_point_x + offset_x)
         up_left = self.up_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
         up_right = self.up_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
         down_right = self.down_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
         down_left = self.down_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
 
-        shifted_page_char_regression_label = PageCharRegressionLabel(
+        shifted = PageCharRegressionLabel(
             char_idx=self.char_idx,
             tag=self.tag,
             label_point_y=label_point_y,
@@ -205,19 +205,21 @@ class PageCharRegressionLabel:
             up_right=up_right,
             down_right=down_right,
             down_left=down_left,
-            # Avoid recalculate the labelings.
-            up_left_vector=self._up_left_vector,  # type: ignore
-            up_right_vector=self._up_right_vector,  # type: ignore
-            down_right_vector=self._down_right_vector,  # type: ignore
-            down_left_vector=self._down_left_vector,  # type: ignore
-            up_left_to_up_right_angle=self._up_left_to_up_right_angle,  # type: ignore
-            up_right_to_down_right_angle=self._up_right_to_down_right_angle,  # type: ignore
-            down_right_to_down_left_angle=self._down_right_to_down_left_angle,  # type: ignore
-            down_left_to_up_left_angle=self._down_left_to_up_left_angle,  # type: ignore
-            valid=self._valid,  # type: ignore
-            clockwise_angle_distribution=self._clockwise_angle_distribution,  # type: ignore
         )
-        return shifted_page_char_regression_label
+
+        # Avoid recalculate the labelings.
+        shifted._up_left_vector = self._up_left_vector
+        shifted._up_right_vector = self._up_right_vector
+        shifted._down_right_vector = self._down_right_vector
+        shifted._down_left_vector = self._down_left_vector
+        shifted._up_left_to_up_right_angle = self._up_left_to_up_right_angle
+        shifted._up_right_to_down_right_angle = self._up_right_to_down_right_angle
+        shifted._down_right_to_down_left_angle = self._down_right_to_down_left_angle
+        shifted._down_left_to_up_left_angle = self._down_left_to_up_left_angle
+        shifted._valid = self._valid
+        shifted._clockwise_angle_distribution = self._clockwise_angle_distribution
+
+        return shifted
 
     def to_downsampled_page_char_regression_label(self, downsample_labeling_factor: int):
         assert self.valid
@@ -364,8 +366,8 @@ class PageTextRegionLabelStep(
 
         for polygon in page_char_polygons:
             # Transform.
-            bounding_box = polygon.fill_np_array_internals.bounding_box
-            np_dst_points = polygon.fill_np_array_internals.shifted_np_points.astype(np.float32)
+            bounding_box = polygon.bounding_box
+            np_dst_points = polygon.internals.np_self_relative_points.astype(np.float32)
 
             np_dst_gaussian_map = cv.warpPerspective(
                 np_src_gaussian_map,
@@ -424,7 +426,7 @@ class PageTextRegionLabelStep(
             page_char_regression_labels.append(label)
 
             # 2. The deviate points.
-            bounding_box = polygon.fill_np_array_internals.bounding_box
+            bounding_box = polygon.bounding_box
 
             # Sample points in shfited bounding box space.
             deviate_points_in_bounding_box = PointList()
@@ -439,7 +441,7 @@ class PageTextRegionLabelStep(
                 deviate_points_in_bounding_box.append(Point(y=y, x=x))
 
             # Then transform to the polygon space.
-            np_dst_points = polygon.fill_np_array_internals.shifted_np_points.astype(np.float32)
+            np_dst_points = polygon.internals.np_self_relative_points.astype(np.float32)
             np_src_points = np.asarray(
                 [
                     (0, 0),

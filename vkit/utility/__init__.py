@@ -13,6 +13,7 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from .type import PathType
 from .opt import (
+    attrs_lazy_field,
     is_path_type,
     read_json_file,
     get_data_folder,

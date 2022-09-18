@@ -211,9 +211,9 @@ class Box(Shapable):
             new_element_box = None
 
         else:
-            # NOTE: element_box must contains self box.
             assert element_box.up <= self.up <= self.down <= element_box.down
             assert element_box.left <= self.left <= self.right <= element_box.right
+
             relative_box = self.to_relative_box(
                 origin_y=element_box.up,
                 origin_x=element_box.left,
@@ -229,6 +229,10 @@ class Box(Shapable):
 
     def extract_mask(self, mask: 'Mask'):
         relative_box, new_mask_box = self.get_boxes_for_box_attached_opt(mask.box)
+
+        if relative_box.shape == mask.shape:
+            return mask
+
         return attrs.evolve(
             mask,
             mat=relative_box.extract_np_array(mask.mat),
@@ -237,6 +241,10 @@ class Box(Shapable):
 
     def extract_score_map(self, score_map: 'ScoreMap'):
         relative_box, new_score_map_box = self.get_boxes_for_box_attached_opt(score_map.box)
+
+        if relative_box.shape == score_map.shape:
+            return score_map
+
         return attrs.evolve(
             score_map,
             mat=relative_box.extract_np_array(score_map.mat),
@@ -245,6 +253,10 @@ class Box(Shapable):
 
     def extract_image(self, image: 'Image'):
         relative_box, new_image_box = self.get_boxes_for_box_attached_opt(image.box)
+
+        if relative_box.shape == image.shape:
+            return image
+
         return attrs.evolve(
             image,
             mat=relative_box.extract_np_array(image.mat),
@@ -271,16 +283,32 @@ class Box(Shapable):
 
         return mat, value
 
+    @staticmethod
+    def get_np_mask_from_element_mask(element_mask: Optional[Union['Mask', np.ndarray]]):
+        np_mask = None
+        if element_mask:
+            if isinstance(element_mask, Mask):
+                # NOTE: Mask.box are ignored.
+                np_mask = element_mask.np_mask
+            else:
+                np_mask = element_mask
+        return np_mask
+
     def fill_np_array(
         self,
         mat: np.ndarray,
         value: Union[np.ndarray, Tuple[float, ...], float],
         np_mask: Optional[np.ndarray] = None,
-        alpha: Union[np.ndarray, float] = 1.0,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
         mat, value = self.prep_mat_and_value(mat, value)
+
+        if isinstance(alpha, ScoreMap):
+            # NOTE: Place before np_mask to simplify ScoreMap opts.
+            assert alpha.is_prob
+            alpha = alpha.mat
 
         if np_mask is None and isinstance(alpha, np.ndarray):
             # For optimizing sparse alpha matrix.
@@ -299,18 +327,22 @@ class Box(Shapable):
         self,
         mask: 'Mask',
         value: Union['Mask', np.ndarray, int] = 1,
+        mask_mask: Optional[Union['Mask', np.ndarray]] = None,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
         relative_box, _ = self.get_boxes_for_box_attached_opt(mask.box)
 
         if isinstance(value, Mask):
-            value = value.mat
+            value = self.extract_mask(value).mat
+
+        np_mask = self.get_np_mask_from_element_mask(mask_mask)
 
         with mask.writable_context:
             relative_box.fill_np_array(
                 mask.mat,
                 value,
+                np_mask=np_mask,
                 keep_max_value=keep_max_value,
                 keep_min_value=keep_min_value,
             )
@@ -319,18 +351,22 @@ class Box(Shapable):
         self,
         score_map: 'ScoreMap',
         value: Union['ScoreMap', np.ndarray, float],
+        score_map_mask: Optional[Union['Mask', np.ndarray]] = None,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
         relative_box, _ = self.get_boxes_for_box_attached_opt(score_map.box)
 
         if isinstance(value, ScoreMap):
-            value = value.mat
+            value = self.extract_score_map(value).mat
+
+        np_mask = self.get_np_mask_from_element_mask(score_map_mask)
 
         with score_map.writable_context:
             relative_box.fill_np_array(
                 score_map.mat,
                 value,
+                np_mask=np_mask,
                 keep_max_value=keep_max_value,
                 keep_min_value=keep_min_value,
             )
@@ -339,22 +375,15 @@ class Box(Shapable):
         self,
         image: 'Image',
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        mask: Optional[Union['Mask', np.ndarray]] = None,
+        image_mask: Optional[Union['Mask', np.ndarray]] = None,
         alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
         relative_box, _ = self.get_boxes_for_box_attached_opt(image.box)
 
         if isinstance(value, Image):
-            value = value.mat
-        if isinstance(alpha, ScoreMap):
-            assert alpha.is_prob
-            alpha = alpha.mat
-        np_mask = None
-        if mask:
-            if isinstance(mask, Mask):
-                np_mask = mask.np_mask
-            else:
-                np_mask = mask
+            value = self.extract_image(value).mat
+
+        np_mask = self.get_np_mask_from_element_mask(image_mask)
 
         with image.writable_context:
             relative_box.fill_np_array(

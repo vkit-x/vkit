@@ -75,8 +75,9 @@ def test_image_setitem_mask():
     painter.paint_polygons([polygon])
     write_image('mask.jpg', painter.image)
 
-    box0 = Box(up=100, down=200, left=100, right=200)
-    mask = Mask.from_shapable(cheems_image).to_box_attached(box0)
+    mask = Mask.from_shapable(cheems_image)
     mask[polygon] = 1
+    box0 = Box(up=100, down=200, left=100, right=200)
+    mask = mask.to_box_attached(box0)
     lenna_image[mask] = cheems_image
     write_image('masked_cheems.jpg', lenna_image)

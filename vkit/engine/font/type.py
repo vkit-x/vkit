@@ -21,7 +21,7 @@ import iolite as io
 import numpy as np
 import cv2 as cv
 
-from vkit.utility import PathType, dyn_structure
+from vkit.utility import attrs_lazy_field, dyn_structure, PathType
 from vkit.element import (
     Image,
     Box,
@@ -161,8 +161,8 @@ class FontCollectionFolderTree(Enum):
 class FontCollection:
     font_metas: Sequence[FontMeta]
 
-    _name_to_font_meta: Optional[Mapping[str, FontMeta]] = None
-    _char_to_font_meta_names: Optional[Mapping[str, Set[str]]] = None
+    _name_to_font_meta: Optional[Mapping[str, FontMeta]] = attrs_lazy_field()
+    _char_to_font_meta_names: Optional[Mapping[str, Set[str]]] = attrs_lazy_field()
 
     def lazy_post_init(self):
         initialized = (self._name_to_font_meta is not None)
