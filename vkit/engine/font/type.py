@@ -21,7 +21,7 @@ import iolite as io
 import numpy as np
 import cv2 as cv
 
-from vkit.utility import PathType, dyn_structure
+from vkit.utility import attrs_lazy_field, dyn_structure, PathType
 from vkit.element import (
     Image,
     Box,
@@ -161,8 +161,8 @@ class FontCollectionFolderTree(Enum):
 class FontCollection:
     font_metas: Sequence[FontMeta]
 
-    _name_to_font_meta: Optional[Mapping[str, FontMeta]] = None
-    _char_to_font_meta_names: Optional[Mapping[str, Set[str]]] = None
+    _name_to_font_meta: Optional[Mapping[str, FontMeta]] = attrs_lazy_field()
+    _char_to_font_meta_names: Optional[Mapping[str, Set[str]]] = attrs_lazy_field()
 
     def lazy_post_init(self):
         initialized = (self._name_to_font_meta is not None)
@@ -350,23 +350,23 @@ class TextLine:
     def glyph_color(self):
         return self.style.glyph_color
 
-    def to_shifted_text_line(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_text_line(self, offset_y: int = 0, offset_x: int = 0):
         self.shifted = True
 
-        shifted_image = self.image.to_shifted_image(y_offset=y_offset, x_offset=x_offset)
-        shifted_mask = self.mask.to_shifted_mask(y_offset=y_offset, x_offset=x_offset)
+        shifted_image = self.image.to_shifted_image(offset_y=offset_y, offset_x=offset_x)
+        shifted_mask = self.mask.to_shifted_mask(offset_y=offset_y, offset_x=offset_x)
 
         shifted_score_map = None
         if self.score_map:
             shifted_score_map = self.score_map.to_shifted_score_map(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             )
 
         shifted_char_boxes = [
             char_box.to_shifted_char_box(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             ) for char_box in self.char_boxes
         ]
 

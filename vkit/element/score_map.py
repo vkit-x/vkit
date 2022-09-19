@@ -19,10 +19,7 @@ import numpy as np
 import cv2 as cv
 
 from .type import Shapable, FillByElementsMode
-from .opt import (
-    generate_shape_and_resized_shape,
-    fill_np_array,
-)
+from .opt import generate_shape_and_resized_shape
 
 
 @attrs.define
@@ -180,14 +177,14 @@ class ScoreMap(Shapable):
             point2,
             point3,
         ))
-        bounding_box = polygon.fill_np_array_internals.bounding_box
-        shifted_polygon = polygon.fill_np_array_internals.get_shifted_polygon()
-        np_mask = polygon.fill_np_array_internals.get_np_mask()
+        bounding_box = polygon.bounding_box
+        self_relative_polygon = polygon.self_relative_polygon
+        np_active_mask = polygon.internals.np_mask
 
-        np_vec_0 = NpVec.from_point(shifted_polygon.points[0])
-        np_vec_1 = NpVec.from_point(shifted_polygon.points[1])
-        np_vec_2 = NpVec.from_point(shifted_polygon.points[2])
-        np_vec_3 = NpVec.from_point(shifted_polygon.points[3])
+        np_vec_0 = NpVec.from_point(self_relative_polygon.points[0])
+        np_vec_1 = NpVec.from_point(self_relative_polygon.points[1])
+        np_vec_2 = NpVec.from_point(self_relative_polygon.points[2])
+        np_vec_3 = NpVec.from_point(self_relative_polygon.points[3])
 
         # F(x, y) -> x
         np_pointx_x = np.repeat(
@@ -232,10 +229,10 @@ class ScoreMap(Shapable):
             np_v_pos = (-np_b + np_discrim) * scale_i2a
             np_v_neg: np.ndarray = (-np_b - np_discrim) * scale_i2a  # type: ignore
 
-            np_masked_v_pos: np.ndarray = np_v_pos[np_mask]
+            np_masked_v_pos: np.ndarray = np_v_pos[np_active_mask]
             np_v_pos_valid = (0.0 <= np_masked_v_pos) & (np_masked_v_pos <= 1.0)
 
-            np_masked_v_neg: np.ndarray = np_v_neg[np_mask]
+            np_masked_v_neg: np.ndarray = np_v_neg[np_active_mask]
             np_v_neg_valid = (0.0 <= np_masked_v_neg) & (np_masked_v_neg <= 1.0)
 
             if np_v_pos_valid.sum() >= np_v_neg_valid.sum():
@@ -243,7 +240,7 @@ class ScoreMap(Shapable):
             else:
                 np_v = np_v_neg
 
-        np_v[~np_mask] = 0.0
+        np_v[~np_active_mask] = 0.0
         np_v = np.clip(np_v, 0.0, 1.0)
 
         # Solve u.
@@ -268,7 +265,7 @@ class ScoreMap(Shapable):
                 / np_denom_y[np_denom_y_mask]
             )
 
-        np_u[~np_mask] = 0.0
+        np_u[~np_active_mask] = 0.0
         np_u = np.clip(np_u, 0.0, 1.0)
 
         # Stack to (height, width, 2)
@@ -292,6 +289,10 @@ class ScoreMap(Shapable):
     @property
     def width(self):
         return self.mat.shape[1]
+
+    @property
+    def equivalent_box(self):
+        return self.box or Box.from_shapable(self)
 
     @property
     def writable_context(self):
@@ -582,9 +583,9 @@ class ScoreMap(Shapable):
             keep_min_value=keep_min_value,
         )
 
-    def to_shifted_score_map(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_score_map(self, offset_y: int = 0, offset_x: int = 0):
         assert self.box
-        shifted_box = self.box.to_shifted_box(y_offset=y_offset, x_offset=x_offset)
+        shifted_box = self.box.to_shifted_box(offset_y=offset_y, offset_x=offset_x)
         return attrs.evolve(self, box=shifted_box)
 
     def to_conducted_resized_polygon(
@@ -662,38 +663,24 @@ class ScoreMap(Shapable):
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        np_non_zero_mask = (self.mat > 0)
-
-        if self.box:
-            self.box.fill_np_array(
-                mat=mat,
-                value=value,
-                np_mask=np_non_zero_mask,
-                alpha=self.mat,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
-
-        else:
-            fill_np_array(
-                mat=mat,
-                value=value,
-                np_mask=np_non_zero_mask,
-                alpha=self.mat,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+        self.equivalent_box.fill_np_array(
+            mat=mat,
+            value=value,
+            alpha=self,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def fill_image(
         self,
         image: 'Image',
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
     ):
-        if isinstance(value, Image):
-            value = value.mat
-
-        with image.writable_context:
-            self.fill_np_array(image.mat, value)
+        self.equivalent_box.fill_image(
+            image=image,
+            value=value,
+            alpha=self,
+        )
 
     def to_mask(self, threshold: float = 0.0):
         mat = (self.mat > threshold).astype(np.uint8)

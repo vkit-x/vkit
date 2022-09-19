@@ -185,18 +185,18 @@ class PageTextRegionCroppingStep(
             return None
 
         # Shift labels.
-        y_offset = cropper.target_box.up - cropper.origin_box.up
-        x_offset = cropper.target_box.left - cropper.origin_box.left
+        offset_y = cropper.target_box.up - cropper.origin_box.up
+        offset_x = cropper.target_box.left - cropper.origin_box.left
         shifted_centroid_labels = [
             centroid_label.to_shifted_page_char_regression_label(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             ) for centroid_label in centroid_labels
         ]
         shifted_deviate_labels = [
             deviate_label.to_shifted_page_char_regression_label(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             ) for deviate_label in deviate_labels
         ]
 

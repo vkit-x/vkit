@@ -64,8 +64,8 @@ class Point:
                 x=clip_val(self.x, width),
             )
 
-    def to_shifted_point(self, y_offset: int = 0, x_offset: int = 0):
-        return Point(y=self.y + y_offset, x=self.x + x_offset)
+    def to_shifted_point(self, offset_y: int = 0, offset_x: int = 0):
+        return Point(y=self.y + offset_y, x=self.x + offset_x)
 
     def to_conducted_resized_point(
         self,
@@ -155,13 +155,16 @@ class PointList(List[Point]):
     def to_clipped_points(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         return PointList(point.to_clipped_point(shapable_or_shape) for point in self)
 
-    def to_shifted_points(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_points(self, offset_y: int = 0, offset_x: int = 0):
         return PointList(
             point.to_shifted_point(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             ) for point in self
         )
+
+    def to_relative_points(self, origin_y: int, origin_x: int):
+        return self.to_shifted_points(offset_y=-origin_y, offset_x=-origin_x)
 
     def to_conducted_resized_points(
         self,
@@ -217,13 +220,16 @@ class PointTuple(Tuple[Point, ...]):
     def to_clipped_points(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         return PointTuple(point.to_clipped_point(shapable_or_shape) for point in self)
 
-    def to_shifted_points(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_points(self, offset_y: int = 0, offset_x: int = 0):
         return PointTuple(
             point.to_shifted_point(
-                y_offset=y_offset,
-                x_offset=x_offset,
+                offset_y=offset_y,
+                offset_x=offset_x,
             ) for point in self
         )
+
+    def to_relative_points(self, origin_y: int, origin_x: int):
+        return self.to_shifted_points(offset_y=-origin_y, offset_x=-origin_x)
 
     def to_conducted_resized_points(
         self,

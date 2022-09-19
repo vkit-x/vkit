@@ -86,12 +86,14 @@ class Box(Shapable):
 
     @property
     def valid(self):
-        return self.area > 0
+        return (0 <= self.up <= self.down) and (0 <= self.left <= self.right)
 
     ##############
     # Conversion #
     ##############
     def to_polygon(self, step: Optional[int] = None):
+        # NOTE: Up left -> up right -> down right -> down left
+        # This order is important for char-level labeling.
         if step is None:
             points = PointTuple.from_xy_pairs((
                 (self.left, self.up),
@@ -178,13 +180,16 @@ class Box(Shapable):
             resized_width=resized_width,
         )
 
-    def to_shifted_box(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_box(self, offset_y: int = 0, offset_x: int = 0):
         return Box(
-            up=self.up + y_offset,
-            down=self.down + y_offset,
-            left=self.left + x_offset,
-            right=self.right + x_offset,
+            up=self.up + offset_y,
+            down=self.down + offset_y,
+            left=self.left + offset_x,
+            right=self.right + offset_x,
         )
+
+    def to_relative_box(self, origin_y: int, origin_x: int):
+        return self.to_shifted_box(offset_y=-origin_y, offset_x=-origin_x)
 
     def to_dilated_box(self, ratio: float, clip_long_side: bool = False):
         expand_vert = math.ceil(self.height * ratio / 2)
@@ -202,50 +207,63 @@ class Box(Shapable):
             right=self.right + expand_hori,
         )
 
+    def get_boxes_for_box_attached_opt(self, element_box: Optional['Box']):
+        if element_box is None:
+            relative_box = self
+            new_element_box = None
+
+        else:
+            assert element_box.up <= self.up <= self.down <= element_box.down
+            assert element_box.left <= self.left <= self.right <= element_box.right
+
+            # NOTE: Some shape, implicitly.
+            relative_box = self.to_relative_box(
+                origin_y=element_box.up,
+                origin_x=element_box.left,
+            )
+            new_element_box = self
+
+        return relative_box, new_element_box
+
     def extract_np_array(self, mat: np.ndarray) -> np.ndarray:
         assert 0 <= self.up <= self.down <= mat.shape[0]
         assert 0 <= self.left <= self.right <= mat.shape[1]
         return mat[self.up:self.down + 1, self.left:self.right + 1]
 
-    def get_relative_box(self, other: 'Box'):
-        # Generate relative box with origin set as (self.left, self.up).
-        return other.to_shifted_box(
-            y_offset=-self.up,
-            x_offset=-self.left,
-        )
-
-    def get_boxes_for_extract_opt(self, element_box: Optional['Box']):
-        box = self
-        new_box = None
-
-        if element_box is not None:
-            box = element_box.get_relative_box(self)
-            new_box = self
-
-        return box, new_box
-
-    def extract_image(self, image: 'Image'):
-        box, new_box = self.get_boxes_for_extract_opt(image.box)
-        return attrs.evolve(
-            image,
-            mat=box.extract_np_array(image.mat),
-            box=new_box,
-        )
-
     def extract_mask(self, mask: 'Mask'):
-        box, new_box = self.get_boxes_for_extract_opt(mask.box)
+        relative_box, new_mask_box = self.get_boxes_for_box_attached_opt(mask.box)
+
+        if relative_box.shape == mask.shape:
+            return mask
+
         return attrs.evolve(
             mask,
-            mat=box.extract_np_array(mask.mat),
-            box=new_box,
+            mat=relative_box.extract_np_array(mask.mat),
+            box=new_mask_box,
         )
 
     def extract_score_map(self, score_map: 'ScoreMap'):
-        box, new_box = self.get_boxes_for_extract_opt(score_map.box)
+        relative_box, new_score_map_box = self.get_boxes_for_box_attached_opt(score_map.box)
+
+        if relative_box.shape == score_map.shape:
+            return score_map
+
         return attrs.evolve(
             score_map,
-            mat=box.extract_np_array(score_map.mat),
-            box=new_box,
+            mat=relative_box.extract_np_array(score_map.mat),
+            box=new_score_map_box,
+        )
+
+    def extract_image(self, image: 'Image'):
+        relative_box, new_image_box = self.get_boxes_for_box_attached_opt(image.box)
+
+        if relative_box.shape == image.shape:
+            return image
+
+        return attrs.evolve(
+            image,
+            mat=relative_box.extract_np_array(image.mat),
+            box=new_image_box,
         )
 
     def prep_mat_and_value(
@@ -268,16 +286,34 @@ class Box(Shapable):
 
         return mat, value
 
+    @staticmethod
+    def get_np_mask_from_element_mask(element_mask: Optional[Union['Mask', np.ndarray]]):
+        np_mask = None
+        if element_mask:
+            if isinstance(element_mask, Mask):
+                # NOTE: Mask.box is ignored.
+                np_mask = element_mask.np_mask
+            else:
+                np_mask = element_mask
+        return np_mask
+
     def fill_np_array(
         self,
         mat: np.ndarray,
         value: Union[np.ndarray, Tuple[float, ...], float],
         np_mask: Optional[np.ndarray] = None,
-        alpha: Union[np.ndarray, float] = 1.0,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
         mat, value = self.prep_mat_and_value(mat, value)
+
+        if isinstance(alpha, ScoreMap):
+            # NOTE:
+            # 1. Place before np_mask to simplify ScoreMap opts.
+            # 2. ScoreMap.box is ignored.
+            assert alpha.is_prob
+            alpha = alpha.mat
 
         if np_mask is None and isinstance(alpha, np.ndarray):
             # For optimizing sparse alpha matrix.
@@ -292,47 +328,28 @@ class Box(Shapable):
             keep_min_value=keep_min_value,
         )
 
-    def fill_image(
-        self,
-        image: 'Image',
-        value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        mask: Optional[Union['Mask', np.ndarray]] = None,
-        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
-    ):
-        if isinstance(value, Image):
-            value = value.mat
-        if isinstance(alpha, ScoreMap):
-            assert alpha.is_prob
-            alpha = alpha.mat
-        np_mask = None
-        if mask:
-            if isinstance(mask, Mask):
-                np_mask = mask.np_mask
-            else:
-                np_mask = mask
-
-        with image.writable_context:
-            self.fill_np_array(
-                image.mat,
-                value,
-                np_mask=np_mask,
-                alpha=alpha,
-            )
-
     def fill_mask(
         self,
         mask: 'Mask',
         value: Union['Mask', np.ndarray, int] = 1,
+        mask_mask: Optional[Union['Mask', np.ndarray]] = None,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
+        relative_box, _ = self.get_boxes_for_box_attached_opt(mask.box)
+
         if isinstance(value, Mask):
+            if value.shape != self.shape:
+                value = self.extract_mask(value)
             value = value.mat
 
+        np_mask = self.get_np_mask_from_element_mask(mask_mask)
+
         with mask.writable_context:
-            self.fill_np_array(
+            relative_box.fill_np_array(
                 mask.mat,
                 value,
+                np_mask=np_mask,
                 keep_max_value=keep_max_value,
                 keep_min_value=keep_min_value,
             )
@@ -341,18 +358,50 @@ class Box(Shapable):
         self,
         score_map: 'ScoreMap',
         value: Union['ScoreMap', np.ndarray, float],
+        score_map_mask: Optional[Union['Mask', np.ndarray]] = None,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
+        relative_box, _ = self.get_boxes_for_box_attached_opt(score_map.box)
+
         if isinstance(value, ScoreMap):
+            if value.shape != self.shape:
+                value = self.extract_score_map(value)
             value = value.mat
 
+        np_mask = self.get_np_mask_from_element_mask(score_map_mask)
+
         with score_map.writable_context:
-            self.fill_np_array(
+            relative_box.fill_np_array(
                 score_map.mat,
                 value,
+                np_mask=np_mask,
                 keep_max_value=keep_max_value,
                 keep_min_value=keep_min_value,
+            )
+
+    def fill_image(
+        self,
+        image: 'Image',
+        value: Union['Image', np.ndarray, Tuple[int, ...], int],
+        image_mask: Optional[Union['Mask', np.ndarray]] = None,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
+    ):
+        relative_box, _ = self.get_boxes_for_box_attached_opt(image.box)
+
+        if isinstance(value, Image):
+            if value.shape != self.shape:
+                value = self.extract_image(value)
+            value = value.mat
+
+        np_mask = self.get_np_mask_from_element_mask(image_mask)
+
+        with image.writable_context:
+            relative_box.fill_np_array(
+                image.mat,
+                value,
+                np_mask=np_mask,
+                alpha=alpha,
             )
 
 
@@ -422,10 +471,10 @@ class CharBox(Shapable):
             ),
         )
 
-    def to_shifted_char_box(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_char_box(self, offset_y: int = 0, offset_x: int = 0):
         return attrs.evolve(
             self,
-            box=self.box.to_shifted_box(y_offset=y_offset, x_offset=x_offset),
+            box=self.box.to_shifted_box(offset_y=offset_y, offset_x=offset_x),
         )
 
 

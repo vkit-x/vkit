@@ -152,8 +152,8 @@ def fill_text_line_to_seal_impression(
         assert internal_text_line_box
 
         internal_text_line = internal_text_line.to_shifted_text_line(
-            y_offset=internal_text_line_box.up,
-            x_offset=internal_text_line_box.left,
+            offset_y=internal_text_line_box.up,
+            offset_x=internal_text_line_box.left,
         )
         if internal_text_line.score_map:
             internal_text_line.box.fill_score_map(score_map, internal_text_line.score_map)

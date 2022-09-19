@@ -42,11 +42,11 @@ def line_streak_image(
     with mask.writable_context:
         step = config.thickness + config.gap
         if config.enable_vert:
-            for x_offset in range(config.thickness):
-                mask.mat[:, x_offset::step] = 1
+            for offset_x in range(config.thickness):
+                mask.mat[:, offset_x::step] = 1
         if config.enable_hori:
-            for y_offset in range(config.thickness):
-                mask.mat[y_offset::step] = 1
+            for offset_y in range(config.thickness):
+                mask.mat[offset_y::step] = 1
 
     image = image.copy()
     mask.fill_image(image, config.color, alpha=config.alpha)

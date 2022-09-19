@@ -317,27 +317,27 @@ class RandomDistortion:
 
         if distortion_result.point:
             distortion_result.point = distortion_result.point.to_shifted_point(
-                y_offset=-pad_up,
-                x_offset=-pad_left,
+                offset_y=-pad_up,
+                offset_x=-pad_left,
             )
 
         if distortion_result.points:
             distortion_result.points = distortion_result.points.to_shifted_points(
-                y_offset=-pad_up,
-                x_offset=-pad_left,
+                offset_y=-pad_up,
+                offset_x=-pad_left,
             )
 
         if distortion_result.polygon:
             distortion_result.polygon = distortion_result.polygon.to_shifted_polygon(
-                y_offset=-pad_up,
-                x_offset=-pad_left,
+                offset_y=-pad_up,
+                offset_x=-pad_left,
             )
 
         if distortion_result.polygons:
             distortion_result.polygons = [
                 polygon.to_shifted_polygon(
-                    y_offset=-pad_up,
-                    x_offset=-pad_left,
+                    offset_y=-pad_up,
+                    offset_x=-pad_left,
                 ) for polygon in distortion_result.polygons
             ]
 

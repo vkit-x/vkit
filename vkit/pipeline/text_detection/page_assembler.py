@@ -234,7 +234,7 @@ class PageAssemblerStep(
 
             # Rendering.
             box = Box(up=up, down=down, left=left, right=right)
-            box.fill_image(assembled_image, value=color, mask=background_mask, alpha=alpha)
+            box.fill_image(assembled_image, value=color, image_mask=background_mask, alpha=alpha)
             box.fill_image(assembled_image, value=color, alpha=text_line_filled_score_map)
 
         # For char-level polygon regression.

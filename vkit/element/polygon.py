@@ -28,8 +28,8 @@ from shapely.geometry import (
 from shapely.ops import unary_union
 import pyclipper
 
+from vkit.utility import attrs_lazy_field
 from .type import Shapable, FillByElementsMode
-from .opt import fill_np_array
 
 logger = logging.getLogger(__name__)
 
@@ -37,53 +37,75 @@ T_VAL = Union[float, str]
 
 
 @attrs.define
-class PolygonFillNpArrayInternals:
+class PolygonInternals:
     bounding_box: 'Box'
-    shifted_np_points: np.ndarray
+    np_self_relative_points: np.ndarray
 
-    _np_mask: Optional[np.ndarray] = attrs.field(default=None, repr=False)
+    _area: Optional[int] = attrs_lazy_field()
+    _self_relative_polygon: Optional['Polygon'] = attrs_lazy_field()
+    _np_mask: Optional[np.ndarray] = attrs_lazy_field()
+    _mask: Optional['Mask'] = attrs_lazy_field()
+
+    def lazy_post_init_area(self):
+        if self._area is not None:
+            return self._area
+
+        self._area = ShapelyPolygon(self.np_self_relative_points).area
+        return self._area
+
+    @property
+    def area(self):
+        return self.lazy_post_init_area()
+
+    def lazy_post_init_self_relative_polygon(self):
+        if self._self_relative_polygon is not None:
+            return self._self_relative_polygon
+
+        self._self_relative_polygon = Polygon.from_np_array(self.np_self_relative_points)
+        return self._self_relative_polygon
+
+    @property
+    def self_relative_polygon(self):
+        return self.lazy_post_init_self_relative_polygon()
 
     def lazy_post_init_np_mask(self):
         if self._np_mask is not None:
             return self._np_mask
 
         np_mask = np.zeros(self.bounding_box.shape, dtype=np.uint8)
-        cv.fillPoly(np_mask, [self.shifted_np_points], 1)
+        cv.fillPoly(np_mask, [self.np_self_relative_points], 1)
         self._np_mask = np_mask.astype(np.bool8)
         return self._np_mask
 
-    def get_shifted_polygon(self):
-        return Polygon.from_np_array(self.shifted_np_points)
-
-    def get_np_mask(self):
+    @property
+    def np_mask(self):
         return self.lazy_post_init_np_mask()
+
+    def lazy_post_init_mask(self):
+        if self._mask is not None:
+            return self._mask
+
+        self._mask = Mask(mat=self.np_mask.astype(np.uint8))
+        self._mask = self._mask.to_box_attached(self.bounding_box)
+        return self._mask
+
+    @property
+    def mask(self):
+        return self.lazy_post_init_mask()
 
 
 @attrs.define(frozen=True, eq=False)
 class Polygon:
     points: 'PointTuple'
 
-    _area: Optional[int] = attrs.field(default=None, repr=False)
-    _fill_np_array_internals: Optional[PolygonFillNpArrayInternals] = \
-        attrs.field(default=None, repr=False)
+    _internals: Optional[PolygonInternals] = attrs_lazy_field()
 
     def __attrs_post_init__(self):
         assert self.points
 
-    def lazy_post_init_area(self):
-        if self._area is not None:
-            return self._area
-
-        object.__setattr__(
-            self,
-            '_area',
-            ShapelyPolygon(self.to_xy_pairs()).area,
-        )
-        return cast(int, self._area)
-
-    def lazy_post_init_fill_np_array_internals(self):
-        if self._fill_np_array_internals is not None:
-            return self._fill_np_array_internals
+    def lazy_post_init_internals(self):
+        if self._internals is not None:
+            return self._internals
 
         np_points = self.to_np_array()
 
@@ -100,13 +122,13 @@ class Polygon:
 
         object.__setattr__(
             self,
-            '_fill_np_array_internals',
-            PolygonFillNpArrayInternals(
+            '_internals',
+            PolygonInternals(
                 bounding_box=bounding_box,
-                shifted_np_points=np_points,
+                np_self_relative_points=np_points,
             ),
         )
-        return cast(PolygonFillNpArrayInternals, self._fill_np_array_internals)
+        return cast(PolygonInternals, self._internals)
 
     ###############
     # Constructor #
@@ -119,12 +141,24 @@ class Polygon:
     # Property #
     ############
     @property
-    def area(self):
-        return self.lazy_post_init_area()
+    def internals(self):
+        return self.lazy_post_init_internals()
 
     @property
-    def fill_np_array_internals(self):
-        return self.lazy_post_init_fill_np_array_internals()
+    def area(self):
+        return self.internals.area
+
+    @property
+    def bounding_box(self):
+        return self.internals.bounding_box
+
+    @property
+    def self_relative_polygon(self):
+        return self.internals.self_relative_polygon
+
+    @property
+    def mask(self):
+        return self.internals.mask
 
     ##############
     # Conversion #
@@ -176,11 +210,17 @@ class Polygon:
     def to_clipped_polygon(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         return Polygon(points=self.to_clipped_points(shapable_or_shape))
 
-    def to_shifted_points(self, y_offset: int = 0, x_offset: int = 0):
-        return self.points.to_shifted_points(y_offset=y_offset, x_offset=x_offset)
+    def to_shifted_points(self, offset_y: int = 0, offset_x: int = 0):
+        return self.points.to_shifted_points(offset_y=offset_y, offset_x=offset_x)
 
-    def to_shifted_polygon(self, y_offset: int = 0, x_offset: int = 0):
-        return Polygon(points=self.to_shifted_points(y_offset=y_offset, x_offset=x_offset))
+    def to_relative_points(self, origin_y: int, origin_x: int):
+        return self.points.to_relative_points(origin_y=origin_y, origin_x=origin_x)
+
+    def to_shifted_polygon(self, offset_y: int = 0, offset_x: int = 0):
+        return Polygon(points=self.to_shifted_points(offset_y=offset_y, offset_x=offset_x))
+
+    def to_relative_polygon(self, origin_y: int, origin_x: int):
+        return Polygon(points=self.to_relative_points(origin_y=origin_y, origin_x=origin_x))
 
     def to_conducted_resized_polygon(
         self,
@@ -202,7 +242,7 @@ class Polygon:
         resized_width: Optional[int] = None,
     ):
         return self.to_conducted_resized_polygon(
-            shapable_or_shape=self.fill_np_array_internals.bounding_box.shape,
+            shapable_or_shape=self.bounding_box.shape,
             resized_height=resized_height,
             resized_width=resized_width,
         )
@@ -215,37 +255,26 @@ class Polygon:
         return self.create(points=points)
 
     def to_bounding_box(self):
-        return self.fill_np_array_internals.bounding_box
+        return self.bounding_box
 
     def fill_np_array(
         self,
         mat: np.ndarray,
         value: Union[np.ndarray, Tuple[float, ...], float],
-        alpha: Union[np.ndarray, float] = 1.0,
+        alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        mat, value = self.fill_np_array_internals.bounding_box.prep_mat_and_value(mat, value)
-        np_mask = self.fill_np_array_internals.get_np_mask()
-        fill_np_array(
+        self.mask.fill_np_array(
             mat=mat,
             value=value,
-            np_mask=np_mask,
             alpha=alpha,
             keep_max_value=keep_max_value,
             keep_min_value=keep_min_value,
         )
 
     def extract_mask(self, mask: 'Mask'):
-        extracted_mask = self.fill_np_array_internals.bounding_box.extract_mask(mask)
-        extracted_mask = extracted_mask.copy()
-
-        polygon_mask = Mask.from_shapable(extracted_mask)
-        shifted_polygon = self.fill_np_array_internals.get_shifted_polygon()
-        shifted_polygon.fill_mask(polygon_mask)
-        polygon_mask.to_inverted_mask().fill_mask(extracted_mask, value=0)
-
-        return extracted_mask
+        return self.mask.extract_mask(mask)
 
     def fill_mask(
         self,
@@ -254,33 +283,15 @@ class Polygon:
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        if isinstance(value, Mask):
-            value = value.mat
-
-        with mask.writable_context:
-            self.fill_np_array(
-                mask.mat,
-                value,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
-
-    def to_mask(self):
-        return Mask(
-            mat=self.fill_np_array_internals.get_np_mask().astype(np.uint8),
-            box=self.fill_np_array_internals.bounding_box,
+        self.mask.fill_mask(
+            mask=mask,
+            value=value,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
         )
 
     def extract_score_map(self, score_map: 'ScoreMap'):
-        extracted_score_map = self.fill_np_array_internals.bounding_box.extract_score_map(score_map)
-        extracted_score_map = extracted_score_map.copy()
-
-        polygon_mask = Mask.from_shapable(extracted_score_map)
-        shifted_polygon = self.fill_np_array_internals.get_shifted_polygon()
-        shifted_polygon.fill_mask(polygon_mask)
-        polygon_mask.to_inverted_mask().fill_score_map(extracted_score_map, value=0.0)
-
-        return extracted_score_map
+        return self.mask.extract_score_map(score_map)
 
     def fill_score_map(
         self,
@@ -289,27 +300,15 @@ class Polygon:
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        if isinstance(value, ScoreMap):
-            value = value.mat
-
-        with score_map.writable_context:
-            self.fill_np_array(
-                score_map.mat,
-                value,
-                keep_max_value=keep_max_value,
-                keep_min_value=keep_min_value,
-            )
+        self.mask.fill_score_map(
+            score_map=score_map,
+            value=value,
+            keep_max_value=keep_max_value,
+            keep_min_value=keep_min_value,
+        )
 
     def extract_image(self, image: 'Image'):
-        extracted_image = self.fill_np_array_internals.bounding_box.extract_image(image)
-        extracted_image = extracted_image.copy()
-
-        polygon_mask = Mask.from_shapable(extracted_image)
-        shifted_polygon = self.fill_np_array_internals.get_shifted_polygon()
-        shifted_polygon.fill_mask(polygon_mask)
-        polygon_mask.to_inverted_mask().fill_image(extracted_image, value=0)
-
-        return extracted_image
+        self.mask.extract_image(image)
 
     def fill_image(
         self,
@@ -317,14 +316,11 @@ class Polygon:
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union['ScoreMap', np.ndarray, float] = 1.0,
     ):
-        if isinstance(value, Image):
-            value = value.mat
-        if isinstance(alpha, ScoreMap):
-            assert alpha.is_prob
-            alpha = alpha.mat
-
-        with image.writable_context:
-            self.fill_np_array(image.mat, value, alpha=alpha)
+        self.mask.fill_image(
+            image=image,
+            value=value,
+            alpha=alpha,
+        )
 
     @staticmethod
     def remove_duplicated_xy_pairs(xy_pairs: Sequence[Tuple[int, int]]):
@@ -492,10 +488,8 @@ def generate_fill_by_polygons_mask(
 
     with polygons_mask.writable_context:
         for polygon in polygons:
-            boxed_mat = polygon.fill_np_array_internals.bounding_box.extract_np_array(
-                polygons_mask.mat
-            )
-            np_polygon_mask = polygon.fill_np_array_internals.get_np_mask()
+            boxed_mat = polygon.bounding_box.extract_np_array(polygons_mask.mat)
+            np_polygon_mask = polygon.internals.np_mask
             np_non_oob_mask = (boxed_mat < 255)
             boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
 

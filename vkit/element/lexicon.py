@@ -19,7 +19,7 @@ import attrs
 import cattrs
 import iolite as io
 
-from vkit.utility import PathType, dyn_structure
+from vkit.utility import attrs_lazy_field, dyn_structure, PathType
 
 
 @attrs.define(frozen=True)
@@ -49,9 +49,9 @@ KEY_NO_TAG = '__no_tag'
 class LexiconCollection:
     lexicons: Sequence[Lexicon]
 
-    _char_to_lexicon: Optional[Mapping[str, Lexicon]] = None
-    _tag_to_lexicons: Optional[Mapping[str, Sequence[Lexicon]]] = None
-    _tags: Optional[Sequence[str]] = None
+    _char_to_lexicon: Optional[Mapping[str, Lexicon]] = attrs_lazy_field()
+    _tag_to_lexicons: Optional[Mapping[str, Sequence[Lexicon]]] = attrs_lazy_field()
+    _tags: Optional[Sequence[str]] = attrs_lazy_field()
 
     def lazy_post_init(self):
         initialized = (self._char_to_lexicon is not None)

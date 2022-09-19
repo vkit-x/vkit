@@ -76,8 +76,8 @@ def create_dst_image_grid_and_shift_amounts_and_resize_ratios(
         for col_idx in range(src_image_grid.num_cols):
             point = dst_points_2d[row_idx][col_idx]
             dst_points_2d[row_idx][col_idx] = point.to_shifted_point(
-                y_offset=-shift_amount_y,
-                x_offset=-shift_amount_x,
+                offset_y=-shift_amount_y,
+                offset_x=-shift_amount_x,
             )
 
     src_image_height = src_image_grid.image_height

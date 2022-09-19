@@ -871,9 +871,9 @@ class Image(Shapable):
     def to_hsl_image(self):
         return self.to_target_kind_image(ImageKind.HSL)
 
-    def to_shifted_image(self, y_offset: int = 0, x_offset: int = 0):
+    def to_shifted_image(self, offset_y: int = 0, offset_x: int = 0):
         assert self.box
-        shifted_box = self.box.to_shifted_box(y_offset=y_offset, x_offset=x_offset)
+        shifted_box = self.box.to_shifted_box(offset_y=offset_y, offset_x=offset_x)
         return attrs.evolve(self, box=shifted_box)
 
     def to_resized_image(
