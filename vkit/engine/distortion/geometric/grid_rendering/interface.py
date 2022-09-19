@@ -184,7 +184,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
             state.dst_image_grid.image_height,
             state.dst_image_grid.image_width,
         ))
-        active_mask.fill_by_polygons([border_polygon])
+        border_polygon.fill_mask(active_mask)
         return active_mask
 
     @staticmethod

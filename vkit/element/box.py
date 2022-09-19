@@ -92,6 +92,8 @@ class Box(Shapable):
     # Conversion #
     ##############
     def to_polygon(self, step: Optional[int] = None):
+        # NOTE: Up left -> up right -> down right -> down left
+        # This order is important for char-level labeling.
         if step is None:
             points = PointTuple.from_xy_pairs((
                 (self.left, self.up),
@@ -289,7 +291,7 @@ class Box(Shapable):
         np_mask = None
         if element_mask:
             if isinstance(element_mask, Mask):
-                # NOTE: Mask.box are ignored.
+                # NOTE: Mask.box is ignored.
                 np_mask = element_mask.np_mask
             else:
                 np_mask = element_mask
@@ -307,7 +309,9 @@ class Box(Shapable):
         mat, value = self.prep_mat_and_value(mat, value)
 
         if isinstance(alpha, ScoreMap):
-            # NOTE: Place before np_mask to simplify ScoreMap opts.
+            # NOTE:
+            # 1. Place before np_mask to simplify ScoreMap opts.
+            # 2. ScoreMap.box is ignored.
             assert alpha.is_prob
             alpha = alpha.mat
 

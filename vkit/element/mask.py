@@ -25,6 +25,7 @@ from shapely.geometry import (
 )
 from shapely.validation import make_valid as shapely_make_valid
 
+from vkit.utility import attrs_lazy_field
 from .type import Shapable, FillByElementsMode
 from .opt import generate_resized_shape
 
@@ -72,9 +73,7 @@ class Mask(Shapable):
     mat: np.ndarray
     box: Optional['Box'] = None
 
-    # TODO: Don't hack.
-    _np_mask: np.ndarray = attrs.field(init=False, repr=False)
-    _np_mask_is_out_of_date: bool = attrs.field(default=False, init=False, repr=False)
+    _np_mask: Optional[np.ndarray] = attrs_lazy_field()
 
     def __attrs_post_init__(self):
         if self.mat.dtype != np.uint8:
@@ -85,12 +84,15 @@ class Mask(Shapable):
         # For the control of write.
         self.mat.flags.writeable = False
 
-        # Initialize mask.
-        self.set_np_mask_out_of_date()
-        self.update_np_mask_if_needed()
-
         if self.box and self.shape != self.box.shape:
             raise RuntimeError('self.shape != box.shape.')
+
+    def lazy_post_init_np_mask(self):
+        if self._np_mask is not None:
+            return self._np_mask
+
+        object.__setattr__(self, '_np_mask', (self.mat > 0))
+        return cast(np.ndarray, self._np_mask)
 
     ###############
     # Constructor #
@@ -127,8 +129,7 @@ class Mask(Shapable):
 
     @property
     def np_mask(self):
-        self.update_np_mask_if_needed()
-        return self._np_mask
+        return self.lazy_post_init_np_mask()
 
     @property
     def writable_context(self):
@@ -141,12 +142,7 @@ class Mask(Shapable):
         return attrs.evolve(self, mat=self.mat.copy())
 
     def set_np_mask_out_of_date(self):
-        object.__setattr__(self, '_np_mask_is_out_of_date', True)
-
-    def update_np_mask_if_needed(self):
-        if self._np_mask_is_out_of_date:
-            object.__setattr__(self, '_np_mask', (self.mat > 0))
-            object.__setattr__(self, '_np_mask_is_out_of_date', False)
+        object.__setattr__(self, '_np_mask', None)
 
     def assign_mat(self, mat: np.ndarray):
         with self.writable_context:

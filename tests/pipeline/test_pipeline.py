@@ -421,7 +421,14 @@ def test_debug_adaptive_scaling_dataset_steps():
                 output.page_text_region_cropping_step_output,
             )
 
-    # # For profiling.
-    # for seed in (0, 1):
-    #     rng = default_rng(seed)
-    #     pipeline.run(rng)
+
+def profile_adaptive_scaling_dataset_steps():
+    post_processor_factory = PipelinePostProcessorFactory(DebugAdaptiveScalingPipelinePostProcessor)
+    pipeline = Pipeline(
+        steps=pipeline_step_collection_factory.
+        create('$VKIT_DATA/pipeline/debug_adaptive_scaling_dataset_steps.json'),
+        post_processor=post_processor_factory.create(),
+    )
+    for seed in (0, 1):
+        rng = default_rng(seed)
+        pipeline.run(rng)

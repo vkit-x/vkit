@@ -269,7 +269,7 @@ class ImageCombinerEngine(
                 segment_image.mat[:down + 1 - up, :right + 1 - left]
 
             with edge_mask.writable_context:
-                ImageCombinerEngine.fill_np_edge_mask(
+                self.fill_np_edge_mask(
                     np_edge_mask=edge_mask.mat,
                     height=height,
                     width=width,
