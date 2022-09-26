@@ -481,7 +481,7 @@ class Mask(Shapable):
 
     def to_disconnected_polygons(
         self,
-        cv_find_contours_method: int = cv.CHAIN_APPROX_TC89_L1,
+        cv_find_contours_method: int = cv.CHAIN_APPROX_SIMPLE,
     ) -> Sequence['Polygon']:
         # [ (N, 1, 2), ... ]
         cv_contours, _ = cv.findContours(
@@ -543,7 +543,7 @@ class Mask(Shapable):
 
     def to_disconnected_polygon_mask_pairs(
         self,
-        cv_find_contours_method: int = cv.CHAIN_APPROX_TC89_L1,
+        cv_find_contours_method: int = cv.CHAIN_APPROX_SIMPLE,
     ) -> Sequence[Tuple['Polygon', 'Mask']]:
         pairs: List[Tuple[Polygon, Mask]] = []
 
