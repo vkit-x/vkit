@@ -308,7 +308,7 @@ class Polygon:
         )
 
     def extract_image(self, image: 'Image'):
-        self.mask.extract_image(image)
+        return self.mask.extract_image(image)
 
     def fill_image(
         self,
