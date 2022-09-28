@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple
+from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple, Set
 from collections import defaultdict
 import itertools
 import math
@@ -39,6 +39,9 @@ warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 class PageTextRegionStepConfig:
     page_flat_text_region_resize_char_height_min: int = 32
     page_flat_text_region_resize_char_height_max: int = 36
+    text_region_flattener_typical_long_side_ratio_min: float = 3.0
+    text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.9
+    text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
     gap: int = 2
     enable_post_uniform_rotate: bool = False
     debug: bool = False
@@ -86,6 +89,283 @@ class PageTextRegionStepOutput:
     shape_before_rotate: Tuple[int, int]
     rotate_angle: int
     debug: Optional[DebugPageTextRegionStep]
+
+
+@attrs.define
+class FlattenedTextRegion:
+    text_region_polygon: Polygon
+    flattening_rotate_angle: int
+    trim_up: int
+    trim_left: int
+    flattened_image: Image
+    flattened_char_polygons: Optional[Sequence[Polygon]]
+
+
+class TextRegionFlattener:
+
+    @staticmethod
+    def patch_text_region_polygons(
+        text_region_polygons: Sequence[Polygon],
+        grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
+    ):
+        if grouped_char_polygons is None:
+            return text_region_polygons
+
+        assert len(text_region_polygons) == len(grouped_char_polygons)
+
+        patched_text_region_polygons: List[Polygon] = []
+        for text_region_polygon, char_polygons in zip(text_region_polygons, grouped_char_polygons):
+            # Need to make sure all char polygons are included.
+            unionized_polygons = [text_region_polygon]
+            unionized_polygons.extend(char_polygons)
+
+            bounding_box = Box.from_boxes((polygon.bounding_box for polygon in unionized_polygons))
+            mask = Mask.from_shapable(bounding_box).to_box_attached(bounding_box)
+            for polygon in unionized_polygons:
+                polygon.fill_mask(mask)
+
+            patched_text_region_polygons.append(mask.to_external_polygon())
+
+        return patched_text_region_polygons
+
+    @staticmethod
+    def build_minimum_rotated_rectangles(text_region_polygons: Sequence[Polygon]):
+        minimum_rotated_rectangles: List[Polygon] = []
+
+        for text_region_polygon in text_region_polygons:
+            # Get minimum bounding rectangle.
+            shapely_polygon = text_region_polygon.to_shapely_polygon()
+            minimum_rotated_rectangle = shapely_polygon.minimum_rotated_rectangle
+
+            assert isinstance(minimum_rotated_rectangle, ShapelyPolygon)
+            polygon = Polygon.from_shapely_polygon(minimum_rotated_rectangle)
+            assert len(polygon.points) == 4
+
+            minimum_rotated_rectangles.append(polygon)
+
+        return minimum_rotated_rectangles
+
+    @staticmethod
+    def analyze_build_minimum_rotated_rectangles(minimum_rotated_rectangles: Sequence[Polygon]):
+        long_side_ratios: List[float] = []
+        long_side_angles: List[int] = []
+
+        for polygon in minimum_rotated_rectangles:
+            # Get reference line.
+            point0, point1, _, point3 = polygon.points
+            side0_length = math.hypot(point0.y - point1.y, point0.x - point1.x)
+            side1_length = math.hypot(point0.y - point3.y, point0.x - point3.x)
+
+            long_side_ratios.append(
+                max(side0_length, side1_length) / min(side0_length, side1_length)
+            )
+
+            point_a = point0
+            if side0_length > side1_length:
+                # Reference line (p0 -> p1).
+                point_b = point1
+            else:
+                # Reference line (p0 -> p3).
+                point_b = point3
+
+            # Get angle of reference line in [0, 180)
+            np_theta = np.arctan2(
+                point_a.y - point_b.y,
+                point_a.x - point_b.x,
+            )
+            np_theta = np_theta % np.pi
+            angle = round(np_theta / np.pi * 180)
+
+            long_side_angles.append(angle)
+
+        return long_side_ratios, long_side_angles
+
+    @staticmethod
+    def get_typical_angle(
+        typical_long_side_ratio_min: float,
+        long_side_ratios: Sequence[float],
+        long_side_angles: Sequence[int],
+    ):
+        typical_indices: Set[int] = set()
+        typical_long_side_angles: List[float] = []
+
+        for idx, (long_side_ratio, long_side_angle) in \
+                enumerate(zip(long_side_ratios, long_side_angles)):
+            if long_side_ratio < typical_long_side_ratio_min:
+                continue
+
+            typical_indices.add(idx)
+            typical_long_side_angles.append(long_side_angle)
+
+        if not typical_long_side_angles:
+            return None, typical_indices
+
+        np_angles = np.asarray(typical_long_side_angles) / 180 * np.pi
+        np_sin_mean = np.sin(np_angles).mean()
+        np_cos_mean = np.cos(np_angles).mean()
+
+        np_theta = np.arctan2(np_sin_mean, np_cos_mean)
+        np_theta = np_theta % np.pi
+        typical_angle = round(np_theta / np.pi * 180)
+
+        return typical_angle, typical_indices
+
+    @staticmethod
+    def get_flattening_rotate_angles(
+        typical_angle: Optional[int],
+        typical_indices: Set[int],
+        long_side_angles: Sequence[int],
+    ):
+        if typical_angle is not None:
+            assert typical_indices
+
+        flattening_rotate_angles: List[int] = []
+
+        for idx, long_side_angle in enumerate(long_side_angles):
+            if typical_angle is None or idx in typical_indices:
+                # Dominated by long_side_angle.
+                main_angle = long_side_angle
+
+            else:
+                # Dominated by typical_angle.
+                short_side_angle = (long_side_angle + 90) % 180
+                long_side_delta = abs((long_side_angle - typical_angle + 90) % 180 - 90)
+                short_side_delta = abs((short_side_angle - typical_angle + 90) % 180 - 90)
+
+                if long_side_delta < short_side_delta:
+                    main_angle = long_side_angle
+                else:
+                    main_angle = short_side_angle
+
+            # Angle for flattening.
+            if main_angle <= 90:
+                flattening_rotate_angle = 360 - main_angle
+            else:
+                flattening_rotate_angle = 180 - main_angle
+            flattening_rotate_angles.append(flattening_rotate_angle)
+
+        return flattening_rotate_angles
+
+    @staticmethod
+    def build_flattened_text_regions(
+        text_region_polygon_dilate_ratio: float,
+        image: Image,
+        text_region_polygons: Sequence[Polygon],
+        flattening_rotate_angles: Sequence[int],
+        grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
+    ):
+        flattened_text_regions: List[FlattenedTextRegion] = []
+
+        for idx, (text_region_polygon, flattening_rotate_angle) in enumerate(
+            zip(text_region_polygons, flattening_rotate_angles)
+        ):
+            # Dilate.
+            text_region_polygon = text_region_polygon.to_dilated_polygon(
+                text_region_polygon_dilate_ratio
+            )
+            text_region_polygon = text_region_polygon.to_clipped_polygon(image)
+
+            # Extract image.
+            text_region_image = text_region_polygon.extract_image(image)
+
+            # Shift char polygons.
+            relative_char_polygons = None
+            if grouped_char_polygons is not None:
+                char_polygons = grouped_char_polygons[idx]
+                relative_char_polygons = [
+                    char_polygon.to_relative_polygon(
+                        origin_y=text_region_polygon.bounding_box.up,
+                        origin_x=text_region_polygon.bounding_box.left,
+                    ) for char_polygon in char_polygons
+                ]
+
+            # Rotate.
+            rotated_result = rotate.distort(
+                {'angle': flattening_rotate_angle},
+                image=text_region_image,
+                polygon=text_region_polygon.self_relative_polygon,
+                polygons=relative_char_polygons,
+            )
+            rotated_text_region_image = rotated_result.image
+            assert rotated_text_region_image
+            rotated_self_relative_polygon = rotated_result.polygon
+            assert rotated_self_relative_polygon
+            # Could be None.
+            rotated_char_polygons = rotated_result.polygons
+
+            # Trim.
+            rotated_bounding_box = rotated_self_relative_polygon.bounding_box
+            trimmed_text_region_image = rotated_text_region_image.to_cropped_image(
+                up=rotated_bounding_box.up,
+                down=rotated_bounding_box.down,
+                left=rotated_bounding_box.left,
+                right=rotated_bounding_box.right,
+            )
+            trim_up = rotated_bounding_box.up
+            trim_left = rotated_bounding_box.left
+
+            trimmed_char_polygons = None
+            if rotated_char_polygons:
+                trimmed_char_polygons = [
+                    rotated_char_polygon.to_relative_polygon(
+                        origin_y=trim_up,
+                        origin_x=trim_left,
+                    ) for rotated_char_polygon in rotated_char_polygons
+                ]
+
+            flattened_text_regions.append(
+                FlattenedTextRegion(
+                    text_region_polygon=text_region_polygon,
+                    flattening_rotate_angle=flattening_rotate_angle,
+                    trim_up=trim_up,
+                    trim_left=trim_left,
+                    flattened_image=trimmed_text_region_image,
+                    flattened_char_polygons=trimmed_char_polygons,
+                )
+            )
+
+        return flattened_text_regions
+
+    def __init__(
+        self,
+        typical_long_side_ratio_min: float,
+        text_region_polygon_dilate_ratio: float,
+        image: Image,
+        text_region_polygons: Sequence[Polygon],
+        grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]] = None,
+    ):
+        self.origional_text_region_polygons = text_region_polygons
+
+        self.text_region_polygons = self.patch_text_region_polygons(
+            text_region_polygons=text_region_polygons,
+            grouped_char_polygons=grouped_char_polygons,
+        )
+
+        self.minimum_rotated_rectangles = \
+            self.build_minimum_rotated_rectangles(self.text_region_polygons)
+
+        self.long_side_ratios, self.long_side_angles = \
+            self.analyze_build_minimum_rotated_rectangles(self.minimum_rotated_rectangles)
+
+        self.typical_angle, self.typical_indices = self.get_typical_angle(
+            typical_long_side_ratio_min=typical_long_side_ratio_min,
+            long_side_ratios=self.long_side_ratios,
+            long_side_angles=self.long_side_angles,
+        )
+
+        self.flattening_rotate_angles = self.get_flattening_rotate_angles(
+            typical_angle=self.typical_angle,
+            typical_indices=self.typical_indices,
+            long_side_angles=self.long_side_angles,
+        )
+
+        self.flattened_text_regions = self.build_flattened_text_regions(
+            text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
+            image=image,
+            text_region_polygons=self.text_region_polygons,
+            flattening_rotate_angles=self.flattening_rotate_angles,
+            grouped_char_polygons=grouped_char_polygons,
+        )
 
 
 class PageTextRegionStep(
@@ -188,135 +468,45 @@ class PageTextRegionStep(
                 intersected_area,
             )
 
-    @staticmethod
-    def get_flat_rotation_angle(precise_text_region_polygon: Polygon):
-        # Get minimum bounding rectangle.
-        shapely_polygon = precise_text_region_polygon.to_shapely_polygon()
-        minimum_rotated_rectangle = shapely_polygon.minimum_rotated_rectangle
-
-        assert isinstance(minimum_rotated_rectangle, ShapelyPolygon)
-        polygon = Polygon.from_shapely_polygon(minimum_rotated_rectangle)
-        assert len(polygon.points) == 4
-
-        # Get reference line.
-        point0, point1, _, point3 = polygon.points
-        side0_length = math.hypot(point0.y - point1.y, point0.x - point1.x)
-        side1_length = math.hypot(point0.y - point3.y, point0.x - point3.x)
-
-        point_a = point0
-        if side0_length > side1_length:
-            # Reference line (p0 -> p1).
-            point_b = point1
-        else:
-            # Reference line (p0 -> p3).
-            point_b = point3
-
-        # Get angle of reference line in [0, 180]
-        theta = np.arctan2(
-            point_a.y - point_b.y,
-            point_a.x - point_b.x,
-        )
-        theta = theta % np.pi
-        angle = round(theta / np.pi * 180)
-
-        # Get the angle for flattening.
-        if angle <= 90:
-            return 360 - angle
-        else:
-            return 180 - angle
-
-    @staticmethod
-    def build_page_flat_text_region(
+    def build_page_flat_text_regions(
+        self,
         page_image: Image,
-        page_text_region_info: PageTextRegionInfo,
+        page_text_region_infos: Sequence[PageTextRegionInfo],
+        rng: RandomGenerator,
     ):
-        precise_text_region_polygon = page_text_region_info.precise_text_region_polygon
-        char_polygons = page_text_region_info.char_polygons
-
-        # Need to make sure all char polygons are included.
-        bounding_box = Box.from_boxes(
-            itertools.chain(
-                (precise_text_region_polygon.to_bounding_box(),),
-                (char_polygon.to_bounding_box() for char_polygon in char_polygons),
+        text_region_polygon_dilate_ratio = float(
+            rng.uniform(
+                self.config.text_region_flattener_text_region_polygon_dilate_ratio_min,
+                self.config.text_region_flattener_text_region_polygon_dilate_ratio_max,
             )
         )
+        typical_long_side_ratio_min = \
+            self.config.text_region_flattener_typical_long_side_ratio_min
 
-        shifted_precise_text_region_polygon = precise_text_region_polygon.to_shifted_polygon(
-            offset_y=-bounding_box.up,
-            offset_x=-bounding_box.left,
+        text_region_polygons: List[Polygon] = []
+        grouped_char_polygons: List[Sequence[Polygon]] = []
+        for page_text_region_info in page_text_region_infos:
+            text_region_polygons.append(page_text_region_info.precise_text_region_polygon)
+            grouped_char_polygons.append(page_text_region_info.char_polygons)
+
+        text_region_flattener = TextRegionFlattener(
+            typical_long_side_ratio_min=typical_long_side_ratio_min,
+            text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
+            image=page_image,
+            text_region_polygons=text_region_polygons,
+            grouped_char_polygons=grouped_char_polygons,
         )
-        shifted_char_polygons = [
-            char_polygon.to_shifted_polygon(
-                offset_y=-bounding_box.up,
-                offset_x=-bounding_box.left,
-            ) for char_polygon in char_polygons
-        ]
 
-        # Build mask.
-        mask = Mask.from_shapable(bounding_box)
-        shifted_precise_text_region_polygon.fill_mask(mask)
-        for shifted_char_polygon in shifted_char_polygons:
-            shifted_char_polygon.fill_mask(mask)
-
-        # Get image.
-        image = bounding_box.extract_image(page_image)
-
-        # Get the flat text region by rotation.
-        angle = PageTextRegionStep.get_flat_rotation_angle(precise_text_region_polygon)
-
-        # Rotate.
-        rotated_result = rotate.distort(
-            {'angle': angle},
-            image=image,
-            mask=mask,
-            polygons=shifted_char_polygons,
-        )
-        rotated_image = rotated_result.image
-        assert rotated_image
-        rotated_mask = rotated_result.mask
-        assert rotated_mask
-        rotated_char_polygons = rotated_result.polygons
-        assert rotated_char_polygons
-
-        # Trim.
-        np_hori_max = np.amax(rotated_mask.mat, axis=0)
-        np_hori_nonzero = np.nonzero(np_hori_max)[0]
-        assert len(np_hori_nonzero) >= 2
-        left = int(np_hori_nonzero[0])
-        right = int(np_hori_nonzero[-1])
-
-        np_vert_max = np.amax(rotated_mask.mat, axis=1)
-        np_vert_nonzero = np.nonzero(np_vert_max)[0]
-        assert len(np_vert_nonzero) >= 2
-        up = int(np_vert_nonzero[0])
-        down = int(np_vert_nonzero[-1])
-
-        rotated_image = rotated_image.to_cropped_image(
-            up=up,
-            down=down,
-            left=left,
-            right=right,
-        )
-        rotated_mask = rotated_mask.to_cropped_mask(
-            up=up,
-            down=down,
-            left=left,
-            right=right,
-        )
-        rotated_char_polygons = [
-            rotated_char_polygon.to_shifted_polygon(
-                offset_y=-up,
-                offset_x=-left,
-            ) for rotated_char_polygon in rotated_char_polygons
-        ]
-
-        # Hide inactive area.
-        rotated_mask.to_inverted_mask().fill_image(rotated_image, value=0)
-
-        return PageFlatTextRegion(
-            image=rotated_image,
-            char_polygons=rotated_char_polygons,
-        )
+        page_flat_text_regions: List[PageFlatTextRegion] = []
+        for flattened_text_region in text_region_flattener.flattened_text_regions:
+            assert flattened_text_region.flattened_char_polygons
+            page_flat_text_regions.append(
+                PageFlatTextRegion(
+                    image=flattened_text_region.flattened_image,
+                    char_polygons=flattened_text_region.flattened_char_polygons,
+                )
+            )
+        return page_flat_text_regions
 
     @staticmethod
     def get_char_height(char_polygon: Polygon):
@@ -569,15 +759,11 @@ class PageTextRegionStep(
         if debug:
             debug.page_text_region_infos = page_text_region_infos
 
-        # Generate flat text regions.
-        page_flat_text_regions: List[PageFlatTextRegion] = []
-        for page_text_region_info in page_text_region_infos:
-            page_flat_text_regions.append(
-                self.build_page_flat_text_region(
-                    page_image=page_image,
-                    page_text_region_info=page_text_region_info,
-                )
-            )
+        page_flat_text_regions = self.build_page_flat_text_regions(
+            page_image=page_image,
+            page_text_region_infos=page_text_region_infos,
+            rng=rng,
+        )
 
         if debug:
             debug.page_flat_text_regions = page_flat_text_regions

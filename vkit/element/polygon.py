@@ -345,6 +345,10 @@ class Polygon:
 
     @staticmethod
     def vatti_clip(polygon: 'Polygon', ratio: float, shrink: bool):
+        assert 0.0 <= ratio <= 1.0
+        if ratio == 1.0:
+            return polygon, 0.0
+
         xy_pairs = polygon.to_xy_pairs()
 
         shapely_polygon = ShapelyPolygon(xy_pairs)
@@ -367,26 +371,40 @@ class Polygon:
 
         return clipped_polygon, distance
 
-    def to_shrank_polygon(self, ratio: float, no_exception: bool = True):
+    def to_shrank_polygon(
+        self,
+        ratio: float,
+        no_exception: bool = True,
+        no_warning: bool = False,
+    ):
         try:
             shrank_polygon, _ = Polygon.vatti_clip(self, ratio, True)
+            assert shrank_polygon.area <= self.area
             return shrank_polygon
         except Exception:
+            if not no_warning:
+                logger.exception('Failed to shrink.')
             if no_exception:
                 return self
             else:
-                logger.exception('Failed to shrink.')
                 raise
 
-    def to_dilated_polygon(self, ratio: float, no_exception: bool = True):
+    def to_dilated_polygon(
+        self,
+        ratio: float,
+        no_exception: bool = True,
+        no_warning: bool = False,
+    ):
         try:
             dilated_polygon, _ = Polygon.vatti_clip(self, ratio, False)
+            assert dilated_polygon.area >= self.area
             return dilated_polygon
         except Exception:
+            if not no_warning:
+                logger.exception('Failed to dilate.')
             if no_exception:
                 return self
             else:
-                logger.exception('Failed to dilate.')
                 raise
 
 

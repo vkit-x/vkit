@@ -61,15 +61,7 @@ def test_image_setitem_mask():
     painter.paint_mask(edge_mask)
     write_image('edge_mask.jpg', painter.image)
 
-    np_contours, _ = cv.findContours(
-        (edge_mask.mat * 255),
-        cv.RETR_EXTERNAL,
-        cv.CHAIN_APPROX_SIMPLE,
-    )
-    assert len(np_contours) == 1
-    np_contours = np.squeeze(np_contours[0], axis=1)
-
-    polygon = Polygon.from_np_array(np_contours)
+    polygon = edge_mask.to_external_polygon()
 
     painter = Painter.create(edge_mask)
     painter.paint_polygons([polygon])
