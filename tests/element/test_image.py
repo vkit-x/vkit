@@ -11,7 +11,6 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-import numpy as np
 import cv2 as cv
 
 from vkit.element import (

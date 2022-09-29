@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Optional, Sequence, Tuple, Union, Iterable, TypeVar, Type
+from typing import Optional, Sequence, List, Tuple, Union, Iterable, TypeVar, Type
 import math
 
 import attrs
@@ -70,10 +70,10 @@ def affine_points(trans_mat: np.ndarray, points: PointTuple):
 
 
 def affine_polygons(trans_mat: np.ndarray, polygons: Sequence[Polygon]) -> Sequence[Polygon]:
-    points_ranges = []
+    points_ranges: List[Tuple[int, int]] = []
     points = PointList()
     for polygon in polygons:
-        points_ranges.append((len(points), len(points) + len(polygon.points)))
+        points_ranges.append((len(points), len(points) + polygon.num_points))
         points.extend(polygon.points)
 
     new_np_points = affine_np_points(trans_mat, points.to_np_array())

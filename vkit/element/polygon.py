@@ -19,7 +19,6 @@ import attrs
 import numpy as np
 import cv2 as cv
 from shapely.geometry import (
-    MultiPoint as ShapelyMultiPoint,
     Polygon as ShapelyPolygon,
     MultiPolygon as ShapelyMultiPolygon,
     CAP_STYLE,
@@ -141,6 +140,10 @@ class Polygon:
     # Property #
     ############
     @property
+    def num_points(self):
+        return len(self.points)
+
+    @property
     def internals(self):
         return self.lazy_post_init_internals()
 
@@ -197,12 +200,48 @@ class Polygon:
     # Operator #
     ############
     def get_center_point(self):
-        xy_pairs = self.to_xy_pairs()
-
-        shapely_polygon = ShapelyPolygon(xy_pairs)
+        shapely_polygon = self.to_shapely_polygon()
         centroid = shapely_polygon.centroid
         x, y = centroid.coords[0]
-        return Point(y=round(y), x=round(x))
+        return Point.create(y=y, x=x)
+
+    def get_rectangular_height(self):
+        # See Box.to_polygon.
+        assert self.num_points == 4
+        (
+            point_up_left,
+            point_up_right,
+            point_down_right,
+            point_down_left,
+        ) = self.points
+        left_side_height = math.hypot(
+            point_up_left.y - point_down_left.y,
+            point_up_left.x - point_down_left.x,
+        )
+        right_side_height = math.hypot(
+            point_up_right.y - point_down_right.y,
+            point_up_right.x - point_down_right.x,
+        )
+        return (left_side_height + right_side_height) / 2
+
+    def get_rectangular_width(self):
+        # See Box.to_polygon.
+        assert self.num_points == 4
+        (
+            point_up_left,
+            point_up_right,
+            point_down_right,
+            point_down_left,
+        ) = self.points
+        up_side_width = math.hypot(
+            point_up_left.y - point_up_right.y,
+            point_up_left.x - point_up_right.x,
+        )
+        down_side_width = math.hypot(
+            point_down_left.y - point_down_right.y,
+            point_down_left.x - point_down_right.x,
+        )
+        return (up_side_width + down_side_width) / 2
 
     def to_clipped_points(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         return self.points.to_clipped_points(shapable_or_shape)
@@ -248,11 +287,13 @@ class Polygon:
         )
 
     def to_bounding_rectangular_polygon(self):
-        shapely_polygon = ShapelyMultiPoint(self.to_xy_pairs()).minimum_rotated_rectangle
-        np_points = np.asarray(shapely_polygon.exterior.coords).astype(np.int32)  # type: ignore
-        points = PointList.from_np_array(np_points)
-        assert len(points) == 4
-        return self.create(points=points)
+        shapely_polygon = self.to_shapely_polygon()
+
+        assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
+        polygon = Polygon.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
+        assert polygon.num_points == 4
+
+        return polygon
 
     def to_bounding_box(self):
         return self.bounding_box
@@ -385,6 +426,7 @@ class Polygon:
             if not no_warning:
                 logger.exception('Failed to shrink.')
             if no_exception:
+                logger.warning('Fallback to NOP.')
                 return self
             else:
                 raise
@@ -403,6 +445,7 @@ class Polygon:
             if not no_warning:
                 logger.exception('Failed to dilate.')
             if no_exception:
+                logger.warning('Fallback to NOP.')
                 return self
             else:
                 raise

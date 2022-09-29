@@ -13,7 +13,6 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple, Set
 from collections import defaultdict
-import itertools
 import math
 import warnings
 
@@ -25,6 +24,7 @@ from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
 
+from vkit.utility import rng_choice
 from vkit.element import Box, Polygon, Mask, Image
 from vkit.engine.distortion.geometric.affine import rotate
 from ..interface import PipelineStep, PipelineStepFactory
@@ -37,11 +37,13 @@ warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 @attrs.define
 class PageTextRegionStepConfig:
-    page_flat_text_region_resize_char_height_min: int = 32
-    page_flat_text_region_resize_char_height_max: int = 36
     text_region_flattener_typical_long_side_ratio_min: float = 3.0
     text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.9
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
+    text_region_resize_char_height_min: int = 32
+    text_region_resize_char_height_max: int = 36
+    text_region_typical_post_rotate_prob: float = 0.2
+    text_region_untypical_post_rotate_prob: float = 0.2
     gap: int = 2
     enable_post_uniform_rotate: bool = False
     debug: bool = False
@@ -60,17 +62,81 @@ class PageTextRegionInfo:
 
 
 @attrs.define
-class PageFlatTextRegion:
-    image: Image
-    char_polygons: Sequence[Polygon]
+class FlattenedTextRegion:
+    is_typical: bool
+    text_region_polygon: Polygon
+    flattening_rotate_angle: int
+    trim_up: int
+    trim_left: int
+    shape_before_resize: Tuple[int, int]
+    post_rotate_angle: int
+    flattened_image: Image
+    flattened_char_polygons: Optional[Sequence[Polygon]]
+
+    @property
+    def shape(self):
+        return self.flattened_image.shape
 
     @property
     def height(self):
-        return self.image.height
+        return self.flattened_image.height
 
     @property
     def width(self):
-        return self.image.width
+        return self.flattened_image.width
+
+    def get_char_height_max(self):
+        assert self.flattened_char_polygons
+        return max(
+            char_polygon.get_rectangular_height() for char_polygon in self.flattened_char_polygons
+        )
+
+    def to_resized_flattened_text_region(
+        self,
+        resized_height: Optional[int] = None,
+        resized_width: Optional[int] = None,
+    ):
+        resized_flattened_image = self.flattened_image.to_resized_image(
+            resized_height=resized_height,
+            resized_width=resized_width,
+        )
+        resized_flattened_char_polygons = None
+        if self.flattened_char_polygons is not None:
+            resized_flattened_char_polygons = [
+                flattened_char_polygon.to_conducted_resized_polygon(
+                    self.shape,
+                    resized_height=resized_height,
+                    resized_width=resized_width,
+                ) for flattened_char_polygon in self.flattened_char_polygons
+            ]
+        return attrs.evolve(
+            self,
+            flattened_image=resized_flattened_image,
+            flattened_char_polygons=resized_flattened_char_polygons,
+        )
+
+    def to_post_rotated_flattened_text_region(
+        self,
+        post_rotate_angle: int,
+    ):
+        assert self.post_rotate_angle == 0
+
+        # NOTE: No need to trim.
+        rotated_result = rotate.distort(
+            {'angle': post_rotate_angle},
+            image=self.flattened_image,
+            polygons=self.flattened_char_polygons,
+        )
+        rotated_flattened_image = rotated_result.image
+        assert rotated_flattened_image
+        rotated_flattened_char_polygons = rotated_result.polygons
+
+        return attrs.evolve(
+            self,
+            post_rotate_angle=post_rotate_angle,
+            flattened_image=rotated_flattened_image,
+            flattened_char_polygons=rotated_flattened_char_polygons,
+        )
 
 
 @attrs.define
@@ -78,8 +144,7 @@ class DebugPageTextRegionStep:
     page_image: Image = attrs.field(default=None)
     precise_text_region_candidate_polygons: List[Polygon] = attrs.field(default=None)
     page_text_region_infos: List[PageTextRegionInfo] = attrs.field(default=None)
-    page_flat_text_regions: List[PageFlatTextRegion] = attrs.field(default=None)
-    resized_page_flat_text_regions: List[PageFlatTextRegion] = attrs.field(default=None)
+    flattened_text_regions: List[FlattenedTextRegion] = attrs.field(default=None)
 
 
 @attrs.define
@@ -89,16 +154,6 @@ class PageTextRegionStepOutput:
     shape_before_rotate: Tuple[int, int]
     rotate_angle: int
     debug: Optional[DebugPageTextRegionStep]
-
-
-@attrs.define
-class FlattenedTextRegion:
-    text_region_polygon: Polygon
-    flattening_rotate_angle: int
-    trim_up: int
-    trim_left: int
-    flattened_image: Image
-    flattened_char_polygons: Optional[Sequence[Polygon]]
 
 
 class TextRegionFlattener:
@@ -129,28 +184,18 @@ class TextRegionFlattener:
         return patched_text_region_polygons
 
     @staticmethod
-    def build_minimum_rotated_rectangles(text_region_polygons: Sequence[Polygon]):
-        minimum_rotated_rectangles: List[Polygon] = []
-
-        for text_region_polygon in text_region_polygons:
-            # Get minimum bounding rectangle.
-            shapely_polygon = text_region_polygon.to_shapely_polygon()
-            minimum_rotated_rectangle = shapely_polygon.minimum_rotated_rectangle
-
-            assert isinstance(minimum_rotated_rectangle, ShapelyPolygon)
-            polygon = Polygon.from_shapely_polygon(minimum_rotated_rectangle)
-            assert len(polygon.points) == 4
-
-            minimum_rotated_rectangles.append(polygon)
-
-        return minimum_rotated_rectangles
+    def build_bounding_rectangular_polygons(text_region_polygons: Sequence[Polygon]):
+        return [
+            text_region_polygon.to_bounding_rectangular_polygon()
+            for text_region_polygon in text_region_polygons
+        ]
 
     @staticmethod
-    def analyze_build_minimum_rotated_rectangles(minimum_rotated_rectangles: Sequence[Polygon]):
+    def analyze_bounding_rectangular_polygons(bounding_rectangular_polygons: Sequence[Polygon],):
         long_side_ratios: List[float] = []
         long_side_angles: List[int] = []
 
-        for polygon in minimum_rotated_rectangles:
+        for polygon in bounding_rectangular_polygons:
             # Get reference line.
             point0, point1, _, point3 = polygon.points
             side0_length = math.hypot(point0.y - point1.y, point0.x - point1.x)
@@ -251,6 +296,7 @@ class TextRegionFlattener:
         text_region_polygon_dilate_ratio: float,
         image: Image,
         text_region_polygons: Sequence[Polygon],
+        typical_indices: Set[int],
         flattening_rotate_angles: Sequence[int],
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
     ):
@@ -315,10 +361,13 @@ class TextRegionFlattener:
 
             flattened_text_regions.append(
                 FlattenedTextRegion(
+                    is_typical=(idx in typical_indices),
                     text_region_polygon=text_region_polygon,
                     flattening_rotate_angle=flattening_rotate_angle,
                     trim_up=trim_up,
                     trim_left=trim_left,
+                    shape_before_resize=trimmed_text_region_image.shape,
+                    post_rotate_angle=0,
                     flattened_image=trimmed_text_region_image,
                     flattened_char_polygons=trimmed_char_polygons,
                 )
@@ -341,11 +390,11 @@ class TextRegionFlattener:
             grouped_char_polygons=grouped_char_polygons,
         )
 
-        self.minimum_rotated_rectangles = \
-            self.build_minimum_rotated_rectangles(self.text_region_polygons)
+        self.bounding_rectangular_polygons = \
+            self.build_bounding_rectangular_polygons(self.text_region_polygons)
 
         self.long_side_ratios, self.long_side_angles = \
-            self.analyze_build_minimum_rotated_rectangles(self.minimum_rotated_rectangles)
+            self.analyze_bounding_rectangular_polygons(self.bounding_rectangular_polygons)
 
         self.typical_angle, self.typical_indices = self.get_typical_angle(
             typical_long_side_ratio_min=typical_long_side_ratio_min,
@@ -363,9 +412,84 @@ class TextRegionFlattener:
             text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
             image=image,
             text_region_polygons=self.text_region_polygons,
+            typical_indices=self.typical_indices,
             flattening_rotate_angles=self.flattening_rotate_angles,
             grouped_char_polygons=grouped_char_polygons,
         )
+
+
+def stack_flattened_text_regions(
+    gap: int,
+    flattened_text_regions: Sequence[FlattenedTextRegion],
+):
+    pad = 2 * gap
+
+    rect_packer = RectPacker(rotation=False)
+    id_to_flattened_text_region: Dict[int, FlattenedTextRegion] = {}
+
+    # Add rectangle and bin.
+    # NOTE: Only one bin is added, that is, packing all text region into one image.
+    bin_width = 0
+    bin_height = 0
+
+    for ftr_id, flattened_text_region in enumerate(flattened_text_regions):
+        id_to_flattened_text_region[ftr_id] = flattened_text_region
+        rect_packer.add_rect(
+            width=flattened_text_region.width + pad,
+            height=flattened_text_region.height + pad,
+            rid=ftr_id,
+        )
+
+        bin_width = max(bin_width, flattened_text_region.width)
+        bin_height += flattened_text_region.height
+
+    bin_width += pad
+    bin_height += pad
+
+    rect_packer.add_bin(width=bin_width, height=bin_height)
+    rect_packer.pack()  # type: ignore
+
+    boxes: List[Box] = []
+    ftr_ids: List[int] = []
+    for bin_idx, x, y, width, height, ftr_id in rect_packer.rect_list():
+        assert bin_idx == 0
+        boxes.append(Box(
+            up=y,
+            down=y + height - 1,
+            left=x,
+            right=x + width - 1,
+        ))
+        ftr_ids.append(ftr_id)
+
+    page_height = max(box.down for box in boxes) + 1
+    page_width = max(box.right for box in boxes) + 1
+
+    image = Image.from_shape((page_height, page_width), value=0)
+    char_polygons: List[Polygon] = []
+
+    for box, ftr_id in zip(boxes, ftr_ids):
+        flattened_text_region = id_to_flattened_text_region[ftr_id]
+        assert flattened_text_region.height + pad == box.height
+        assert flattened_text_region.width + pad == box.width
+
+        up = box.up + gap
+        left = box.left
+
+        box = Box(
+            up=up,
+            down=up + flattened_text_region.height - 1,
+            left=left,
+            right=left + flattened_text_region.width - 1,
+        )
+        box.fill_image(image, flattened_text_region.flattened_image)
+        if flattened_text_region.flattened_char_polygons:
+            for char_polygon in flattened_text_region.flattened_char_polygons:
+                char_polygons.append(char_polygon.to_shifted_polygon(
+                    offset_y=up,
+                    offset_x=left,
+                ))
+
+    return image, char_polygons
 
 
 class PageTextRegionStep(
@@ -468,7 +592,7 @@ class PageTextRegionStep(
                 intersected_area,
             )
 
-    def build_page_flat_text_regions(
+    def build_flattened_text_regions(
         self,
         page_image: Image,
         page_text_region_infos: Sequence[PageTextRegionInfo],
@@ -497,142 +621,46 @@ class PageTextRegionStep(
             grouped_char_polygons=grouped_char_polygons,
         )
 
-        page_flat_text_regions: List[PageFlatTextRegion] = []
+        flattened_text_regions: List[FlattenedTextRegion] = []
         for flattened_text_region in text_region_flattener.flattened_text_regions:
-            assert flattened_text_region.flattened_char_polygons
-            page_flat_text_regions.append(
-                PageFlatTextRegion(
-                    image=flattened_text_region.flattened_image,
-                    char_polygons=flattened_text_region.flattened_char_polygons,
-                )
-            )
-        return page_flat_text_regions
+            # Resize.
+            char_height_max = flattened_text_region.get_char_height_max()
 
-    @staticmethod
-    def get_char_height(char_polygon: Polygon):
-        assert len(char_polygon.points) == 4
-        # Up left -> Down left.
-        point0, point1, point2, point3 = char_polygon.points
-        side0_length = math.hypot(point0.y - point3.y, point0.x - point3.x)
-        side1_length = math.hypot(point1.y - point2.y, point1.x - point2.x)
-        return (side0_length + side1_length) / 2
-
-    def resize_page_flat_text_regions(
-        self,
-        page_flat_text_regions: Sequence[PageFlatTextRegion],
-        rng: RandomGenerator,
-    ):
-        resized: List[PageFlatTextRegion] = []
-
-        for page_flat_text_region in page_flat_text_regions:
-            image = page_flat_text_region.image
-            char_polygons = page_flat_text_region.char_polygons
-
-            char_height_max = max(
-                self.get_char_height(char_polygon)
-                for char_polygon in page_flat_text_region.char_polygons
-            )
-
-            page_flat_text_region_resize_char_height = int(
+            text_region_resize_char_height = int(
                 rng.integers(
-                    self.config.page_flat_text_region_resize_char_height_min,
-                    self.config.page_flat_text_region_resize_char_height_max + 1,
+                    self.config.text_region_resize_char_height_min,
+                    self.config.text_region_resize_char_height_max + 1,
                 )
             )
-            scale = page_flat_text_region_resize_char_height / char_height_max
+            scale = text_region_resize_char_height / char_height_max
 
-            resized_height = round(image.height * scale)
-            resized_width = round(image.width * scale)
+            height, width = flattened_text_region.shape
+            resized_height = round(height * scale)
+            resized_width = round(width * scale)
 
-            resized.append(
-                PageFlatTextRegion(
-                    image=image.to_resized_image(
-                        resized_height=resized_height,
-                        resized_width=resized_width,
-                    ),
-                    char_polygons=[
-                        char_polygon.to_conducted_resized_polygon(
-                            image.shape,
-                            resized_height=resized_height,
-                            resized_width=resized_width,
-                        ) for char_polygon in char_polygons
-                    ],
-                )
+            flattened_text_region = flattened_text_region.to_resized_flattened_text_region(
+                resized_height=resized_height,
+                resized_width=resized_width,
             )
 
-        return resized
+            # Post rotate.
+            post_rotate_angle = 0
+            if flattened_text_region.is_typical:
+                if rng.random() < self.config.text_region_typical_post_rotate_prob:
+                    # Upside down only.
+                    post_rotate_angle = 180
+            else:
+                if rng.random() < self.config.text_region_untypical_post_rotate_prob:
+                    # 3-way rotate.
+                    post_rotate_angle = rng_choice(rng, (180, 90, 270), probs=(0.5, 0.25, 0.25))
 
-    def stack_page_flat_text_regions(
-        self,
-        page_flat_text_regions: Sequence[PageFlatTextRegion],
-    ):
-        pad = 2 * self.config.gap
+            if post_rotate_angle != 0:
+                flattened_text_region = \
+                    flattened_text_region.to_post_rotated_flattened_text_region(post_rotate_angle)
 
-        rect_packer = RectPacker(rotation=False)
-        id_to_page_flat_text_region: Dict[int, PageFlatTextRegion] = {}
+            flattened_text_regions.append(flattened_text_region)
 
-        # Add rectangle and bin.
-        # NOTE: Only one bin is added, that is, packing all text region into one image.
-        bin_width = 0
-        bin_height = 0
-
-        for pftr_id, page_flat_text_region in enumerate(page_flat_text_regions):
-            id_to_page_flat_text_region[pftr_id] = page_flat_text_region
-            rect_packer.add_rect(
-                width=page_flat_text_region.width + pad,
-                height=page_flat_text_region.height + pad,
-                rid=pftr_id,
-            )
-
-            bin_width = max(bin_width, page_flat_text_region.width)
-            bin_height += page_flat_text_region.height
-
-        bin_width += pad
-        bin_height += pad
-
-        rect_packer.add_bin(width=bin_width, height=bin_height)
-        rect_packer.pack()  # type: ignore
-
-        boxes: List[Box] = []
-        pftr_ids: List[int] = []
-        for bin_idx, x, y, width, height, pftr_id in rect_packer.rect_list():
-            assert bin_idx == 0
-            boxes.append(Box(
-                up=y,
-                down=y + height - 1,
-                left=x,
-                right=x + width - 1,
-            ))
-            pftr_ids.append(pftr_id)
-
-        page_height = max(box.down for box in boxes) + 1
-        page_width = max(box.right for box in boxes) + 1
-
-        image = Image.from_shape((page_height, page_width), value=0)
-        char_polygons: List[Polygon] = []
-
-        for box, pftr_id in zip(boxes, pftr_ids):
-            page_flat_text_region = id_to_page_flat_text_region[pftr_id]
-            assert page_flat_text_region.height + pad == box.height
-            assert page_flat_text_region.width + pad == box.width
-
-            up = box.up + self.config.gap
-            left = box.left
-
-            box = Box(
-                up=up,
-                down=up + page_flat_text_region.height - 1,
-                left=left,
-                right=left + page_flat_text_region.width - 1,
-            )
-            box.fill_image(image, page_flat_text_region.image)
-            for char_polygon in page_flat_text_region.char_polygons:
-                char_polygons.append(char_polygon.to_shifted_polygon(
-                    offset_y=up,
-                    offset_x=left,
-                ))
-
-        return image, char_polygons
+        return flattened_text_regions
 
     def run(self, input: PageTextRegionStepInput, rng: RandomGenerator):
         page_distortion_step_output = input.page_distortion_step_output
@@ -759,26 +787,19 @@ class PageTextRegionStep(
         if debug:
             debug.page_text_region_infos = page_text_region_infos
 
-        page_flat_text_regions = self.build_page_flat_text_regions(
+        flattened_text_regions = self.build_flattened_text_regions(
             page_image=page_image,
             page_text_region_infos=page_text_region_infos,
             rng=rng,
         )
-
         if debug:
-            debug.page_flat_text_regions = page_flat_text_regions
-
-        # Resize text regions.
-        page_flat_text_regions = self.resize_page_flat_text_regions(
-            page_flat_text_regions,
-            rng,
-        )
-
-        if debug:
-            debug.resized_page_flat_text_regions = page_flat_text_regions
+            debug.flattened_text_regions = flattened_text_regions
 
         # Stack text regions.
-        image, char_polygons = self.stack_page_flat_text_regions(page_flat_text_regions)
+        image, char_polygons = stack_flattened_text_regions(
+            gap=self.config.gap,
+            flattened_text_regions=flattened_text_regions,
+        )
 
         # Post uniform rotation.
         shape_before_rotate = image.shape
