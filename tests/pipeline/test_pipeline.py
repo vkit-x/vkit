@@ -78,7 +78,7 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
         points: List[Point] = []
         point_colors: List[str] = []
         for polygon in output.page_char_polygon_collection.polygons:
-            assert len(polygon.points) == 4
+            assert polygon.num_points == 4
             points.extend(polygon.points)
             point_colors.extend(['red', 'green', 'blue', 'lightskyblue'])
         painter = Painter.create(output.page_image)
@@ -198,25 +198,16 @@ def visualize_page_text_region_step_output(
         painter.paint_polygons(char_polygons, color=color_indices)
         cur_write_image(f'page_{seed}_precise_text_region_char_polygons.jpg', painter.image)
 
-        for idx, page_flat_text_region in enumerate(output.debug.page_flat_text_regions[:3]):
-            cur_write_image(f'page_{seed}_flat_text_region_{idx}.jpg', page_flat_text_region.image)
+        for idx, flattened_text_region in enumerate(output.debug.flattened_text_regions[:3]):
+            cur_write_image(
+                f'page_{seed}_flat_text_region_{idx}.jpg',
+                flattened_text_region.flattened_image,
+            )
 
-            painter = Painter.create(page_flat_text_region.image)
-            painter.paint_polygons(page_flat_text_region.char_polygons)
+            painter = Painter.create(flattened_text_region.flattened_image)
+            assert flattened_text_region.flattened_char_polygons
+            painter.paint_polygons(flattened_text_region.flattened_char_polygons)
             cur_write_image(f'page_{seed}_flat_text_region_{idx}_char_polygons.jpg', painter.image)
-
-        for idx, page_flat_text_region in enumerate(
-            output.debug.resized_page_flat_text_regions[:3]
-        ):
-            cur_write_image(
-                f'page_{seed}_flat_text_region_resized_{idx}.jpg', page_flat_text_region.image
-            )
-
-            painter = Painter.create(page_flat_text_region.image)
-            painter.paint_polygons(page_flat_text_region.char_polygons)
-            cur_write_image(
-                f'page_{seed}_flat_text_region_resized_{idx}_char_polygons.jpg', painter.image
-            )
 
     cur_write_image(f'page_{seed}_stacked_image.jpg', output.page_image)
 

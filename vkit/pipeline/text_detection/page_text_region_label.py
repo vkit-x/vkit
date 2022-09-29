@@ -26,7 +26,7 @@ from vkit.utility import attrs_lazy_field, normalize_to_probs
 from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
 from vkit.engine.distortion.geometric.affine import affine_points
 from ..interface import PipelineStep, PipelineStepFactory
-from .page_text_region import PageTextRegionStep, PageTextRegionStepOutput
+from .page_text_region import PageTextRegionStepOutput
 
 logger = logging.getLogger(__name__)
 
@@ -312,7 +312,7 @@ class PageTextRegionLabelStep(
         for polygon in page_char_polygons:
             polygon.fill_score_map(
                 page_char_height_score_map,
-                value=PageTextRegionStep.get_char_height(polygon),
+                value=polygon.get_rectangular_height(),
             )
         return page_char_height_score_map
 
@@ -405,7 +405,7 @@ class PageTextRegionLabelStep(
         page_char_regression_labels: List[PageCharRegressionLabel] = []
 
         for char_idx, (polygon, center_point) in enumerate(zip(page_char_polygons, center_points)):
-            assert len(polygon.points) == 4
+            assert polygon.num_points == 4
             up_left, up_right, down_right, down_left = polygon.points
 
             # 1. The centroid of char polygon.
