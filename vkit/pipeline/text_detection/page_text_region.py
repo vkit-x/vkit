@@ -45,7 +45,7 @@ class PageTextRegionStepConfig:
     text_region_resize_char_height_median_max: int = 36
     text_region_typical_post_rotate_prob: float = 0.2
     text_region_untypical_post_rotate_prob: float = 0.2
-    gap: int = 2
+    stack_flattened_text_regions_pad: int = 2
     enable_post_uniform_rotate: bool = False
     debug: bool = False
 
@@ -420,10 +420,12 @@ class TextRegionFlattener:
 
 
 def stack_flattened_text_regions(
-    gap: int,
+    page_pad: int,
+    flattened_text_regions_pad: int,
     flattened_text_regions: Sequence[FlattenedTextRegion],
 ):
-    pad = 2 * gap
+    page_double_pad = 2 * page_pad
+    flattened_text_regions_double_pad = 2 * flattened_text_regions_pad
 
     rect_packer = RectPacker(rotation=False)
     id_to_flattened_text_region: Dict[int, FlattenedTextRegion] = {}
@@ -436,16 +438,16 @@ def stack_flattened_text_regions(
     for ftr_id, flattened_text_region in enumerate(flattened_text_regions):
         id_to_flattened_text_region[ftr_id] = flattened_text_region
         rect_packer.add_rect(
-            width=flattened_text_region.width + pad,
-            height=flattened_text_region.height + pad,
+            width=flattened_text_region.width + flattened_text_regions_double_pad,
+            height=flattened_text_region.height + flattened_text_regions_double_pad,
             rid=ftr_id,
         )
 
         bin_width = max(bin_width, flattened_text_region.width)
         bin_height += flattened_text_region.height
 
-    bin_width += pad
-    bin_height += pad
+    bin_width += flattened_text_regions_double_pad
+    bin_height += flattened_text_regions_double_pad
 
     rect_packer.add_bin(width=bin_width, height=bin_height)
     rect_packer.pack()  # type: ignore
@@ -462,19 +464,19 @@ def stack_flattened_text_regions(
         ))
         ftr_ids.append(ftr_id)
 
-    page_height = max(box.down for box in boxes) + 1
-    page_width = max(box.right for box in boxes) + 1
+    page_height = max(box.down for box in boxes) + 1 + page_double_pad
+    page_width = max(box.right for box in boxes) + 1 + page_double_pad
 
     image = Image.from_shape((page_height, page_width), value=0)
     char_polygons: List[Polygon] = []
 
     for box, ftr_id in zip(boxes, ftr_ids):
         flattened_text_region = id_to_flattened_text_region[ftr_id]
-        assert flattened_text_region.height + pad == box.height
-        assert flattened_text_region.width + pad == box.width
+        assert flattened_text_region.height + flattened_text_regions_double_pad == box.height
+        assert flattened_text_region.width + flattened_text_regions_double_pad == box.width
 
-        up = box.up + gap
-        left = box.left
+        up = box.up + flattened_text_regions_pad + page_pad
+        left = box.left + page_pad
 
         box = Box(
             up=up,
@@ -798,7 +800,8 @@ class PageTextRegionStep(
 
         # Stack text regions.
         image, char_polygons = stack_flattened_text_regions(
-            gap=self.config.gap,
+            page_pad=0,
+            flattened_text_regions_pad=self.config.stack_flattened_text_regions_pad,
             flattened_text_regions=flattened_text_regions,
         )
 
