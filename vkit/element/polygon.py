@@ -416,17 +416,18 @@ class Polygon:
         self,
         ratio: float,
         no_exception: bool = True,
-        no_warning: bool = False,
     ):
         try:
             shrank_polygon, _ = Polygon.vatti_clip(self, ratio, True)
-            assert shrank_polygon.area <= self.area
-            return shrank_polygon
+            if 0 < shrank_polygon.area <= self.area:
+                return shrank_polygon
+            else:
+                logger.warning('Invalid shrank_polygon.area. Fallback to NOP.')
+                return self
+
         except Exception:
-            if not no_warning:
-                logger.exception('Failed to shrink.')
             if no_exception:
-                logger.warning('Fallback to NOP.')
+                logger.exception('Failed to shrink. Fallback to NOP.')
                 return self
             else:
                 raise
@@ -435,17 +436,18 @@ class Polygon:
         self,
         ratio: float,
         no_exception: bool = True,
-        no_warning: bool = False,
     ):
         try:
             dilated_polygon, _ = Polygon.vatti_clip(self, ratio, False)
-            assert dilated_polygon.area >= self.area
-            return dilated_polygon
+            if dilated_polygon.area >= self.area:
+                return dilated_polygon
+            else:
+                logger.warning('Invalid dilated_polygon.area. Fallback to NOP.')
+                return self
+
         except Exception:
-            if not no_warning:
-                logger.exception('Failed to dilate.')
             if no_exception:
-                logger.warning('Fallback to NOP.')
+                logger.exception('Failed to dilate. Fallback to NOP.')
                 return self
             else:
                 raise

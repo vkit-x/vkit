@@ -14,6 +14,7 @@
 from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple, Set
 from collections import defaultdict
 import math
+import statistics
 import warnings
 
 import attrs
@@ -38,10 +39,10 @@ warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 @attrs.define
 class PageTextRegionStepConfig:
     text_region_flattener_typical_long_side_ratio_min: float = 3.0
-    text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.9
+    text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.85
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
-    text_region_resize_char_height_min: int = 32
-    text_region_resize_char_height_max: int = 36
+    text_region_resize_char_height_median_min: int = 28
+    text_region_resize_char_height_median_max: int = 36
     text_region_typical_post_rotate_prob: float = 0.2
     text_region_untypical_post_rotate_prob: float = 0.2
     gap: int = 2
@@ -85,9 +86,9 @@ class FlattenedTextRegion:
     def width(self):
         return self.flattened_image.width
 
-    def get_char_height_max(self):
+    def get_char_height_meidan(self):
         assert self.flattened_char_polygons
-        return max(
+        return statistics.median(
             char_polygon.get_rectangular_height() for char_polygon in self.flattened_char_polygons
         )
 
@@ -624,15 +625,15 @@ class PageTextRegionStep(
         flattened_text_regions: List[FlattenedTextRegion] = []
         for flattened_text_region in text_region_flattener.flattened_text_regions:
             # Resize.
-            char_height_max = flattened_text_region.get_char_height_max()
+            char_height_median = flattened_text_region.get_char_height_meidan()
 
-            text_region_resize_char_height = int(
+            text_region_resize_char_height_median = int(
                 rng.integers(
-                    self.config.text_region_resize_char_height_min,
-                    self.config.text_region_resize_char_height_max + 1,
+                    self.config.text_region_resize_char_height_median_min,
+                    self.config.text_region_resize_char_height_median_max + 1,
                 )
             )
-            scale = text_region_resize_char_height / char_height_max
+            scale = text_region_resize_char_height_median / char_height_median
 
             height, width = flattened_text_region.shape
             resized_height = round(height * scale)
