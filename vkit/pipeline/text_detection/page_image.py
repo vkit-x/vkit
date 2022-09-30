@@ -16,9 +16,10 @@ from typing import Sequence, Mapping, Any, List, Union
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.utility import PathType
+from vkit.utility import PathType, rng_choice
 from vkit.element import Image, Box
 from vkit.engine.image import image_engine_executor_aggregator_factory
+from vkit.engine.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_layout import PageLayoutStepOutput
 
@@ -103,6 +104,12 @@ class PageImageStep(
                 'disable_resizing': True,
             },
             rng,
+        )
+        # Random rotate.
+        rotate_angle = rng_choice(rng, (0, 90, 180, 270))
+        page_bottom_layer_image = rotate.distort_image(
+            {'angle': rotate_angle},
+            page_bottom_layer_image,
         )
 
         return PageImageStepOutput(
