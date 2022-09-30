@@ -74,6 +74,7 @@ class PageDistortionStepInput:
 class PageDistortionStepOutput:
     page_image: Image
     page_random_distortion_debug: Optional[RandomDistortionDebug]
+    page_active_mask: Mask
     page_char_polygon_collection: PageCharPolygonCollection
     page_char_mask: Optional[Mask]
     page_char_height_score_map: Optional[ScoreMap]
@@ -124,6 +125,22 @@ class PageDistortionStep(
         self.random_distortion = random_distortion_factory.create(
             self.config.random_distortion_factory_config
         )
+
+    @staticmethod
+    def fill_page_inactive_region(
+        page_image: Image,
+        page_active_mask: Mask,
+        page_bottom_layer_image: Image,
+    ):
+        assert page_image.shape == page_active_mask.shape
+
+        if page_bottom_layer_image.shape != page_image.shape:
+            page_bottom_layer_image = page_bottom_layer_image.to_resized_image(
+                resized_height=page_image.height,
+                resized_width=page_image.width,
+            )
+
+        page_active_mask.to_inverted_mask().fill_image(page_image, page_bottom_layer_image)
 
     def generate_text_line_labelings(
         self,
@@ -253,6 +270,7 @@ class PageDistortionStep(
     def run(self, input: PageDistortionStepInput, rng: RandomGenerator):
         page_assembler_step_output = input.page_assembler_step_output
         page = page_assembler_step_output.page
+        page_bottom_layer_image = page.page_bottom_layer_image
         page_char_polygon_collection = page.page_char_polygon_collection
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
         page_disconnected_text_region_collection = \
@@ -286,14 +304,23 @@ class PageDistortionStep(
 
         result = self.random_distortion.distort(
             image=page.image,
+            # For generating page active mask.
+            mask=Mask.from_shapable(page.image, value=1),
             polygons=polygon_flattener.flatten(),
             points=PointList(point_flattener.flatten()),
             rng=rng,
             debug=page_random_distortion_debug,
         )
         assert result.image
+        assert result.mask
         assert result.polygons
         assert result.points
+
+        self.fill_page_inactive_region(
+            page_image=result.image,
+            page_active_mask=result.mask,
+            page_bottom_layer_image=page_bottom_layer_image,
+        )
 
         # Unflatten.
         (
@@ -347,6 +374,7 @@ class PageDistortionStep(
         return PageDistortionStepOutput(
             page_image=result.image,
             page_random_distortion_debug=page_random_distortion_debug,
+            page_active_mask=result.mask,
             page_char_polygon_collection=PageCharPolygonCollection(
                 height=result.image.height,
                 width=result.image.width,

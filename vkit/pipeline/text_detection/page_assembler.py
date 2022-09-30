@@ -68,6 +68,7 @@ class PageDisconnectedTextRegionCollection:
 class Page(Shapable):
     image: Image
     page_image_collection: PageImageCollection
+    page_bottom_layer_image: Image
     page_text_line_collection: PageTextLineCollection
     page_seal_impression_text_line_collection: PageSealImpressionTextLineCollection
     page_char_polygon_collection: PageCharPolygonCollection
@@ -105,6 +106,7 @@ class PageAssemblerStep(
 
         page_image_step_output = input.page_image_step_output
         page_image_collection = page_image_step_output.page_image_collection
+        page_bottom_layer_image = page_image_step_output.page_bottom_layer_image
 
         page_barcode_step_output = input.page_barcode_step_output
 
@@ -245,6 +247,7 @@ class PageAssemblerStep(
         page = Page(
             image=assembled_image,
             page_image_collection=page_image_collection,
+            page_bottom_layer_image=page_bottom_layer_image,
             page_text_line_collection=page_text_line_collection,
             page_seal_impression_text_line_collection=page_seal_impression_text_line_collection,
             page_char_polygon_collection=page_char_polygon_collection,

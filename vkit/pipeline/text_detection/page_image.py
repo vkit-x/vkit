@@ -52,6 +52,8 @@ class PageImageCollection:
 @attrs.define
 class PageImageStepOutput:
     page_image_collection: PageImageCollection
+    # For filling inactive region caused by distortion.
+    page_bottom_layer_image: Image
 
 
 class PageImageStep(
@@ -93,7 +95,20 @@ class PageImageStep(
             width=page_layout.width,
             page_images=page_images,
         )
-        return PageImageStepOutput(page_image_collection=page_image_collection)
+
+        page_bottom_layer_image = self.image_engine_executor_aggregator.run(
+            {
+                'height': 0,
+                'width': 0,
+                'disable_resizing': True,
+            },
+            rng,
+        )
+
+        return PageImageStepOutput(
+            page_image_collection=page_image_collection,
+            page_bottom_layer_image=page_bottom_layer_image,
+        )
 
 
 page_image_step_factory = PipelineStepFactory(PageImageStep)

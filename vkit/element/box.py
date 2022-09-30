@@ -81,10 +81,6 @@ class Box(Shapable):
         return self.right + 1 - self.left
 
     @property
-    def area(self):
-        return self.height * self.width
-
-    @property
     def valid(self):
         return (0 <= self.up <= self.down) and (0 <= self.left <= self.right)
 

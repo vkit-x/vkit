@@ -27,7 +27,7 @@ from rectpack import newPacker as RectPacker
 
 from vkit.utility import rng_choice
 from vkit.element import Box, Polygon, Mask, Image
-from vkit.engine.distortion.geometric.affine import rotate
+from vkit.engine.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
 from .page_resizing import PageResizingStepOutput

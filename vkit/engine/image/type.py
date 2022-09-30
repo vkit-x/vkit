@@ -18,3 +18,4 @@ import attrs
 class ImageEngineRunConfig:
     height: int
     width: int
+    disable_resizing: bool = False

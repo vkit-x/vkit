@@ -26,6 +26,10 @@ class Shapable:
         raise NotImplementedError()
 
     @property
+    def area(self) -> int:
+        return self.height * self.width
+
+    @property
     def shape(self) -> Tuple[int, int]:
         return self.height, self.width
 
