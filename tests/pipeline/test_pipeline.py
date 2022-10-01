@@ -73,6 +73,11 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     # Image.
     cur_write_image(f'page_{seed}.jpg', output.page_image)
 
+    # Active mask.
+    image = output.page_image.copy()
+    output.page_active_mask.fill_image(image, (255, 0, 0), 0.5)
+    cur_write_image(f'page_{seed}_active_mask.jpg', image)
+
     # Char level polygon ordering.
     if False:
         points: List[Point] = []

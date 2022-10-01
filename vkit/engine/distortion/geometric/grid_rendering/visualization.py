@@ -28,7 +28,8 @@ def visualize_image_grid(
 ):
     if not image:
         image = create_image_from_image_grid(image_grid, ImageKind.RGB)
-        image.mat.fill(255)
+        with image.writable_context:
+            image.mat.fill(255)
 
     pil_image = image.to_pil_image()
     draw = PilImageDraw.Draw(pil_image)

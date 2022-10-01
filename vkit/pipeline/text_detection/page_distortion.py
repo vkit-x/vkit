@@ -302,10 +302,18 @@ class PageDistortionStep(
         if self.config.debug_random_distortion:
             page_random_distortion_debug = RandomDistortionDebug()
 
+        page_active_mask = Mask.from_shapable(page.image, value=1)
+        # To mitigate a bug in cv.remap, in which the border interpolation is wrong.
+        # This mitigation DO remove 1-pixel width border, but it should be fine.
+        with page_active_mask.writable_context:
+            page_active_mask.mat[0] = 0
+            page_active_mask.mat[-1] = 0
+            page_active_mask.mat[:, 0] = 0
+            page_active_mask.mat[:, -1] = 0
+
         result = self.random_distortion.distort(
             image=page.image,
-            # For generating page active mask.
-            mask=Mask.from_shapable(page.image, value=1),
+            mask=page_active_mask,
             polygons=polygon_flattener.flatten(),
             points=PointList(point_flattener.flatten()),
             rng=rng,
