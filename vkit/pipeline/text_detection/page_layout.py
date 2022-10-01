@@ -22,8 +22,8 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice, normalize_to_probs, normalize_to_keys_and_probs
-from vkit.element import Box, Polygon
-from vkit.engine.font.type import FontEngineRunConfigGlyphSequence
+from vkit.element import Box, BoxOverlappingValidator, Polygon
+from vkit.engine.font import FontEngineRunConfigGlyphSequence
 from .page_shape import PageShapeStepOutput
 from ..interface import PipelineStep, PipelineStepFactory
 
@@ -950,16 +950,17 @@ class PageLayoutStep(
         if layout_barcode_qrs or layout_barcode_code39s:
             # Barcode could not be overlapped with text lines.
             # Hence need to remove the overlapped text lines.
+            layout_barcode_box_overlapping_validator = BoxOverlappingValidator(
+                itertools.chain(
+                    (layout_barcode_qr.box for layout_barcode_qr in layout_barcode_qrs),
+                    (layout_barcode_code39.box for layout_barcode_code39 in layout_barcode_code39s),
+                )
+            )
+
             keep_layout_text_lines: List[LayoutTextLine] = []
             for layout_text_line in layout_text_lines:
-                keep = True
-                for layout_xcode in itertools.chain(layout_barcode_qrs, layout_barcode_code39s):
-                    if self.boxes_are_overlapped(layout_xcode.box, layout_text_line.box):
-                        keep = False
-                        break
-                if keep:
+                if not layout_barcode_box_overlapping_validator.is_overlapped(layout_text_line.box):
                     keep_layout_text_lines.append(layout_text_line)
-
             layout_text_lines = keep_layout_text_lines
 
         return layout_barcode_qrs, layout_barcode_code39s, layout_text_lines

@@ -13,9 +13,13 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Tuple, Union, Iterable
 import math
+import warnings
 
 import attrs
 import numpy as np
+from shapely.errors import ShapelyDeprecationWarning
+from shapely.geometry import box as ShapelyBox
+from shapely.strtree import STRtree
 
 from .type import Shapable, FillByElementsMode
 from .opt import (
@@ -25,6 +29,9 @@ from .opt import (
     generate_shape_and_resized_shape,
     fill_np_array,
 )
+
+# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
+warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 
 @attrs.define(frozen=True)
@@ -126,6 +133,14 @@ class Box(Shapable):
                 points.append(Point(y=y, x=self.left))
 
         return Polygon.create(points=points)
+
+    def to_shapely_polygon(self):
+        return ShapelyBox(
+            miny=self.up,
+            maxy=self.down,
+            minx=self.left,
+            maxx=self.right,
+        )
 
     ############
     # Operator #
@@ -399,6 +414,19 @@ class Box(Shapable):
                 np_mask=np_mask,
                 alpha=alpha,
             )
+
+
+class BoxOverlappingValidator:
+
+    def __init__(self, boxes: Iterable[Box]):
+        self.strtree = STRtree(box.to_shapely_polygon() for box in boxes)
+
+    def is_overlapped(self, box: Box):
+        shapely_polygon = box.to_shapely_polygon()
+        for indexed_shapely_polygon in self.strtree.query(shapely_polygon):
+            if indexed_shapely_polygon.intersects(shapely_polygon):
+                return True
+        return False
 
 
 @attrs.define(frozen=True)

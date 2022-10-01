@@ -316,6 +316,7 @@ class PageDistortionStep(
         assert result.polygons
         assert result.points
 
+        # Fill inplace the inactive (black) region with page_bottom_layer_image.
         self.fill_page_inactive_region(
             page_image=result.image,
             page_active_mask=result.mask,

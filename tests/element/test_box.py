@@ -11,25 +11,13 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from vkit.engine.interface import EngineExecutorAggregatorFactory
-from .type import (
-    FontEngineRunConfigStyle,
-    FontEngineRunConfigGlyphSequence,
-    FontEngineRunConfig,
-    FontCollection,
-    TextLine,
-)
-from .freetype import (
-    font_freetype_default_engine_executor_factory,
-    font_freetype_lcd_engine_executor_factory,
-    font_freetype_monochrome_engine_executor_factory,
-    FontFreetypeDefaultEngine,
-    FontFreetypeLcdEngine,
-    FontFreetypeMonochromeEngine,
-)
+from vkit.element import Box, BoxOverlappingValidator
 
-font_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
-    font_freetype_default_engine_executor_factory,
-    font_freetype_lcd_engine_executor_factory,
-    font_freetype_monochrome_engine_executor_factory,
-])
+
+def test_box_overlapping_validator():
+    box0 = Box(up=0, down=100, left=0, right=100)
+    box_overlapping_validator = BoxOverlappingValidator([box0])
+    assert box_overlapping_validator.is_overlapped(Box(up=100, down=100, left=100, right=100))
+    assert not box_overlapping_validator.is_overlapped(Box(up=101, down=101, left=100, right=100))
+    assert not box_overlapping_validator.is_overlapped(Box(up=100, down=100, left=101, right=101))
+    assert not box_overlapping_validator.is_overlapped(Box(up=101, down=101, left=101, right=101))
