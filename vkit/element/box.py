@@ -423,9 +423,9 @@ class BoxOverlappingValidator:
 
     def is_overlapped(self, box: Box):
         shapely_polygon = box.to_shapely_polygon()
-        for indexed_shapely_polygon in self.strtree.query(shapely_polygon):
-            if indexed_shapely_polygon.intersects(shapely_polygon):
-                return True
+        for _ in self.strtree.query(shapely_polygon):
+            # NOTE: No need to test intersection since the extent of a box is itself.
+            return True
         return False
 
 
