@@ -14,6 +14,7 @@
 from vkit.engine.interface import EngineExecutorAggregatorFactory
 from .type import (
     FontEngineRunConfigStyle,
+    FontEngineRunConfigGlyphSequence,
     FontEngineRunConfig,
     FontCollection,
     TextLine,

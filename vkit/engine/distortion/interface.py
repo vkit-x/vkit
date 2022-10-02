@@ -537,6 +537,8 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         self,
         internals: DistortionInternals[_T_CONFIG, _T_STATE],
     ):
+        # TODO: Something is wrong with cv.remap when dealing with border interpolation.
+        # This method could generate a mask "connects" to the transformed border.
         internals.restore_rng_if_supported()
 
         if self.func_active_mask:
@@ -548,8 +550,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             )
 
         else:
-            mask = Mask.from_shape(internals.shape)
-            mask.mat.fill(1)
+            mask = Mask.from_shape(internals.shape, value=1)
             return self.distort_mask_based_on_internals(internals, mask)
 
     # yapf: disable

@@ -12,11 +12,12 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Sequence
+import itertools
 
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.element import Shapable, Box, Image
+from vkit.element import Shapable, Box, Polygon, Image
 from vkit.engine.seal_impression import fill_text_line_to_seal_impression
 from vkit.engine.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
@@ -65,14 +66,21 @@ class PageDisconnectedTextRegionCollection:
 
 
 @attrs.define
+class PageNonTextLineCollection:
+    non_text_line_polygons: Sequence[Polygon]
+
+
+@attrs.define
 class Page(Shapable):
     image: Image
     page_image_collection: PageImageCollection
+    page_bottom_layer_image: Image
     page_text_line_collection: PageTextLineCollection
     page_seal_impression_text_line_collection: PageSealImpressionTextLineCollection
     page_char_polygon_collection: PageCharPolygonCollection
     page_text_line_polygon_collection: PageTextLinePolygonCollection
     page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
+    page_non_text_line_collection: PageNonTextLineCollection
 
     @property
     def height(self):
@@ -105,6 +113,7 @@ class PageAssemblerStep(
 
         page_image_step_output = input.page_image_step_output
         page_image_collection = page_image_step_output.page_image_collection
+        page_bottom_layer_image = page_image_step_output.page_bottom_layer_image
 
         page_barcode_step_output = input.page_barcode_step_output
 
@@ -242,14 +251,31 @@ class PageAssemblerStep(
             page_layout.disconnected_text_regions
         )
 
+        # For sampling negative text region area.
+        step = min(
+            itertools.chain.from_iterable(
+                layout_non_text_line.box.shape
+                for layout_non_text_line in page_layout.layout_non_text_lines
+            )
+        )
+        step = max(1, step)
+        page_non_text_line_collection = PageNonTextLineCollection(
+            non_text_line_polygons=[
+                layout_non_text_line.box.to_polygon(step=step)
+                for layout_non_text_line in page_layout.layout_non_text_lines
+            ]
+        )
+
         page = Page(
             image=assembled_image,
             page_image_collection=page_image_collection,
+            page_bottom_layer_image=page_bottom_layer_image,
             page_text_line_collection=page_text_line_collection,
             page_seal_impression_text_line_collection=page_seal_impression_text_line_collection,
             page_char_polygon_collection=page_char_polygon_collection,
             page_text_line_polygon_collection=page_text_line_polygon_collection,
             page_disconnected_text_region_collection=page_disconnected_text_region_collection,
+            page_non_text_line_collection=page_non_text_line_collection,
         )
         return PageAssemblerStepOutput(page=page)
 

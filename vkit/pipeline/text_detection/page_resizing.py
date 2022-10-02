@@ -41,6 +41,7 @@ class PageResizingStepInput:
 @attrs.define
 class PageResizingStepOutput:
     page_image: Image
+    page_active_mask: Mask
     page_char_mask: Mask
     page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
@@ -83,6 +84,7 @@ class PageResizingStep(
     def run(self, input: PageResizingStepInput, rng: RandomGenerator):
         page_distortion_step_output = input.page_distortion_step_output
         page_image = page_distortion_step_output.page_image
+        page_active_mask = page_distortion_step_output.page_active_mask
 
         page_char_mask = page_distortion_step_output.page_char_mask
         assert page_char_mask
@@ -125,6 +127,13 @@ class PageResizingStep(
             cv_resize_interpolation=cv_resize_interpolation,
         )
 
+        assert page_active_mask.shape == (height, width)
+        page_active_mask = page_active_mask.to_resized_mask(
+            resized_height=resized_height,
+            resized_width=resized_width,
+            cv_resize_interpolation=cv_resize_interpolation,
+        )
+
         assert page_char_mask.shape == (height, width)
         page_char_mask = page_char_mask.to_resized_mask(
             resized_height=resized_height,
@@ -161,6 +170,7 @@ class PageResizingStep(
 
         return PageResizingStepOutput(
             page_image=page_image,
+            page_active_mask=page_active_mask,
             page_char_mask=page_char_mask,
             page_char_height_score_map=page_char_height_score_map,
             page_text_line_mask=page_text_line_mask,

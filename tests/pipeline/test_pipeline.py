@@ -73,6 +73,11 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     # Image.
     cur_write_image(f'page_{seed}.jpg', output.page_image)
 
+    # Active mask.
+    image = output.page_image.copy()
+    output.page_active_mask.fill_image(image, (255, 0, 0), 0.5)
+    cur_write_image(f'page_{seed}_active_mask.jpg', image)
+
     # Char level polygon ordering.
     if False:
         points: List[Point] = []
@@ -117,6 +122,11 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
         painter = Painter.create(output.page_image)
         painter.paint_polygons(output.page_disconnected_text_region_collection.to_polygons())
         cur_write_image(f'page_{seed}_disconnected_text_region_collection.jpg', painter.image)
+
+    if True:
+        painter = Painter.create(output.page_image)
+        painter.paint_polygons(output.page_non_text_line_collection.non_text_line_polygons)
+        cur_write_image(f'page_{seed}_non_text_line_collection.jpg', painter.image)
 
 
 def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutput):
@@ -393,7 +403,7 @@ def test_debug_adaptive_scaling_dataset_steps():
         visualize_page_distortion_step_output(seed, output.page_distortion_step_output)
         if False:
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
-        if False:
+        if True:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
         if True:
             visualize_page_text_region_step_output(

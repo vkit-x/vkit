@@ -15,7 +15,7 @@ from .type import Shapable, FillByElementsMode
 
 from .point import Point, PointList, PointTuple
 from .line import Line
-from .box import Box, CharBox
+from .box import Box, BoxOverlappingValidator, CharBox
 from .polygon import Polygon
 from .mask import Mask, MaskSetItemConfig
 from .score_map import ScoreMap, ScoreMapSetItemConfig

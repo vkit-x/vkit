@@ -41,6 +41,7 @@ from .page_text_line_label import (
 from .page_assembler import (
     PageAssemblerStepOutput,
     PageDisconnectedTextRegionCollection,
+    PageNonTextLineCollection,
 )
 
 
@@ -74,6 +75,7 @@ class PageDistortionStepInput:
 class PageDistortionStepOutput:
     page_image: Image
     page_random_distortion_debug: Optional[RandomDistortionDebug]
+    page_active_mask: Mask
     page_char_polygon_collection: PageCharPolygonCollection
     page_char_mask: Optional[Mask]
     page_char_height_score_map: Optional[ScoreMap]
@@ -85,6 +87,7 @@ class PageDistortionStepOutput:
     page_text_line_heights: Optional[Sequence[float]]
     page_text_line_heights_debug_image: Optional[Image]
     page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
+    page_non_text_line_collection: PageNonTextLineCollection
 
 
 _E = TypeVar('_E', Point, Polygon)
@@ -124,6 +127,22 @@ class PageDistortionStep(
         self.random_distortion = random_distortion_factory.create(
             self.config.random_distortion_factory_config
         )
+
+    @staticmethod
+    def fill_page_inactive_region(
+        page_image: Image,
+        page_active_mask: Mask,
+        page_bottom_layer_image: Image,
+    ):
+        assert page_image.shape == page_active_mask.shape
+
+        if page_bottom_layer_image.shape != page_image.shape:
+            page_bottom_layer_image = page_bottom_layer_image.to_resized_image(
+                resized_height=page_image.height,
+                resized_width=page_image.width,
+            )
+
+        page_active_mask.to_inverted_mask().fill_image(page_image, page_bottom_layer_image)
 
     def generate_text_line_labelings(
         self,
@@ -253,10 +272,11 @@ class PageDistortionStep(
     def run(self, input: PageDistortionStepInput, rng: RandomGenerator):
         page_assembler_step_output = input.page_assembler_step_output
         page = page_assembler_step_output.page
+        page_bottom_layer_image = page.page_bottom_layer_image
         page_char_polygon_collection = page.page_char_polygon_collection
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
-        page_disconnected_text_region_collection = \
-            page_assembler_step_output.page.page_disconnected_text_region_collection
+        page_disconnected_text_region_collection = page.page_disconnected_text_region_collection
+        page_non_text_line_collection = page.page_non_text_line_collection
 
         # Flatten.
         polygon_flattener = ElementFlattener([
@@ -269,6 +289,8 @@ class PageDistortionStep(
                 disconnected_text_region.polygon for disconnected_text_region in
                 page_disconnected_text_region_collection.disconnected_text_regions
             ],
+            # For sampling negative text region area.
+            page_non_text_line_collection.non_text_line_polygons,
         ])
         point_flattener = ElementFlattener([
             # Char level.
@@ -284,16 +306,34 @@ class PageDistortionStep(
         if self.config.debug_random_distortion:
             page_random_distortion_debug = RandomDistortionDebug()
 
+        page_active_mask = Mask.from_shapable(page.image, value=1)
+        # To mitigate a bug in cv.remap, in which the border interpolation is wrong.
+        # This mitigation DO remove 1-pixel width border, but it should be fine.
+        with page_active_mask.writable_context:
+            page_active_mask.mat[0] = 0
+            page_active_mask.mat[-1] = 0
+            page_active_mask.mat[:, 0] = 0
+            page_active_mask.mat[:, -1] = 0
+
         result = self.random_distortion.distort(
             image=page.image,
+            mask=page_active_mask,
             polygons=polygon_flattener.flatten(),
             points=PointList(point_flattener.flatten()),
             rng=rng,
             debug=page_random_distortion_debug,
         )
         assert result.image
+        assert result.mask
         assert result.polygons
         assert result.points
+
+        # Fill inplace the inactive (black) region with page_bottom_layer_image.
+        self.fill_page_inactive_region(
+            page_image=result.image,
+            page_active_mask=result.mask,
+            page_bottom_layer_image=page_bottom_layer_image,
+        )
 
         # Unflatten.
         (
@@ -303,6 +343,8 @@ class PageDistortionStep(
             text_line_polygons,
             # For char-level polygon regression.
             disconnected_text_region_polygons,
+            # For sampling negative text region area.
+            non_text_line_polygons,
         ) = polygon_flattener.unflatten(result.polygons)
 
         (
@@ -347,6 +389,7 @@ class PageDistortionStep(
         return PageDistortionStepOutput(
             page_image=result.image,
             page_random_distortion_debug=page_random_distortion_debug,
+            page_active_mask=result.mask,
             page_char_polygon_collection=PageCharPolygonCollection(
                 height=result.image.height,
                 width=result.image.width,
@@ -375,6 +418,9 @@ class PageDistortionStep(
                     DisconnectedTextRegion(disconnected_text_region_polygon)
                     for disconnected_text_region_polygon in disconnected_text_region_polygons
                 ],
+            ),
+            page_non_text_line_collection=PageNonTextLineCollection(
+                non_text_line_polygons=non_text_line_polygons,
             )
         )
 

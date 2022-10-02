@@ -69,6 +69,10 @@ class ImageSelectorEngine(
         if self.init_config.target_kind_image:
             image = image.to_target_kind_image(self.init_config.target_kind_image)
 
+        if run_config.disable_resizing:
+            assert run_config.height == 0 and run_config.width == 0
+            return image
+
         height = run_config.height
         width = run_config.width
         if not self.init_config.force_resize and height <= image.height and width <= image.width:

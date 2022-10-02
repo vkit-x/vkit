@@ -33,8 +33,8 @@ class PageCroppingStepConfig:
     pad_value: int = 0
     drop_cropped_page_with_small_text_ratio: bool = True
     text_ratio_min: float = 0.025
-    drop_cropped_page_with_large_black_area: bool = True
-    black_area_ratio_max: float = 0.5
+    drop_cropped_page_with_small_active_region: bool = True
+    active_region_ratio_min: float = 0.4
     enable_downsample_labeling: bool = True
     downsample_labeling_factor: int = 2
 
@@ -84,6 +84,7 @@ class PageCroppingStep(
     def sample_cropped_page(
         self,
         page_image: Image,
+        page_active_mask: Mask,
         page_char_mask: Mask,
         page_char_height_score_map: ScoreMap,
         page_text_line_mask: Mask,
@@ -110,6 +111,8 @@ class PageCroppingStep(
 
         page_image = cropper.crop_image(page_image)
 
+        page_active_mask = cropper.crop_mask(page_active_mask)
+
         page_char_mask = cropper.crop_mask(
             page_char_mask,
             core_only=True,
@@ -134,10 +137,10 @@ class PageCroppingStep(
             if text_ratio < self.config.text_ratio_min:
                 return None
 
-        if self.config.drop_cropped_page_with_large_black_area:
-            black_pixel_count = int((np.amax(page_image.mat, axis=2) == 0).sum())
-            black_area_ratio = black_pixel_count / (page_image.height * page_image.width)
-            if black_area_ratio >= self.config.black_area_ratio_max:
+        if self.config.drop_cropped_page_with_small_active_region:
+            num_active_pixels = int(page_active_mask.np_mask.sum())
+            active_region_ratio = num_active_pixels / page_image.area
+            if active_region_ratio < self.config.active_region_ratio_min:
                 return None
 
         downsampled_label: Optional[DownsampledLabel] = None
@@ -219,6 +222,7 @@ class PageCroppingStep(
     def run(self, input: PageCroppingStepInput, rng: RandomGenerator):
         page_resizing_step_output = input.page_resizing_step_output
         page_image = page_resizing_step_output.page_image
+        page_active_mask = page_resizing_step_output.page_active_mask
         page_char_mask = page_resizing_step_output.page_char_mask
         page_char_height_score_map = page_resizing_step_output.page_char_height_score_map
         page_text_line_mask = page_resizing_step_output.page_text_line_mask
@@ -245,6 +249,7 @@ class PageCroppingStep(
         while len(cropped_pages) < num_samples and run_count < run_count_max:
             cropped_page = self.sample_cropped_page(
                 page_image=page_image,
+                page_active_mask=page_active_mask,
                 page_char_mask=page_char_mask,
                 page_char_height_score_map=page_char_height_score_map,
                 page_text_line_mask=page_text_line_mask,

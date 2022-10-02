@@ -11,31 +11,13 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Tuple
-from enum import Enum, unique
+from vkit.element import Box, BoxOverlappingValidator
 
 
-class Shapable:
-
-    @property
-    def height(self) -> int:
-        raise NotImplementedError()
-
-    @property
-    def width(self) -> int:
-        raise NotImplementedError()
-
-    @property
-    def area(self) -> int:
-        return self.height * self.width
-
-    @property
-    def shape(self) -> Tuple[int, int]:
-        return self.height, self.width
-
-
-@unique
-class FillByElementsMode(Enum):
-    UNION = 'union'
-    DISTINCT = 'distinct'
-    INTERSECT = 'intersect'
+def test_box_overlapping_validator():
+    box0 = Box(up=0, down=100, left=0, right=100)
+    box_overlapping_validator = BoxOverlappingValidator([box0])
+    assert box_overlapping_validator.is_overlapped(Box(up=100, down=100, left=100, right=100))
+    assert not box_overlapping_validator.is_overlapped(Box(up=101, down=101, left=100, right=100))
+    assert not box_overlapping_validator.is_overlapped(Box(up=100, down=100, left=101, right=101))
+    assert not box_overlapping_validator.is_overlapped(Box(up=101, down=101, left=101, right=101))
