@@ -25,7 +25,7 @@ from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
 
-from vkit.utility import rng_choice
+from vkit.utility import rng_choice, rng_choice_with_size
 from vkit.element import Box, Polygon, Mask, Image
 from vkit.engine.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
@@ -45,6 +45,8 @@ class PageTextRegionStepConfig:
     text_region_resize_char_height_median_max: int = 36
     text_region_typical_post_rotate_prob: float = 0.2
     text_region_untypical_post_rotate_prob: float = 0.2
+    negative_text_region_ratio: float = 0.1
+    negative_text_region_post_rotate_prob: float = 0.2
     stack_flattened_text_regions_pad: int = 2
     enable_post_uniform_rotate: bool = False
     debug: bool = False
@@ -85,6 +87,10 @@ class FlattenedTextRegion:
     @property
     def width(self):
         return self.flattened_image.width
+
+    @property
+    def area(self):
+        return self.flattened_image.area
 
     def get_char_height_meidan(self):
         assert self.flattened_char_polygons
@@ -143,9 +149,9 @@ class FlattenedTextRegion:
 @attrs.define
 class DebugPageTextRegionStep:
     page_image: Image = attrs.field(default=None)
-    precise_text_region_candidate_polygons: List[Polygon] = attrs.field(default=None)
-    page_text_region_infos: List[PageTextRegionInfo] = attrs.field(default=None)
-    flattened_text_regions: List[FlattenedTextRegion] = attrs.field(default=None)
+    precise_text_region_candidate_polygons: Sequence[Polygon] = attrs.field(default=None)
+    page_text_region_infos: Sequence[PageTextRegionInfo] = attrs.field(default=None)
+    flattened_text_regions: Sequence[FlattenedTextRegion] = attrs.field(default=None)
 
 
 @attrs.define
@@ -300,6 +306,7 @@ class TextRegionFlattener:
         typical_indices: Set[int],
         flattening_rotate_angles: Sequence[int],
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
+        is_training: bool,
     ):
         flattened_text_regions: List[FlattenedTextRegion] = []
 
@@ -307,10 +314,12 @@ class TextRegionFlattener:
             zip(text_region_polygons, flattening_rotate_angles)
         ):
             # Dilate.
-            text_region_polygon = text_region_polygon.to_dilated_polygon(
-                text_region_polygon_dilate_ratio
-            )
-            text_region_polygon = text_region_polygon.to_clipped_polygon(image)
+            if not is_training or grouped_char_polygons:
+                # NOTE: Don't dilate nagative region when in training.
+                text_region_polygon = text_region_polygon.to_dilated_polygon(
+                    text_region_polygon_dilate_ratio
+                )
+                text_region_polygon = text_region_polygon.to_clipped_polygon(image)
 
             # Extract image.
             text_region_image = text_region_polygon.extract_image(image)
@@ -383,6 +392,7 @@ class TextRegionFlattener:
         image: Image,
         text_region_polygons: Sequence[Polygon],
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]] = None,
+        is_training: bool = False,
     ):
         self.origional_text_region_polygons = text_region_polygons
 
@@ -416,6 +426,7 @@ class TextRegionFlattener:
             typical_indices=self.typical_indices,
             flattening_rotate_angles=self.flattening_rotate_angles,
             grouped_char_polygons=grouped_char_polygons,
+            is_training=is_training,
         )
 
 
@@ -595,10 +606,36 @@ class PageTextRegionStep(
                 intersected_area,
             )
 
+    def sample_page_non_text_line_polygons(
+        self,
+        page_non_text_line_polygons: Sequence[Polygon],
+        num_page_text_region_infos: int,
+        rng: RandomGenerator,
+    ):
+        # Some polygons are invalid, need to filter.
+        page_non_text_line_polygons = [
+            page_non_text_line_polygon for page_non_text_line_polygon in page_non_text_line_polygons
+            if page_non_text_line_polygon.area > 10
+        ]
+
+        negative_ratio = self.config.negative_text_region_ratio
+        num_page_non_text_line_polygons = round(
+            negative_ratio * num_page_text_region_infos / (1 - negative_ratio)
+        )
+        return rng_choice_with_size(
+            rng,
+            page_non_text_line_polygons,
+            size=min(
+                num_page_non_text_line_polygons,
+                len(page_non_text_line_polygons),
+            ),
+        )
+
     def build_flattened_text_regions(
         self,
         page_image: Image,
         page_text_region_infos: Sequence[PageTextRegionInfo],
+        page_non_text_line_polygons: Sequence[Polygon],
         rng: RandomGenerator,
     ):
         text_region_polygon_dilate_ratio = float(
@@ -616,17 +653,26 @@ class PageTextRegionStep(
             text_region_polygons.append(page_text_region_info.precise_text_region_polygon)
             grouped_char_polygons.append(page_text_region_info.char_polygons)
 
+        # Inject nagative regions.
+        for page_non_text_line_polygon in page_non_text_line_polygons:
+            text_region_polygons.append(page_non_text_line_polygon)
+            grouped_char_polygons.append(tuple())
+
         text_region_flattener = TextRegionFlattener(
             typical_long_side_ratio_min=typical_long_side_ratio_min,
             text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
             image=page_image,
             text_region_polygons=text_region_polygons,
             grouped_char_polygons=grouped_char_polygons,
+            is_training=True,
         )
 
-        flattened_text_regions: List[FlattenedTextRegion] = []
+        # Resize positive ftr.
+        positive_flattened_text_regions: List[FlattenedTextRegion] = []
         for flattened_text_region in text_region_flattener.flattened_text_regions:
-            # Resize.
+            if not flattened_text_region.flattened_char_polygons:
+                continue
+
             char_height_median = flattened_text_region.get_char_height_meidan()
 
             text_region_resize_char_height_median = int(
@@ -661,8 +707,47 @@ class PageTextRegionStep(
                 flattened_text_region = \
                     flattened_text_region.to_post_rotated_flattened_text_region(post_rotate_angle)
 
-            flattened_text_regions.append(flattened_text_region)
+            positive_flattened_text_regions.append(flattened_text_region)
 
+        # Resize negative ftr.
+        negative_flattened_text_regions: List[FlattenedTextRegion] = []
+        for flattened_text_region in text_region_flattener.flattened_text_regions:
+            if flattened_text_region.flattened_char_polygons:
+                continue
+
+            reference_height = rng_choice(rng, positive_flattened_text_regions).height
+            scale = reference_height / flattened_text_region.height
+
+            height, width = flattened_text_region.shape
+            resized_height = round(height * scale)
+            resized_width = round(width * scale)
+
+            flattened_text_region = flattened_text_region.to_resized_flattened_text_region(
+                resized_height=resized_height,
+                resized_width=resized_width,
+            )
+
+            # Post rotate.
+            post_rotate_angle = 0
+            if flattened_text_region.is_typical:
+                if rng.random() < self.config.text_region_typical_post_rotate_prob:
+                    # Upside down only.
+                    post_rotate_angle = 180
+            else:
+                if rng.random() < self.config.text_region_untypical_post_rotate_prob:
+                    # 3-way rotate.
+                    post_rotate_angle = rng_choice(rng, (180, 90, 270), probs=(0.5, 0.25, 0.25))
+
+            if post_rotate_angle != 0:
+                flattened_text_region = \
+                    flattened_text_region.to_post_rotated_flattened_text_region(post_rotate_angle)
+
+            negative_flattened_text_regions.append(flattened_text_region)
+
+        flattened_text_regions = (
+            *positive_flattened_text_regions,
+            *negative_flattened_text_regions,
+        )
         return flattened_text_regions
 
     def run(self, input: PageTextRegionStepInput, rng: RandomGenerator):
@@ -671,6 +756,7 @@ class PageTextRegionStep(
         page_disconnected_text_region_collection = \
             page_distortion_step_output.page_disconnected_text_region_collection
         page_char_polygon_collection = page_distortion_step_output.page_char_polygon_collection
+        page_non_text_line_collection = page_distortion_step_output.page_non_text_line_collection
 
         page_resizing_step_output = input.page_resizing_step_output
         page_resized_text_line_mask = page_resizing_step_output.page_text_line_mask
@@ -790,9 +876,17 @@ class PageTextRegionStep(
         if debug:
             debug.page_text_region_infos = page_text_region_infos
 
+        # Negative sampling.
+        page_non_text_line_polygons = self.sample_page_non_text_line_polygons(
+            page_non_text_line_polygons=page_non_text_line_collection.non_text_line_polygons,
+            num_page_text_region_infos=len(page_text_region_infos),
+            rng=rng,
+        )
+
         flattened_text_regions = self.build_flattened_text_regions(
             page_image=page_image,
             page_text_region_infos=page_text_region_infos,
+            page_non_text_line_polygons=page_non_text_line_polygons,
             rng=rng,
         )
         if debug:

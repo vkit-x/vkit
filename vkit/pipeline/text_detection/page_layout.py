@@ -175,6 +175,19 @@ class DisconnectedTextRegion:
 
 
 @attrs.define
+class LayoutNonTextLine:
+    box: Box
+
+
+@unique
+class LayoutNonTextLineDirection(Enum):
+    UP = 'up'
+    DOWN = 'down'
+    LEFT = 'left'
+    RIGHT = 'right'
+
+
+@attrs.define
 class PageLayout:
     height: int
     width: int
@@ -185,6 +198,7 @@ class PageLayout:
     layout_barcode_qrs: Sequence[LayoutBarcodeQr]
     layout_barcode_code39s: Sequence[LayoutBarcodeCode39]
     disconnected_text_regions: Sequence[DisconnectedTextRegion]
+    layout_non_text_lines: Sequence[LayoutNonTextLine]
 
 
 @attrs.define
@@ -950,7 +964,7 @@ class PageLayoutStep(
         if layout_barcode_qrs or layout_barcode_code39s:
             # Barcode could not be overlapped with text lines.
             # Hence need to remove the overlapped text lines.
-            layout_barcode_box_overlapping_validator = BoxOverlappingValidator(
+            box_overlapping_validator = BoxOverlappingValidator(
                 itertools.chain(
                     (layout_barcode_qr.box for layout_barcode_qr in layout_barcode_qrs),
                     (layout_barcode_code39.box for layout_barcode_code39 in layout_barcode_code39s),
@@ -959,7 +973,7 @@ class PageLayoutStep(
 
             keep_layout_text_lines: List[LayoutTextLine] = []
             for layout_text_line in layout_text_lines:
-                if not layout_barcode_box_overlapping_validator.is_overlapped(layout_text_line.box):
+                if not box_overlapping_validator.is_overlapped(layout_text_line.box):
                     keep_layout_text_lines.append(layout_text_line)
             layout_text_lines = keep_layout_text_lines
 
@@ -1221,6 +1235,84 @@ class PageLayoutStep(
 
         return disconnected_text_regions
 
+    def generate_layout_non_text_lines(
+        self,
+        height: int,
+        width: int,
+        layout_text_lines: Sequence[LayoutTextLine],
+        rng: RandomGenerator,
+    ):
+        box_overlapping_validator = BoxOverlappingValidator(
+            layout_text_line.box for layout_text_line in layout_text_lines
+        )
+        directions = [
+            LayoutNonTextLineDirection.UP,
+            LayoutNonTextLineDirection.DOWN,
+            LayoutNonTextLineDirection.LEFT,
+            LayoutNonTextLineDirection.RIGHT,
+        ]
+
+        layout_non_text_lines: List[LayoutNonTextLine] = []
+
+        for layout_text_line in layout_text_lines:
+            ltl_box = layout_text_line.box
+
+            for direction_idx in rng.permutation(len(directions)):
+                direction = directions[direction_idx]
+
+                if direction == LayoutNonTextLineDirection.UP:
+                    lntl_box = Box(
+                        up=ltl_box.up - ltl_box.height,
+                        down=ltl_box.up - 1,
+                        left=ltl_box.left,
+                        right=ltl_box.right,
+                    )
+
+                elif direction == LayoutNonTextLineDirection.DOWN:
+                    lntl_box = Box(
+                        up=ltl_box.down + 1,
+                        down=ltl_box.down + ltl_box.height,
+                        left=ltl_box.left,
+                        right=ltl_box.right,
+                    )
+
+                elif direction == LayoutNonTextLineDirection.LEFT:
+                    lntl_box = Box(
+                        up=ltl_box.up,
+                        down=ltl_box.down,
+                        left=ltl_box.left - ltl_box.width,
+                        right=ltl_box.left - 1,
+                    )
+
+                elif direction == LayoutNonTextLineDirection.RIGHT:
+                    lntl_box = Box(
+                        up=ltl_box.up,
+                        down=ltl_box.down,
+                        left=ltl_box.right + 1,
+                        right=ltl_box.right + ltl_box.width,
+                    )
+
+                else:
+                    raise NotImplementedError()
+
+                # Ignore invalid box.
+                if not lntl_box.valid:
+                    continue
+                if lntl_box.down >= height or lntl_box.right >= width:
+                    continue
+
+                assert ltl_box.shape == lntl_box.shape
+
+                # Ignore box that is overlapped with any text lines.
+                if box_overlapping_validator.is_overlapped(lntl_box):
+                    continue
+
+                # Keep only the first valid direction.
+                layout_non_text_lines.append(LayoutNonTextLine(box=lntl_box))
+                break
+
+        return layout_non_text_lines
+
     def run(self, input: PageLayoutStepInput, rng: RandomGenerator):
         page_shape_step_output = input.page_shape_step_output
         height = page_shape_step_output.height
@@ -1270,6 +1362,14 @@ class PageLayoutStep(
             layout_text_lines=layout_text_lines,
         )
 
+        # For sampling negative text region area.
+        layout_non_text_lines = self.generate_layout_non_text_lines(
+            height=height,
+            width=width,
+            layout_text_lines=layout_text_lines,
+            rng=rng,
+        )
+
         return PageLayoutStepOutput(
             page_layout=PageLayout(
                 height=height,
@@ -1281,6 +1381,7 @@ class PageLayoutStep(
                 layout_barcode_qrs=layout_barcode_qrs,
                 layout_barcode_code39s=layout_barcode_code39s,
                 disconnected_text_regions=disconnected_text_regions,
+                layout_non_text_lines=layout_non_text_lines,
             ),
             debug_large_text_line_gird=large_text_line_gird,
             debug_grids=grids,

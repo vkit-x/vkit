@@ -123,6 +123,11 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
         painter.paint_polygons(output.page_disconnected_text_region_collection.to_polygons())
         cur_write_image(f'page_{seed}_disconnected_text_region_collection.jpg', painter.image)
 
+    if True:
+        painter = Painter.create(output.page_image)
+        painter.paint_polygons(output.page_non_text_line_collection.non_text_line_polygons)
+        cur_write_image(f'page_{seed}_non_text_line_collection.jpg', painter.image)
+
 
 def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutput):
     cur_write_image = functools.partial(write_image, frames_offset=1)

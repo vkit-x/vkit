@@ -41,6 +41,7 @@ from .page_text_line_label import (
 from .page_assembler import (
     PageAssemblerStepOutput,
     PageDisconnectedTextRegionCollection,
+    PageNonTextLineCollection,
 )
 
 
@@ -86,6 +87,7 @@ class PageDistortionStepOutput:
     page_text_line_heights: Optional[Sequence[float]]
     page_text_line_heights_debug_image: Optional[Image]
     page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
+    page_non_text_line_collection: PageNonTextLineCollection
 
 
 _E = TypeVar('_E', Point, Polygon)
@@ -273,8 +275,8 @@ class PageDistortionStep(
         page_bottom_layer_image = page.page_bottom_layer_image
         page_char_polygon_collection = page.page_char_polygon_collection
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
-        page_disconnected_text_region_collection = \
-            page_assembler_step_output.page.page_disconnected_text_region_collection
+        page_disconnected_text_region_collection = page.page_disconnected_text_region_collection
+        page_non_text_line_collection = page.page_non_text_line_collection
 
         # Flatten.
         polygon_flattener = ElementFlattener([
@@ -287,6 +289,8 @@ class PageDistortionStep(
                 disconnected_text_region.polygon for disconnected_text_region in
                 page_disconnected_text_region_collection.disconnected_text_regions
             ],
+            # For sampling negative text region area.
+            page_non_text_line_collection.non_text_line_polygons,
         ])
         point_flattener = ElementFlattener([
             # Char level.
@@ -339,6 +343,8 @@ class PageDistortionStep(
             text_line_polygons,
             # For char-level polygon regression.
             disconnected_text_region_polygons,
+            # For sampling negative text region area.
+            non_text_line_polygons,
         ) = polygon_flattener.unflatten(result.polygons)
 
         (
@@ -412,6 +418,9 @@ class PageDistortionStep(
                     DisconnectedTextRegion(disconnected_text_region_polygon)
                     for disconnected_text_region_polygon in disconnected_text_region_polygons
                 ],
+            ),
+            page_non_text_line_collection=PageNonTextLineCollection(
+                non_text_line_polygons=non_text_line_polygons,
             )
         )
 
