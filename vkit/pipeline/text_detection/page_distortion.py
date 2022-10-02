@@ -33,7 +33,7 @@ from vkit.engine.distortion_policy.random_distortion import (
     RandomDistortionDebug,
 )
 from ..interface import PipelineStep, PipelineStepFactory
-from .page_layout import DisconnectedTextRegion
+from .page_layout import DisconnectedTextRegion, NonTextRegion
 from .page_text_line_label import (
     PageCharPolygonCollection,
     PageTextLinePolygonCollection,
@@ -41,7 +41,7 @@ from .page_text_line_label import (
 from .page_assembler import (
     PageAssemblerStepOutput,
     PageDisconnectedTextRegionCollection,
-    PageNonTextLineCollection,
+    PageNonTextRegionCollection,
 )
 
 
@@ -87,7 +87,7 @@ class PageDistortionStepOutput:
     page_text_line_heights: Optional[Sequence[float]]
     page_text_line_heights_debug_image: Optional[Image]
     page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
-    page_non_text_line_collection: PageNonTextLineCollection
+    page_non_text_region_collection: PageNonTextRegionCollection
 
 
 _E = TypeVar('_E', Point, Polygon)
@@ -276,7 +276,7 @@ class PageDistortionStep(
         page_char_polygon_collection = page.page_char_polygon_collection
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
         page_disconnected_text_region_collection = page.page_disconnected_text_region_collection
-        page_non_text_line_collection = page.page_non_text_line_collection
+        page_non_text_region_collection = page.page_non_text_region_collection
 
         # Flatten.
         polygon_flattener = ElementFlattener([
@@ -285,12 +285,9 @@ class PageDistortionStep(
             # Text line level.
             page_text_line_polygon_collection.polygons,
             # For char-level polygon regression.
-            [
-                disconnected_text_region.polygon for disconnected_text_region in
-                page_disconnected_text_region_collection.disconnected_text_regions
-            ],
+            tuple(page_disconnected_text_region_collection.to_polygons()),
             # For sampling negative text region area.
-            page_non_text_line_collection.non_text_line_polygons,
+            tuple(page_non_text_region_collection.to_polygons()),
         ])
         point_flattener = ElementFlattener([
             # Char level.
@@ -344,7 +341,7 @@ class PageDistortionStep(
             # For char-level polygon regression.
             disconnected_text_region_polygons,
             # For sampling negative text region area.
-            non_text_line_polygons,
+            non_text_region_polygons,
         ) = polygon_flattener.unflatten(result.polygons)
 
         (
@@ -419,8 +416,11 @@ class PageDistortionStep(
                     for disconnected_text_region_polygon in disconnected_text_region_polygons
                 ],
             ),
-            page_non_text_line_collection=PageNonTextLineCollection(
-                non_text_line_polygons=non_text_line_polygons,
+            page_non_text_region_collection=PageNonTextRegionCollection(
+                non_text_regions=[
+                    NonTextRegion(non_text_region_polygon)
+                    for non_text_region_polygon in non_text_region_polygons
+                ],
             )
         )
 

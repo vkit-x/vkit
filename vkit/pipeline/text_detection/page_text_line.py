@@ -59,7 +59,7 @@ class PageTextLineStepConfig:
     short_text_line_char_sampler_configs: Optional[
         Union[Sequence[Mapping[str, Any]], PathType]
     ] = None  # yapf: disable
-    prob_short_text_line: float = 0.15
+    prob_short_text_line: float = 0.2
     short_text_line_num_chars_max: int = 2
 
 

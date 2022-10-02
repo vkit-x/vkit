@@ -87,13 +87,13 @@ class PageLayoutStepConfig:
 
     # Barcode (qr).
     num_barcode_qrs_min: int = 0
-    num_barcode_qrs_max: int = 1
+    num_barcode_qrs_max: int = 2
     barcode_qr_length_ratio_min: float = 0.05
     barcode_qr_length_ratio_max: float = 0.15
 
     # Barcode (code39).
     num_barcode_code39s_min: int = 0
-    num_barcode_code39s_max: int = 1
+    num_barcode_code39s_max: int = 2
     barcode_code39_height_ratio_min: float = 0.025
     barcode_code39_height_ratio_max: float = 0.05
     barcode_code39_aspect_ratio: float = 0.2854396602149411
@@ -175,8 +175,8 @@ class DisconnectedTextRegion:
 
 
 @attrs.define
-class LayoutNonTextLine:
-    box: Box
+class NonTextRegion:
+    polygon: Polygon
 
 
 @unique
@@ -198,7 +198,7 @@ class PageLayout:
     layout_barcode_qrs: Sequence[LayoutBarcodeQr]
     layout_barcode_code39s: Sequence[LayoutBarcodeCode39]
     disconnected_text_regions: Sequence[DisconnectedTextRegion]
-    layout_non_text_lines: Sequence[LayoutNonTextLine]
+    non_text_regions: Sequence[NonTextRegion]
 
 
 @attrs.define
@@ -1235,7 +1235,7 @@ class PageLayoutStep(
 
         return disconnected_text_regions
 
-    def generate_layout_non_text_lines(
+    def generate_non_text_regions(
         self,
         height: int,
         width: int,
@@ -1252,8 +1252,7 @@ class PageLayoutStep(
             LayoutNonTextLineDirection.RIGHT,
         ]
 
-        layout_non_text_lines: List[LayoutNonTextLine] = []
-
+        lntl_boxes: List[Box] = []
         for layout_text_line in layout_text_lines:
             ltl_box = layout_text_line.box
 
@@ -1308,10 +1307,17 @@ class PageLayoutStep(
                     continue
 
                 # Keep only the first valid direction.
-                layout_non_text_lines.append(LayoutNonTextLine(box=lntl_box))
+                lntl_boxes.append(lntl_box)
                 break
 
-        return layout_non_text_lines
+        step = max(
+            1,
+            min(itertools.chain.from_iterable(lntl_box.shape for lntl_box in lntl_boxes)),
+        )
+        non_text_regions = [
+            NonTextRegion(polygon=lntl_box.to_polygon(step=step)) for lntl_box in lntl_boxes
+        ]
+        return non_text_regions
 
     def run(self, input: PageLayoutStepInput, rng: RandomGenerator):
         page_shape_step_output = input.page_shape_step_output
@@ -1363,7 +1369,7 @@ class PageLayoutStep(
         )
 
         # For sampling negative text region area.
-        layout_non_text_lines = self.generate_layout_non_text_lines(
+        non_text_regions = self.generate_non_text_regions(
             height=height,
             width=width,
             layout_text_lines=layout_text_lines,
@@ -1381,7 +1387,7 @@ class PageLayoutStep(
                 layout_barcode_qrs=layout_barcode_qrs,
                 layout_barcode_code39s=layout_barcode_code39s,
                 disconnected_text_regions=disconnected_text_regions,
-                layout_non_text_lines=layout_non_text_lines,
+                non_text_regions=non_text_regions,
             ),
             debug_large_text_line_gird=large_text_line_gird,
             debug_grids=grids,

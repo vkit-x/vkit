@@ -606,36 +606,31 @@ class PageTextRegionStep(
                 intersected_area,
             )
 
-    def sample_page_non_text_line_polygons(
+    def sample_page_non_text_region_polygons(
         self,
-        page_non_text_line_polygons: Sequence[Polygon],
+        page_non_text_region_polygons: Sequence[Polygon],
         num_page_text_region_infos: int,
         rng: RandomGenerator,
     ):
-        # Some polygons are invalid, need to filter.
-        page_non_text_line_polygons = [
-            page_non_text_line_polygon for page_non_text_line_polygon in page_non_text_line_polygons
-            if page_non_text_line_polygon.area > 10
-        ]
-
         negative_ratio = self.config.negative_text_region_ratio
-        num_page_non_text_line_polygons = round(
+        num_page_non_text_region_polygons = round(
             negative_ratio * num_page_text_region_infos / (1 - negative_ratio)
         )
         return rng_choice_with_size(
             rng,
-            page_non_text_line_polygons,
+            page_non_text_region_polygons,
             size=min(
-                num_page_non_text_line_polygons,
-                len(page_non_text_line_polygons),
+                num_page_non_text_region_polygons,
+                len(page_non_text_region_polygons),
             ),
+            replace=False,
         )
 
     def build_flattened_text_regions(
         self,
         page_image: Image,
         page_text_region_infos: Sequence[PageTextRegionInfo],
-        page_non_text_line_polygons: Sequence[Polygon],
+        page_non_text_region_polygons: Sequence[Polygon],
         rng: RandomGenerator,
     ):
         text_region_polygon_dilate_ratio = float(
@@ -654,8 +649,8 @@ class PageTextRegionStep(
             grouped_char_polygons.append(page_text_region_info.char_polygons)
 
         # Inject nagative regions.
-        for page_non_text_line_polygon in page_non_text_line_polygons:
-            text_region_polygons.append(page_non_text_line_polygon)
+        for page_non_text_region_polygon in page_non_text_region_polygons:
+            text_region_polygons.append(page_non_text_region_polygon)
             grouped_char_polygons.append(tuple())
 
         text_region_flattener = TextRegionFlattener(
@@ -669,8 +664,13 @@ class PageTextRegionStep(
 
         # Resize positive ftr.
         positive_flattened_text_regions: List[FlattenedTextRegion] = []
+        # For negative sampling.
+        positive_reference_heights: List[float] = []
+        num_negative_flattened_text_regions = 0
+
         for flattened_text_region in text_region_flattener.flattened_text_regions:
             if not flattened_text_region.flattened_char_polygons:
+                num_negative_flattened_text_regions += 1
                 continue
 
             char_height_median = flattened_text_region.get_char_height_meidan()
@@ -692,6 +692,8 @@ class PageTextRegionStep(
                 resized_width=resized_width,
             )
 
+            positive_reference_heights.append(resized_height)
+
             # Post rotate.
             post_rotate_angle = 0
             if flattened_text_region.is_typical:
@@ -710,12 +712,22 @@ class PageTextRegionStep(
             positive_flattened_text_regions.append(flattened_text_region)
 
         # Resize negative ftr.
+        negative_reference_heights = list(
+            rng_choice_with_size(
+                rng,
+                positive_reference_heights,
+                size=num_negative_flattened_text_regions,
+                replace=(num_negative_flattened_text_regions > len(positive_reference_heights)),
+            )
+        )
+
         negative_flattened_text_regions: List[FlattenedTextRegion] = []
+
         for flattened_text_region in text_region_flattener.flattened_text_regions:
             if flattened_text_region.flattened_char_polygons:
                 continue
 
-            reference_height = rng_choice(rng, positive_flattened_text_regions).height
+            reference_height = negative_reference_heights.pop()
             scale = reference_height / flattened_text_region.height
 
             height, width = flattened_text_region.shape
@@ -753,10 +765,11 @@ class PageTextRegionStep(
     def run(self, input: PageTextRegionStepInput, rng: RandomGenerator):
         page_distortion_step_output = input.page_distortion_step_output
         page_image = page_distortion_step_output.page_image
+        page_char_polygon_collection = page_distortion_step_output.page_char_polygon_collection
         page_disconnected_text_region_collection = \
             page_distortion_step_output.page_disconnected_text_region_collection
-        page_char_polygon_collection = page_distortion_step_output.page_char_polygon_collection
-        page_non_text_line_collection = page_distortion_step_output.page_non_text_line_collection
+        page_non_text_region_collection = \
+            page_distortion_step_output.page_non_text_region_collection
 
         page_resizing_step_output = input.page_resizing_step_output
         page_resized_text_line_mask = page_resizing_step_output.page_text_line_mask
@@ -877,8 +890,8 @@ class PageTextRegionStep(
             debug.page_text_region_infos = page_text_region_infos
 
         # Negative sampling.
-        page_non_text_line_polygons = self.sample_page_non_text_line_polygons(
-            page_non_text_line_polygons=page_non_text_line_collection.non_text_line_polygons,
+        page_non_text_region_polygons = self.sample_page_non_text_region_polygons(
+            page_non_text_region_polygons=tuple(page_non_text_region_collection.to_polygons()),
             num_page_text_region_infos=len(page_text_region_infos),
             rng=rng,
         )
@@ -886,7 +899,7 @@ class PageTextRegionStep(
         flattened_text_regions = self.build_flattened_text_regions(
             page_image=page_image,
             page_text_region_infos=page_text_region_infos,
-            page_non_text_line_polygons=page_non_text_line_polygons,
+            page_non_text_region_polygons=page_non_text_region_polygons,
             rng=rng,
         )
         if debug:
