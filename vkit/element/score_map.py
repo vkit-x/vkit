@@ -577,15 +577,15 @@ class ScoreMap(Shapable):
             func_np_uv_to_mat=func_np_uv_to_mat,
             is_prob=self.is_prob,
         )
-        np_non_zero_mask = (score_map.mat > 0.0)
         assert score_map.box
-        score_map.box.fill_np_array(
-            mat=self.mat,
-            value=score_map.mat,
-            np_mask=np_non_zero_mask,
-            keep_max_value=keep_max_value,
-            keep_min_value=keep_min_value,
-        )
+        with self.writable_context:
+            score_map.box.fill_np_array(
+                mat=self.mat,
+                value=score_map.mat,
+                np_mask=(score_map.mat > 0.0),
+                keep_max_value=keep_max_value,
+                keep_min_value=keep_min_value,
+            )
 
     def to_shifted_score_map(self, offset_y: int = 0, offset_x: int = 0):
         assert self.box
