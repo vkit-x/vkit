@@ -76,8 +76,9 @@ class FontMeta:
             f'ttc_font_index_max={self.ttc_font_index_max})'
         )
 
-    @staticmethod
+    @classmethod
     def from_file(
+        cls,
         path: PathType,
         font_file_prefix: Optional[PathType] = None,
     ):
@@ -198,8 +199,8 @@ class FontCollection:
         font_meta_names = sorted(font_meta_names)
         return [self.name_to_font_meta[font_meta_name] for font_meta_name in font_meta_names]
 
-    @staticmethod
-    def from_folder(folder: PathType):
+    @classmethod
+    def from_folder(cls, folder: PathType):
         in_fd = io.folder(folder, expandvars=True, exists=True)
         font_fd = io.folder(in_fd / FontCollectionFolderTree.FONT.value, exists=True)
         font_meta_fd = io.folder(in_fd / FontCollectionFolderTree.FONT_META.value, exists=True)
@@ -208,7 +209,7 @@ class FontCollection:
         for font_meta_json in font_meta_fd.glob('*.json'):
             font_metas.append(FontMeta.from_file(font_meta_json, font_fd))
 
-        return FontCollection(font_metas=font_metas)
+        return cls(font_metas=font_metas)
 
 
 @attrs.define

@@ -25,8 +25,8 @@ class CharSlot:
     point_up: Point
     point_down: Point
 
-    @staticmethod
-    def build(point_up: Point, point_down: Point):
+    @classmethod
+    def build(cls, point_up: Point, point_down: Point):
         theta = np.arctan2(
             point_up.y - point_down.y,
             point_up.x - point_down.x,
@@ -34,7 +34,7 @@ class CharSlot:
         two_pi = 2 * np.pi
         theta = theta % two_pi
         angle = round(theta / two_pi * 360)
-        return CharSlot(angle=angle, point_up=point_up, point_down=point_down)
+        return cls(angle=angle, point_up=point_up, point_down=point_down)
 
 
 @attrs.define

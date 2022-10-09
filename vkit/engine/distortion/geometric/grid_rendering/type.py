@@ -200,8 +200,8 @@ class ImageGrid:
         assert inv_trans_mat is not None
         return inv_trans_mat
 
-    @staticmethod
-    def get_np_y_x_points_within_polygon(polygon: Polygon):
+    @classmethod
+    def get_np_y_x_points_within_polygon(cls, polygon: Polygon):
         box = polygon.bounding_box
         np_active_mask = polygon.internals.np_mask
 
@@ -230,7 +230,7 @@ class ImageGrid:
         ) in self.zip_polygons(dst_image_grid):
             inv_trans_mat = self.get_inv_trans_mat(polygon_row, polygon_col, dst_image_grid)
             # (*, 2)
-            dst_y, dst_x = ImageGrid.get_np_y_x_points_within_polygon(dst_polygon)
+            dst_y, dst_x = self.get_np_y_x_points_within_polygon(dst_polygon)
             # (3, *)
             dst_for_trans_all_points = np.vstack((dst_x, dst_y, np.ones_like(dst_y)))
             # (3, *)

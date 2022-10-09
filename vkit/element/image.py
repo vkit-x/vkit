@@ -43,32 +43,32 @@ class ImageKind(Enum):
     GRAYSCALE_GCN = 'grayscale_gcn'
     NONE = 'none'
 
-    @staticmethod
-    def to_ndim(image_kind: 'ImageKind'):
+    @classmethod
+    def to_ndim(cls, image_kind: 'ImageKind'):
         return _image_kind_to_ndim(image_kind)
 
-    @staticmethod
-    def to_dtype(image_kind: 'ImageKind'):
+    @classmethod
+    def to_dtype(cls, image_kind: 'ImageKind'):
         return _image_kind_to_dtype(image_kind)
 
-    @staticmethod
-    def to_num_channels(image_kind: 'ImageKind'):
+    @classmethod
+    def to_num_channels(cls, image_kind: 'ImageKind'):
         return _image_kind_to_num_channels(image_kind)
 
-    @staticmethod
-    def supports_gcn_mode(image_kind: 'ImageKind'):
+    @classmethod
+    def supports_gcn_mode(cls, image_kind: 'ImageKind'):
         _image_kind_supports_gcn_mode(image_kind)
 
-    @staticmethod
-    def to_gcn_mode(image_kind: 'ImageKind'):
+    @classmethod
+    def to_gcn_mode(cls, image_kind: 'ImageKind'):
         return _image_kind_to_gcn_mode(image_kind)
 
-    @staticmethod
-    def in_gcn_mode(image_kind: 'ImageKind'):
+    @classmethod
+    def in_gcn_mode(cls, image_kind: 'ImageKind'):
         return _image_kind_in_gcn_mode(image_kind)
 
-    @staticmethod
-    def to_non_gcn_mode(image_kind: 'ImageKind'):
+    @classmethod
+    def to_non_gcn_mode(cls, image_kind: 'ImageKind'):
         return _image_kind_to_non_gcn_mode(image_kind)
 
 
@@ -307,8 +307,9 @@ class Image(Shapable):
     ###############
     # Constructor #
     ###############
-    @staticmethod
+    @classmethod
     def from_shape(
+        cls,
         shape: Tuple[int, int],
         num_channels: int = 3,
         value: Union[Tuple[int, ...], int] = 255,
@@ -327,15 +328,16 @@ class Image(Shapable):
             mat_shape = (height, width, num_channels)
 
         mat = np.full(mat_shape, fill_value=value, dtype=np.uint8)
-        return Image(mat=mat)
+        return cls(mat=mat)
 
-    @staticmethod
+    @classmethod
     def from_shapable(
+        cls,
         shapable: Shapable,
         num_channels: int = 3,
         value: Union[Tuple[int, ...], int] = 255,
     ):
-        return Image.from_shape(
+        return cls.from_shape(
             shape=shapable.shape,
             num_channels=num_channels,
             value=value,
@@ -367,17 +369,17 @@ class Image(Shapable):
     ##############
     # Conversion #
     ##############
-    @staticmethod
-    def from_pil_image(pil_image: PilImage.Image):
+    @classmethod
+    def from_pil_image(cls, pil_image: PilImage.Image):
         # NOTE: Make a copy explicitly, otherwise is not writable.
         mat = np.array(pil_image, dtype=np.uint8)
-        return Image(mat=mat)
+        return cls(mat=mat)
 
     def to_pil_image(self):
         return PilImage.fromarray(self.mat)
 
-    @staticmethod
-    def from_file(path: PathType, disable_exif_orientation: bool = False):
+    @classmethod
+    def from_file(cls, path: PathType, disable_exif_orientation: bool = False):
         # NOTE: PilImage.open cannot handle `~`.
         path = io.file(path).expanduser()
 
@@ -391,7 +393,7 @@ class Image(Shapable):
             if pil_image.getexif().get(0x0112):
                 pil_image = PilImageOps.exif_transpose(pil_image)
 
-        return Image.from_pil_image(pil_image)
+        return cls.from_pil_image(pil_image)
 
     def to_file(self, path: PathType, disable_to_rgb_image: bool = False):
         image = self
@@ -413,15 +415,17 @@ class Image(Shapable):
         with self.writable_context:
             object.__setattr__(self, 'mat', mat)
 
-    @staticmethod
+    @classmethod
     def check_values_and_alphas_uniqueness(
+        cls,
         values: Sequence[Union['Image', np.ndarray, Tuple[int, ...], int, float]],
-        alphas: Sequence[Union['ScoreMap', np.ndarray, float]]
+        alphas: Sequence[Union['ScoreMap', np.ndarray, float]],
     ):
         return check_elements_uniqueness(values) and check_elements_uniqueness(alphas)
 
-    @staticmethod
+    @classmethod
     def unpack_element_value_tuples(
+        cls,
         element_value_tuples: Iterable[
             Union[
                 Tuple[

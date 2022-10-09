@@ -282,8 +282,9 @@ class PageLayoutStep(
         assert normal_text_line_heights
         return sorted(normal_text_line_heights)
 
-    @staticmethod
+    @classmethod
     def generate_grid_points(
+        cls,
         grid_pad_ratio: float,
         grid_step: int,
         grid_gap: int,
@@ -495,8 +496,9 @@ class PageLayoutStep(
 
         return grids
 
-    @staticmethod
+    @classmethod
     def calculate_normal_text_line_heights_probs(
+        cls,
         normal_text_line_heights_expected_probs: Sequence[float],
         normal_text_line_heights_acc_areas: List[int],
     ):
@@ -713,8 +715,8 @@ class PageLayoutStep(
 
         return layout_images
 
-    @staticmethod
-    def boxes_are_overlapped(box0: Box, box1: Box):
+    @classmethod
+    def boxes_are_overlapped(cls, box0: Box, box1: Box):
         vert_overlapped = (box0.down >= box1.up and box1.down >= box0.up)
         hori_overlapped = (box0.right >= box1.left and box1.right >= box0.left)
         return vert_overlapped and hori_overlapped
@@ -979,8 +981,8 @@ class PageLayoutStep(
 
         return layout_barcode_qrs, layout_barcode_code39s, layout_text_lines
 
-    @staticmethod
-    def get_text_line_area(layout_text_lines: Sequence[LayoutTextLine]):
+    @classmethod
+    def get_text_line_area(cls, layout_text_lines: Sequence[LayoutTextLine]):
         # Sample within the text line area.
         text_line_up = min(layout_text_line.box.up for layout_text_line in layout_text_lines)
         text_line_down = max(layout_text_line.box.down for layout_text_line in layout_text_lines)

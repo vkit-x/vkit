@@ -200,8 +200,8 @@ class Pipeline(Generic[_T_OUTPUT]):
         self.steps = steps
         self.post_processor = post_processor
 
-    @staticmethod
-    def build_input(state: PipelineState, input_cls: Any):
+    @classmethod
+    def build_input(cls, state: PipelineState, input_cls: Any):
         assert attrs.has(input_cls)
 
         input_kwargs = {}

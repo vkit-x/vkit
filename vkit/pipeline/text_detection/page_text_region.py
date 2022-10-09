@@ -41,8 +41,8 @@ class PageTextRegionStepConfig:
     text_region_flattener_typical_long_side_ratio_min: float = 3.0
     text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.85
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
-    text_region_resize_char_height_median_min: int = 28
-    text_region_resize_char_height_median_max: int = 36
+    text_region_resize_char_height_median_min: int = 30
+    text_region_resize_char_height_median_max: int = 40
     text_region_typical_post_rotate_prob: float = 0.2
     text_region_untypical_post_rotate_prob: float = 0.2
     negative_text_region_ratio: float = 0.1
@@ -165,8 +165,9 @@ class PageTextRegionStepOutput:
 
 class TextRegionFlattener:
 
-    @staticmethod
+    @classmethod
     def patch_text_region_polygons(
+        cls,
         text_region_polygons: Sequence[Polygon],
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
     ):
@@ -190,15 +191,21 @@ class TextRegionFlattener:
 
         return patched_text_region_polygons
 
-    @staticmethod
-    def build_bounding_rectangular_polygons(text_region_polygons: Sequence[Polygon]):
+    @classmethod
+    def build_bounding_rectangular_polygons(
+        cls,
+        text_region_polygons: Sequence[Polygon],
+    ):
         return [
             text_region_polygon.to_bounding_rectangular_polygon()
             for text_region_polygon in text_region_polygons
         ]
 
-    @staticmethod
-    def analyze_bounding_rectangular_polygons(bounding_rectangular_polygons: Sequence[Polygon],):
+    @classmethod
+    def analyze_bounding_rectangular_polygons(
+        cls,
+        bounding_rectangular_polygons: Sequence[Polygon],
+    ):
         long_side_ratios: List[float] = []
         long_side_angles: List[int] = []
 
@@ -232,8 +239,9 @@ class TextRegionFlattener:
 
         return long_side_ratios, long_side_angles
 
-    @staticmethod
+    @classmethod
     def get_typical_angle(
+        cls,
         typical_long_side_ratio_min: float,
         long_side_ratios: Sequence[float],
         long_side_angles: Sequence[int],
@@ -262,8 +270,9 @@ class TextRegionFlattener:
 
         return typical_angle, typical_indices
 
-    @staticmethod
+    @classmethod
     def get_flattening_rotate_angles(
+        cls,
         typical_angle: Optional[int],
         typical_indices: Set[int],
         long_side_angles: Sequence[int],
@@ -298,8 +307,9 @@ class TextRegionFlattener:
 
         return flattening_rotate_angles
 
-    @staticmethod
+    @classmethod
     def build_flattened_text_regions(
+        cls,
         text_region_polygon_dilate_ratio: float,
         image: Image,
         text_region_polygons: Sequence[Polygon],
@@ -439,19 +449,17 @@ def stack_flattened_text_regions(
     flattened_text_regions_double_pad = 2 * flattened_text_regions_pad
 
     rect_packer = RectPacker(rotation=False)
-    id_to_flattened_text_region: Dict[int, FlattenedTextRegion] = {}
 
-    # Add rectangle and bin.
+    # Add box and bin.
     # NOTE: Only one bin is added, that is, packing all text region into one image.
     bin_width = 0
     bin_height = 0
 
-    for ftr_id, flattened_text_region in enumerate(flattened_text_regions):
-        id_to_flattened_text_region[ftr_id] = flattened_text_region
+    for ftr_idx, flattened_text_region in enumerate(flattened_text_regions):
         rect_packer.add_rect(
             width=flattened_text_region.width + flattened_text_regions_double_pad,
             height=flattened_text_region.height + flattened_text_regions_double_pad,
-            rid=ftr_id,
+            rid=ftr_idx,
         )
 
         bin_width = max(bin_width, flattened_text_region.width)
@@ -461,19 +469,30 @@ def stack_flattened_text_regions(
     bin_height += flattened_text_regions_double_pad
 
     rect_packer.add_bin(width=bin_width, height=bin_height)
+
+    # Pack boxes.
     rect_packer.pack()  # type: ignore
 
-    boxes: List[Box] = []
-    ftr_ids: List[int] = []
-    for bin_idx, x, y, width, height, ftr_id in rect_packer.rect_list():
+    # Get packed boxes.
+    unordered_boxes: List[Box] = []
+    ftr_indices: List[int] = []
+    for bin_idx, x, y, width, height, ftr_idx in rect_packer.rect_list():
         assert bin_idx == 0
-        boxes.append(Box(
+        unordered_boxes.append(Box(
             up=y,
             down=y + height - 1,
             left=x,
             right=x + width - 1,
         ))
-        ftr_ids.append(ftr_id)
+        ftr_indices.append(ftr_idx)
+
+    # Order boxes.
+    inverse_ftr_indices = [-1] * len(ftr_indices)
+    for inverse_ftr_idx, ftr_idx in enumerate(ftr_indices):
+        inverse_ftr_indices[ftr_idx] = inverse_ftr_idx
+    for inverse_ftr_idx in inverse_ftr_indices:
+        assert inverse_ftr_idx >= 0
+    boxes = [unordered_boxes[inverse_ftr_idx] for inverse_ftr_idx in inverse_ftr_indices]
 
     page_height = max(box.down for box in boxes) + 1 + page_double_pad
     page_width = max(box.right for box in boxes) + 1 + page_double_pad
@@ -481,8 +500,7 @@ def stack_flattened_text_regions(
     image = Image.from_shape((page_height, page_width), value=0)
     char_polygons: List[Polygon] = []
 
-    for box, ftr_id in zip(boxes, ftr_ids):
-        flattened_text_region = id_to_flattened_text_region[ftr_id]
+    for box, flattened_text_region in zip(boxes, flattened_text_regions):
         assert flattened_text_region.height + flattened_text_regions_double_pad == box.height
         assert flattened_text_region.width + flattened_text_regions_double_pad == box.width
 
@@ -503,7 +521,7 @@ def stack_flattened_text_regions(
                     offset_x=left,
                 ))
 
-    return image, char_polygons
+    return image, boxes, char_polygons
 
 
 class PageTextRegionStep(
@@ -514,8 +532,9 @@ class PageTextRegionStep(
     ]
 ):  # yapf: disable
 
-    @staticmethod
+    @classmethod
     def generate_precise_text_region_candidate_polygons(
+        cls,
         precise_mask: Mask,
         text_region_mask: Mask,
     ):
@@ -543,8 +562,9 @@ class PageTextRegionStep(
         # 2. Some polygons are in border and should be removed later.
         return intersected_mask.to_disconnected_polygons()
 
-    @staticmethod
+    @classmethod
     def strtree_query_intersected_polygons(
+        cls,
         strtree: STRtree,
         id_to_anchor_polygon: Dict[int, Polygon],
         id_to_anchor_mask: Dict[int, Mask],
@@ -906,7 +926,7 @@ class PageTextRegionStep(
             debug.flattened_text_regions = flattened_text_regions
 
         # Stack text regions.
-        image, char_polygons = stack_flattened_text_regions(
+        image, _, char_polygons = stack_flattened_text_regions(
             page_pad=0,
             flattened_text_regions_pad=self.config.stack_flattened_text_regions_pad,
             flattened_text_regions=flattened_text_regions,

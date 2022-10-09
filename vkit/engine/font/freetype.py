@@ -969,8 +969,9 @@ class FontFreetypeDefaultEngine(
     def get_type_name(cls) -> str:
         return 'freetype_default'
 
-    @staticmethod
+    @classmethod
     def render_char_glyph(
+        cls,
         run_config: FontEngineRunConfig,
         font_face: freetype.Face,
         char: str,
@@ -997,7 +998,7 @@ class FontFreetypeDefaultEngine(
         return render_text_line_meta(
             run_config=run_config,
             font_face=font_face,
-            func_render_char_glyph=FontFreetypeDefaultEngine.render_char_glyph,
+            func_render_char_glyph=self.render_char_glyph,
             rng=rng,
             cv_resize_interpolation_enlarge=sample_cv_resize_interpolation(rng),
             cv_resize_interpolation_shrink=sample_cv_resize_interpolation(
@@ -1023,8 +1024,9 @@ class FontFreetypeLcdEngine(
     def get_type_name(cls) -> str:
         return 'freetype_lcd'
 
-    @staticmethod
+    @classmethod
     def render_char_glyph(
+        cls,
         run_config: FontEngineRunConfig,
         font_face: freetype.Face,
         lcd_hc_matrix: freetype.Matrix,
@@ -1050,9 +1052,9 @@ class FontFreetypeLcdEngine(
 
         return build_char_glyph(run_config.style, char, glyph, np_image)
 
-    @staticmethod
-    def bind_render_char_glyph(lcd_hc_matrix: freetype.Matrix):
-        return lambda config, font_face, char: FontFreetypeLcdEngine.render_char_glyph(
+    @classmethod
+    def bind_render_char_glyph(cls, lcd_hc_matrix: freetype.Matrix):
+        return lambda config, font_face, char: cls.render_char_glyph(
             config,
             font_face,
             lcd_hc_matrix,
@@ -1069,7 +1071,7 @@ class FontFreetypeLcdEngine(
         return render_text_line_meta(
             run_config=run_config,
             font_face=font_face,
-            func_render_char_glyph=FontFreetypeLcdEngine.bind_render_char_glyph(lcd_hc_matrix),
+            func_render_char_glyph=self.bind_render_char_glyph(lcd_hc_matrix),
             rng=rng,
             cv_resize_interpolation_enlarge=sample_cv_resize_interpolation(rng),
             cv_resize_interpolation_shrink=sample_cv_resize_interpolation(
@@ -1095,8 +1097,9 @@ class FontFreetypeMonochromeEngine(
     def get_type_name(cls) -> str:
         return 'freetype_monochrome'
 
-    @staticmethod
+    @classmethod
     def render_char_glyph(
+        cls,
         run_config: FontEngineRunConfig,
         font_face: freetype.Face,
         char: str,
@@ -1138,7 +1141,7 @@ class FontFreetypeMonochromeEngine(
         return render_text_line_meta(
             run_config=run_config,
             font_face=font_face,
-            func_render_char_glyph=FontFreetypeMonochromeEngine.render_char_glyph,
+            func_render_char_glyph=self.render_char_glyph,
             rng=rng,
             cv_resize_interpolation_enlarge=cv.INTER_NEAREST_EXACT,
             cv_resize_interpolation_shrink=cv.INTER_NEAREST_EXACT,

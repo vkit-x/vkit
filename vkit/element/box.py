@@ -44,21 +44,21 @@ class Box(Shapable):
     ###############
     # Constructor #
     ###############
-    @staticmethod
-    def from_shape(height: int, width: int):
-        return Box(
+    @classmethod
+    def from_shape(cls, height: int, width: int):
+        return cls(
             up=0,
             down=height - 1,
             left=0,
             right=width - 1,
         )
 
-    @staticmethod
-    def from_shapable(shapable: Shapable):
-        return Box.from_shape(height=shapable.height, width=shapable.width)
+    @classmethod
+    def from_shapable(cls, shapable: Shapable):
+        return cls.from_shape(height=shapable.height, width=shapable.width)
 
-    @staticmethod
-    def from_boxes(boxes: Iterable['Box']):
+    @classmethod
+    def from_boxes(cls, boxes: Iterable['Box']):
         # Build a bounding box.
         boxes_iter = iter(boxes)
 
@@ -74,7 +74,7 @@ class Box(Shapable):
             left = min(left, box.left)
             right = max(right, box.right)
 
-        return Box(up=up, down=down, left=left, right=right)
+        return cls(up=up, down=down, left=left, right=right)
 
     ############
     # Property #
@@ -297,8 +297,8 @@ class Box(Shapable):
 
         return mat, value
 
-    @staticmethod
-    def get_np_mask_from_element_mask(element_mask: Optional[Union['Mask', np.ndarray]]):
+    @classmethod
+    def get_np_mask_from_element_mask(cls, element_mask: Optional[Union['Mask', np.ndarray]]):
         np_mask = None
         if element_mask:
             if isinstance(element_mask, Mask):

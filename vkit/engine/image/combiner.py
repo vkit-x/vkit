@@ -138,8 +138,9 @@ class ImageCombinerEngine(
         assert image_metas
         return image_metas
 
-    @staticmethod
+    @classmethod
     def fill_np_edge_mask(
+        cls,
         np_edge_mask: np.ndarray,
         height: int,
         width: int,

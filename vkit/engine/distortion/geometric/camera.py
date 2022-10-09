@@ -57,27 +57,27 @@ class CameraModelConfig:
 
 class CameraModel:
 
-    @staticmethod
-    def prep_rotation_unit_vec(rotation_unit_vec: Sequence[float]) -> np.ndarray:
+    @classmethod
+    def prep_rotation_unit_vec(cls, rotation_unit_vec: Sequence[float]) -> np.ndarray:
         vec = np.asarray(rotation_unit_vec, dtype=np.float32)
         length = np.linalg.norm(vec)
         if length != 1.0:
             vec /= length
         return vec
 
-    @staticmethod
-    def prep_rotation_theta(rotation_theta: float):
+    @classmethod
+    def prep_rotation_theta(cls, rotation_theta: float):
         return float(np.clip(rotation_theta, -89, 89) / 180 * np.pi)
 
-    @staticmethod
-    def prep_principal_point(principal_point: Sequence[float]):
+    @classmethod
+    def prep_principal_point(cls, principal_point: Sequence[float]):
         principal_point = list(principal_point)
         if len(principal_point) == 2:
             principal_point.append(0)
         return np.asarray(principal_point, dtype=np.float32).reshape(-1, 1)
 
-    @staticmethod
-    def generate_rotation_vec(rotation_unit_vec: np.ndarray, rotation_theta: float):
+    @classmethod
+    def generate_rotation_vec(cls, rotation_unit_vec: np.ndarray, rotation_theta: float):
         # Defines how the object is rotated, following the right hand rule:
         # https://en.wikipedia.org/wiki/Right-hand_rule#Rotations
         #
@@ -85,8 +85,9 @@ class CameraModel:
         # https://stackoverflow.com/a/12977143
         return rotation_unit_vec * rotation_theta
 
-    @staticmethod
+    @classmethod
     def generate_rotation_mat_and_translation_vec(
+        cls,
         rotation_vec: np.ndarray,
         camera_distance: float,
         principal_point: np.ndarray,
@@ -125,8 +126,9 @@ class CameraModel:
         )
         return rotation_mat, translation_vec
 
-    @staticmethod
+    @classmethod
     def generate_translation_vec(
+        cls,
         rotation_vec: np.ndarray,
         camera_distance: float,
         principal_point: np.ndarray,
@@ -138,8 +140,9 @@ class CameraModel:
         )
         return translation_vec
 
-    @staticmethod
+    @classmethod
     def generate_extrinsic_mat(
+        cls,
         rotation_unit_vec: np.ndarray,
         rotation_theta: float,
         camera_distance: float,
@@ -154,8 +157,8 @@ class CameraModel:
         extrinsic_mat = np.hstack((rotation_mat, translation_vec.reshape((-1, 1))))
         return extrinsic_mat
 
-    @staticmethod
-    def generate_intrinsic_mat(focal_length: float):
+    @classmethod
+    def generate_intrinsic_mat(cls, focal_length: float):
         return np.asarray(
             [
                 [focal_length, 0, 0],
@@ -214,8 +217,9 @@ class CameraPointProjector(PointProjector):
 
 class DistortionStateCameraOperation(DistortionStateImageGridBased[_T_CONFIG]):
 
-    @staticmethod
+    @classmethod
     def complete_camera_model_config(
+        cls,
         height: int,
         width: int,
         camera_model_config: CameraModelConfig,
@@ -280,8 +284,8 @@ class CameraPlaneOnlyPoint2dTo3dStrategy(Point2dTo3dStrategy):
 
 class CameraPlaneOnlyState(DistortionStateCameraOperation[CameraPlaneOnlyConfig]):
 
-    @staticmethod
-    def weights_func(norm_distances: np.ndarray, alpha: float):
+    @classmethod
+    def weights_func(cls, norm_distances: np.ndarray, alpha: float):
         return alpha / (norm_distances + alpha)
 
     def __init__(
@@ -489,8 +493,8 @@ class CameraPlaneLineFoldConfig(DistortionConfig):
 
 class CameraPlaneLineFoldState(DistortionStateCameraOperation[CameraPlaneLineFoldConfig]):
 
-    @staticmethod
-    def weights_func(norm_distances: np.ndarray, alpha: float):
+    @classmethod
+    def weights_func(cls, norm_distances: np.ndarray, alpha: float):
         return alpha / (norm_distances + alpha)
 
     def __init__(
@@ -536,8 +540,8 @@ class CameraPlaneLineCurveConfig(DistortionConfig):
 
 class CameraPlaneLineCurveState(DistortionStateCameraOperation[CameraPlaneLineCurveConfig]):
 
-    @staticmethod
-    def weights_func(norm_distances: np.ndarray, alpha: float):
+    @classmethod
+    def weights_func(cls, norm_distances: np.ndarray, alpha: float):
         return 1 - norm_distances**alpha
 
     def __init__(

@@ -67,8 +67,9 @@ class CharSamplerCorpusEngine(
             ))
         self.txt_file_probs = normalize_to_probs([size for _, size in self.txt_file_size_pairs])
 
-    @staticmethod
+    @classmethod
     def sample_text_line_from_file(
+        cls,
         txt_file: Path,
         size: int,
         rng: RandomGenerator,

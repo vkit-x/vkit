@@ -87,8 +87,8 @@ class CharAndFontSamplerEngine(
         self.lexicon_collection = init_resource.lexicon_collection
         self.char_sampler_engine_executor_aggregator = init_resource.char_sampler_engine_executor_aggregator
 
-    @staticmethod
-    def estimate_num_chars(run_config: CharAndFontSamplerEngineRunConfig):
+    @classmethod
+    def estimate_num_chars(cls, run_config: CharAndFontSamplerEngineRunConfig):
         if run_config.num_chars:
             return run_config.num_chars
 
@@ -108,7 +108,7 @@ class CharAndFontSamplerEngine(
         rng: RandomGenerator,
     ) -> Optional[CharAndFont]:
         # Sample chars.
-        num_chars = CharAndFontSamplerEngine.estimate_num_chars(run_config)
+        num_chars = self.estimate_num_chars(run_config)
         chars = self.char_sampler_engine_executor_aggregator.run(
             CharSamplerEngineRunConfig(
                 num_chars=num_chars,

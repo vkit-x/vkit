@@ -132,9 +132,9 @@ class Polygon:
     ###############
     # Constructor #
     ###############
-    @staticmethod
-    def create(points: Union['PointList', 'PointTuple', Iterable['Point']]):
-        return Polygon(points=PointTuple(points))
+    @classmethod
+    def create(cls, points: Union['PointList', 'PointTuple', Iterable['Point']]):
+        return cls(points=PointTuple(points))
 
     ############
     # Property #
@@ -166,32 +166,31 @@ class Polygon:
     ##############
     # Conversion #
     ##############
-    @staticmethod
-    def from_xy_pairs(xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
-        return Polygon(points=PointTuple.from_xy_pairs(xy_pairs))
+    @classmethod
+    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+        return cls(points=PointTuple.from_xy_pairs(xy_pairs))
 
     def to_xy_pairs(self):
         return self.points.to_xy_pairs()
 
-    @staticmethod
-    def from_flatten_xy_pairs(flatten_xy_pairs: Sequence[T_VAL]):
-        return Polygon(points=PointTuple.from_flatten_xy_pairs(flatten_xy_pairs))
+    @classmethod
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
+        return cls(points=PointTuple.from_flatten_xy_pairs(flatten_xy_pairs))
 
     def to_flatten_xy_pairs(self):
         return self.points.to_flatten_xy_pairs()
 
-    @staticmethod
-    def from_np_array(np_points: np.ndarray):
-        return Polygon(points=PointTuple.from_np_array(np_points))
+    @classmethod
+    def from_np_array(cls, np_points: np.ndarray):
+        return cls(points=PointTuple.from_np_array(np_points))
 
     def to_np_array(self):
         return self.points.to_np_array()
 
-    @staticmethod
-    def from_shapely_polygon(shapely_polygon: ShapelyPolygon):
-        xy_pairs = \
-            Polygon.remove_duplicated_xy_pairs(shapely_polygon.exterior.coords)  # type: ignore
-        return Polygon.from_xy_pairs(xy_pairs)
+    @classmethod
+    def from_shapely_polygon(cls, shapely_polygon: ShapelyPolygon):
+        xy_pairs = cls.remove_duplicated_xy_pairs(shapely_polygon.exterior.coords)  # type: ignore
+        return cls.from_xy_pairs(xy_pairs)
 
     def to_shapely_polygon(self):
         return ShapelyPolygon(self.to_xy_pairs())
@@ -290,7 +289,7 @@ class Polygon:
         shapely_polygon = self.to_shapely_polygon()
 
         assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
-        polygon = Polygon.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
+        polygon = self.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
         assert polygon.num_points == 4
 
         return polygon
@@ -363,8 +362,8 @@ class Polygon:
             alpha=alpha,
         )
 
-    @staticmethod
-    def remove_duplicated_xy_pairs(xy_pairs: Sequence[Tuple[int, int]]):
+    @classmethod
+    def remove_duplicated_xy_pairs(cls, xy_pairs: Sequence[Tuple[int, int]]):
         xy_pairs = tuple(map(tuple, xy_pairs))
         unique_xy_pairs = []
 
@@ -384,13 +383,12 @@ class Polygon:
         assert len(unique_xy_pairs) >= 3
         return unique_xy_pairs
 
-    @staticmethod
-    def vatti_clip(polygon: 'Polygon', ratio: float, shrink: bool):
+    def to_vatti_clipped_polygon(self, ratio: float, shrink: bool):
         assert 0.0 <= ratio <= 1.0
         if ratio == 1.0:
-            return polygon, 0.0
+            return self, 0.0
 
-        xy_pairs = polygon.to_xy_pairs()
+        xy_pairs = self.to_xy_pairs()
 
         shapely_polygon = ShapelyPolygon(xy_pairs)
         if shapely_polygon.area == 0:
@@ -407,8 +405,8 @@ class Polygon:
         assert clipped_paths
         clipped_path = clipped_paths[0]
 
-        clipped_xy_pairs = Polygon.remove_duplicated_xy_pairs(clipped_path)
-        clipped_polygon = Polygon.from_xy_pairs(clipped_xy_pairs)
+        clipped_xy_pairs = self.remove_duplicated_xy_pairs(clipped_path)
+        clipped_polygon = self.from_xy_pairs(clipped_xy_pairs)
 
         return clipped_polygon, distance
 
@@ -418,7 +416,7 @@ class Polygon:
         no_exception: bool = True,
     ):
         try:
-            shrank_polygon, _ = Polygon.vatti_clip(self, ratio, True)
+            shrank_polygon, _ = self.to_vatti_clipped_polygon(ratio, shrink=True)
             if 0 < shrank_polygon.area <= self.area:
                 return shrank_polygon
             else:
@@ -438,7 +436,7 @@ class Polygon:
         no_exception: bool = True,
     ):
         try:
-            dilated_polygon, _ = Polygon.vatti_clip(self, ratio, False)
+            dilated_polygon, _ = self.to_vatti_clipped_polygon(ratio, shrink=False)
             if dilated_polygon.area >= self.area:
                 return dilated_polygon
             else:

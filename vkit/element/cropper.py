@@ -34,8 +34,9 @@ class CropperState:
     core_box: Box
     origin_core_box: Box
 
-    @staticmethod
+    @classmethod
     def sample_cropping_positions(
+        cls,
         core_size: int,
         pad_size: int,
         crop_size: int,
@@ -58,8 +59,9 @@ class CropperState:
         end = min(length - 1, begin + (crop_size - offset) - 1)
         return offset, begin, end
 
-    @staticmethod
+    @classmethod
     def sample_cropper_state(
+        cls,
         height: int,
         width: int,
         core_size: int,
@@ -67,14 +69,14 @@ class CropperState:
         crop_size: int,
         rng: RandomGenerator,
     ):
-        vert_offset, up, down = CropperState.sample_cropping_positions(
+        vert_offset, up, down = cls.sample_cropping_positions(
             core_size=core_size,
             pad_size=pad_size,
             crop_size=crop_size,
             length=height,
             rng=rng,
         )
-        hori_offset, left, right = CropperState.sample_cropping_positions(
+        hori_offset, left, right = cls.sample_cropping_positions(
             core_size=core_size,
             pad_size=pad_size,
             crop_size=crop_size,
@@ -90,8 +92,9 @@ class CropperState:
             right,
         )
 
-    @staticmethod
+    @classmethod
     def create_from_cropping_positions(
+        cls,
         height: int,
         width: int,
         pad_size: int,
@@ -146,8 +149,9 @@ class CropperState:
             origin_core_box=origin_core_box,
         )
 
-    @staticmethod
+    @classmethod
     def create(
+        cls,
         shape: Tuple[int, int],
         core_size: int,
         pad_size: int,
@@ -163,7 +167,7 @@ class CropperState:
             hori_offset,
             left,
             right,
-        ) = CropperState.sample_cropper_state(
+        ) = cls.sample_cropper_state(
             height=height,
             width=width,
             core_size=core_size,
@@ -171,7 +175,7 @@ class CropperState:
             crop_size=crop_size,
             rng=rng,
         )
-        return CropperState.create_from_cropping_positions(
+        return cls.create_from_cropping_positions(
             height=height,
             width=width,
             pad_size=pad_size,
@@ -186,8 +190,9 @@ class CropperState:
             right=right,
         )
 
-    @staticmethod
+    @classmethod
     def create_from_center_point(
+        cls,
         shape: Tuple[int, int],
         core_size: int,
         pad_size: int,
@@ -242,8 +247,9 @@ class CropperState:
 
 class Cropper:
 
-    @staticmethod
+    @classmethod
     def create(
+        cls,
         shape: Tuple[int, int],
         core_size: int,
         pad_size: int,
@@ -259,8 +265,9 @@ class Cropper:
         )
         return Cropper(cropper_state)
 
-    @staticmethod
+    @classmethod
     def create_from_center_point(
+        cls,
         shape: Tuple[int, int],
         core_size: int,
         pad_size: int,

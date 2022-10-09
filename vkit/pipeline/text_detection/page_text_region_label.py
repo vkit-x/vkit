@@ -82,8 +82,9 @@ class Vector:
         assert self._theta is not None
         return self._theta
 
-    @staticmethod
+    @classmethod
     def calculate_theta_delta(
+        cls,
         vector0: 'Vector',
         vector1: 'Vector',
         clockwise: bool = False,
@@ -293,8 +294,9 @@ class PageTextRegionLabelStep(
     ]
 ):  # yapf: disable
 
-    @staticmethod
+    @classmethod
     def generate_page_char_mask(
+        cls,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
     ):
@@ -303,8 +305,9 @@ class PageTextRegionLabelStep(
             polygon.fill_mask(page_char_mask)
         return page_char_mask
 
-    @staticmethod
+    @classmethod
     def generate_page_char_height_score_map(
+        cls,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
     ):
@@ -316,8 +319,9 @@ class PageTextRegionLabelStep(
             )
         return page_char_height_score_map
 
-    @staticmethod
+    @classmethod
     def generate_np_gaussian_map(
+        cls,
         length: int,
         rescale_radius_to_value: float = 3.0,
     ):

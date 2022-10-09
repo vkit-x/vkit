@@ -167,8 +167,9 @@ class PageTextLineLabelStep(
 
         return boxes, dilated_boxes
 
-    @staticmethod
+    @classmethod
     def generate_dilated_only_boxes(
+        cls,
         box: Box,
         dilated_box: Box,
     ):
@@ -219,7 +220,7 @@ class PageTextLineLabelStep(
         boundary_mask = Mask.from_shape(page_text_line_collection.shape)
 
         for box, dilated_box in zip(boxes, dilated_boxes):
-            dilated_only_boxes = PageTextLineLabelStep.generate_dilated_only_boxes(box, dilated_box)
+            dilated_only_boxes = self.generate_dilated_only_boxes(box, dilated_box)
             for dilated_only_box in dilated_only_boxes:
                 if dilated_only_box:
                     dilated_only_box.fill_mask(boundary_mask)
@@ -246,7 +247,7 @@ class PageTextLineLabelStep(
                 dilated_down_box,
                 dilated_left_box,
                 dilated_right_box,
-            ) = PageTextLineLabelStep.generate_dilated_only_boxes(box, dilated_box)
+            ) = self.generate_dilated_only_boxes(box, dilated_box)
 
             if dilated_up_box:
                 boundary_score_map.fill_by_quad_interpolation(

@@ -54,19 +54,20 @@ class Painter:
         '#6495ed',
     )
 
-    @staticmethod
-    def get_rgb_tuple_from_color_name(color_name: str) -> Tuple[int, int, int]:
+    @classmethod
+    def get_rgb_tuple_from_color_name(cls, color_name: str) -> Tuple[int, int, int]:
         # https://pillow.readthedocs.io/en/stable/reference/ImageColor.html#color-names
         return PilImageColor.getrgb(color_name)  # type: ignore
 
-    @staticmethod
+    @classmethod
     def get_complementary_rgba_tuple(
-        rgba_tuple: Tuple[int, int, int, int]
+        cls, rgba_tuple: Tuple[int, int, int, int]
     ) -> Tuple[int, int, int, int]:
         return tuple(255 - val if idx < 3 else val for idx, val in enumerate(rgba_tuple))
 
-    @staticmethod
+    @classmethod
     def get_color_names(
+        cls,
         elements_or_num_elements: Union[Iterable[Any], int],
         palette: Sequence[str] = PALETTE,
     ):
@@ -76,28 +77,28 @@ class Painter:
             elements = elements_or_num_elements
         return tuple(palette[idx % len(palette)] for idx, _ in enumerate(elements))
 
-    @staticmethod
+    @classmethod
     def get_rgb_tuples(
+        cls,
         elements_or_num_elements: Union[Iterable[Any], int],
         palette: Sequence[str] = PALETTE,
     ):
-        color_names = Painter.get_color_names(elements_or_num_elements, palette=palette)
-        return tuple(
-            Painter.get_rgb_tuple_from_color_name(color_name) for color_name in color_names
-        )
+        color_names = cls.get_color_names(elements_or_num_elements, palette=palette)
+        return tuple(cls.get_rgb_tuple_from_color_name(color_name) for color_name in color_names)
 
-    @staticmethod
+    @classmethod
     def get_rgba_tuples_from_color_names(
+        cls,
         num_elements: int,
         color: Optional[Union[str, Iterable[str], Iterable[int]]],
         alpha: float,
         palette: Sequence[str] = PALETTE,
     ):
         if color is None:
-            rgb_tuples = Painter.get_rgb_tuples(num_elements, palette=palette)
+            rgb_tuples = cls.get_rgb_tuples(num_elements, palette=palette)
 
         elif isinstance(color, str):
-            rgb_tuple = Painter.get_rgb_tuple_from_color_name(color)
+            rgb_tuple = cls.get_rgb_tuple_from_color_name(color)
             rgb_tuples = (rgb_tuple,) * num_elements
 
         else:
@@ -116,14 +117,15 @@ class Painter:
                 raise NotImplementedError()
 
             rgb_tuples = tuple(
-                Painter.get_rgb_tuple_from_color_name(color_name) for color_name in color_names
+                cls.get_rgb_tuple_from_color_name(color_name) for color_name in color_names
             )
 
         alpha_uint8 = round(255 * alpha)
         return tuple((*rgb_tuple, alpha_uint8) for rgb_tuple in rgb_tuples)
 
-    @staticmethod
+    @classmethod
     def create(
+        cls,
         image_or_shapable_or_shape: Union[Image, Shapable, Tuple[int, int]],
         num_channels: int = 3,
         value: Union[Tuple[int, ...], int] = 255,
@@ -169,8 +171,9 @@ class Painter:
             alpha=alpha,
         )
 
-    @staticmethod
+    @classmethod
     def paint_text_to_layer_image(
+        cls,
         layer_image: Image,
         text: str,
         point: Point,
@@ -179,7 +182,7 @@ class Painter:
         enable_complementary_rgba: bool = True,
     ):
         if enable_complementary_rgba:
-            color = Painter.get_complementary_rgba_tuple(rgba_tuple)
+            color = cls.get_complementary_rgba_tuple(rgba_tuple)
         else:
             color = rgba_tuple
 

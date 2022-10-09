@@ -128,8 +128,9 @@ class PageDistortionStep(
             self.config.random_distortion_factory_config
         )
 
-    @staticmethod
+    @classmethod
     def fill_page_inactive_region(
+        cls,
         page_image: Image,
         page_active_mask: Mask,
         page_bottom_layer_image: Image,

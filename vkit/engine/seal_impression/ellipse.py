@@ -214,8 +214,9 @@ class SealImpressionEllipseEngine(
 
         return alpha, color
 
-    @staticmethod
+    @classmethod
     def sample_ellipse_points(
+        cls,
         ellipse_height: int,
         ellipse_width: int,
         ellipse_offset_y: int,
@@ -250,8 +251,9 @@ class SealImpressionEllipseEngine(
             )
         return points
 
-    @staticmethod
+    @classmethod
     def sample_char_slots(
+        cls,
         ellipse_up_height: int,
         ellipse_up_width: int,
         ellipse_down_height: int,
@@ -268,7 +270,7 @@ class SealImpressionEllipseEngine(
 
         keep_last_oob = (rng.random() < 0.5)
 
-        point_ups = SealImpressionEllipseEngine.sample_ellipse_points(
+        point_ups = cls.sample_ellipse_points(
             ellipse_height=ellipse_up_height,
             ellipse_width=ellipse_up_width,
             ellipse_offset_y=ellipse_offset_y,
@@ -278,7 +280,7 @@ class SealImpressionEllipseEngine(
             angle_step=angle_step,
             keep_last_oob=keep_last_oob,
         )
-        point_downs = SealImpressionEllipseEngine.sample_ellipse_points(
+        point_downs = cls.sample_ellipse_points(
             ellipse_height=ellipse_down_height,
             ellipse_width=ellipse_down_width,
             ellipse_offset_y=ellipse_offset_y,

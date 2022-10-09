@@ -91,8 +91,11 @@ class PageTextRegionCroppingStep(
     ]
 ):  # yapf: disable
 
-    @staticmethod
-    def build_strtree_for_page_char_regression_labels(labels: Sequence[PageCharRegressionLabel]):
+    @classmethod
+    def build_strtree_for_page_char_regression_labels(
+        cls,
+        labels: Sequence[PageCharRegressionLabel],
+    ):
         shapely_points: List[ShapelyPoint] = []
 
         xy_pair_to_labels: DefaultDict[

@@ -224,8 +224,8 @@ class RandomDistortion:
         self.level_min = level_min
         self.level_max = level_max
 
-    @staticmethod
-    def get_distortion_result_all_points(distortion_result: DistortionResult):
+    @classmethod
+    def get_distortion_result_all_points(cls, distortion_result: DistortionResult):
         if distortion_result.corner_points:
             yield from distortion_result.corner_points
 
@@ -242,11 +242,11 @@ class RandomDistortion:
             for polygon in distortion_result.polygons:
                 yield from polygon.points
 
-    @staticmethod
-    def get_distortion_result_element_bounding_box(distortion_result: DistortionResult):
+    @classmethod
+    def get_distortion_result_element_bounding_box(cls, distortion_result: DistortionResult):
         assert distortion_result.corner_points
 
-        all_points = RandomDistortion.get_distortion_result_all_points(distortion_result)
+        all_points = cls.get_distortion_result_all_points(distortion_result)
         point = next(all_points)
         y_min = point.y
         y_max = point.y
@@ -259,14 +259,14 @@ class RandomDistortion:
             x_max = max(x_max, point.x)
         return Box(up=y_min, down=y_max, left=x_min, right=x_max)
 
-    @staticmethod
-    def trim_distortion_result(distortion_result: DistortionResult):
+    @classmethod
+    def trim_distortion_result(cls, distortion_result: DistortionResult):
         # Trim page if need.
         if not distortion_result.corner_points:
             return distortion_result
 
         height, width = distortion_result.shape
-        box = RandomDistortion.get_distortion_result_element_bounding_box(distortion_result)
+        box = cls.get_distortion_result_element_bounding_box(distortion_result)
 
         pad_up = box.up
         pad_down = height - 1 - box.down
@@ -500,8 +500,9 @@ _GEOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
 
 class RandomDistortionFactory:
 
-    @staticmethod
+    @classmethod
     def unpack_policy_factories_and_default_weights_sum_pairs(
+        cls,
         policy_factories_and_default_weights_sum_pairs: Sequence[
             Tuple[
                 Sequence[DistortionPolicyFactory],
@@ -549,8 +550,9 @@ class RandomDistortionFactory:
             geometric_policy_factories_and_default_weights_sum_pairs
         )
 
-    @staticmethod
+    @classmethod
     def create_policies_and_policy_weights(
+        cls,
         policy_factories: Sequence[DistortionPolicyFactory],
         policy_default_weights: Sequence[float],
         config: RandomDistortionFactoryConfig,

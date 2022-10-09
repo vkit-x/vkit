@@ -40,8 +40,8 @@ class SimilarityMlsConfigGenerator(
     ]
 ):  # yapf: disable
 
-    @staticmethod
-    def generate_coord(length: int, step: int, rng: RandomGenerator):
+    @classmethod
+    def generate_coord(cls, length: int, step: int, rng: RandomGenerator):
         end = length - 1
         if end % step == 0:
             steps = [step] * (end // step)
@@ -70,8 +70,8 @@ class SimilarityMlsConfigGenerator(
         # NOTE:
         # 1. Corners are always included.
         # 2. Distance of any two points >= step.
-        coord_y = SimilarityMlsConfigGenerator.generate_coord(height, step, rng)
-        coord_x = SimilarityMlsConfigGenerator.generate_coord(width, step, rng)
+        coord_y = self.generate_coord(height, step, rng)
+        coord_x = self.generate_coord(width, step, rng)
         src_handle_points: List[Point] = []
         for y in coord_y:
             for x in coord_x:

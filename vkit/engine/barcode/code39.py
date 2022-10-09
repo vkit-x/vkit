@@ -90,8 +90,8 @@ class BarcodeCode39Engine(
     def get_type_name(cls) -> str:
         return 'code39'
 
-    @staticmethod
-    def convert_barcode_pil_image_to_mask(barcode_pil_image: PilImage.Image):
+    @classmethod
+    def convert_barcode_pil_image_to_mask(cls, barcode_pil_image: PilImage.Image):
         mat = np.asarray(barcode_pil_image)
         mask = Mask(mat=mat).to_inverted_mask()
 

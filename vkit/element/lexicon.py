@@ -98,10 +98,10 @@ class LexiconCollection:
     def get_lexicon(self, char: str):
         return self.char_to_lexicon[char]
 
-    @staticmethod
-    def from_file(path: PathType):
+    @classmethod
+    def from_file(cls, path: PathType):
         lexicons = dyn_structure(path, Sequence[Lexicon], force_path_type=True)
-        return LexiconCollection(lexicons=lexicons)
+        return cls(lexicons=lexicons)
 
     def to_file(self, path: PathType):
         io.write_json(

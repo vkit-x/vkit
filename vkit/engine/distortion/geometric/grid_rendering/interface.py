@@ -129,8 +129,9 @@ _T_STATE = TypeVar('_T_STATE', bound=DistortionStateImageGridBased)
 
 class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
 
-    @staticmethod
+    @classmethod
     def func_image(
+        cls,
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         image: Image,
@@ -143,8 +144,9 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
             state.dst_image_grid,
         )
 
-    @staticmethod
+    @classmethod
     def func_score_map(
+        cls,
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         score_map: ScoreMap,
@@ -157,8 +159,9 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
             state.dst_image_grid,
         )
 
-    @staticmethod
+    @classmethod
     def func_mask(
+        cls,
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         mask: Mask,
@@ -171,8 +174,9 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
             state.dst_image_grid,
         )
 
-    @staticmethod
+    @classmethod
     def func_active_mask(
+        cls,
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         shape: Tuple[int, int],
@@ -187,8 +191,9 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         border_polygon.fill_mask(active_mask)
         return active_mask
 
-    @staticmethod
+    @classmethod
     def func_point(
+        cls,
         config: _T_CONFIG,
         state: Optional[_T_STATE],
         shape: Tuple[int, int],

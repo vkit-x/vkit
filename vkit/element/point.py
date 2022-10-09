@@ -36,17 +36,17 @@ class Point:
     ###############
     # Constructor #
     ###############
-    @staticmethod
-    def create(y: T_VAL, x: T_VAL):
-        return Point(y=round(float(y)), x=round(float(x)))
+    @classmethod
+    def create(cls, y: T_VAL, x: T_VAL):
+        return cls(y=round(float(y)), x=round(float(x)))
 
     ##############
     # Conversion #
     ##############
-    @staticmethod
-    def from_xy_pair(xy_pair: Tuple[T_VAL, T_VAL]):
+    @classmethod
+    def from_xy_pair(cls, xy_pair: Tuple[T_VAL, T_VAL]):
         x, y = xy_pair
-        return Point.create(y=y, x=x)
+        return cls.create(y=y, x=x)
 
     def to_xy_pair(self):
         return (self.x, self.y)
@@ -94,22 +94,22 @@ class PointList(List[Point]):
     ###############
     # Constructor #
     ###############
-    @staticmethod
-    def from_point(point: Point):
-        return PointList((point,))
+    @classmethod
+    def from_point(cls, point: Point):
+        return cls((point,))
 
     ##############
     # Conversion #
     ##############
-    @staticmethod
-    def from_xy_pairs(xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
-        return PointList(Point.from_xy_pair(xy_pair) for xy_pair in xy_pairs)
+    @classmethod
+    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+        return cls(Point.from_xy_pair(xy_pair) for xy_pair in xy_pairs)
 
     def to_xy_pairs(self):
         return [point.to_xy_pair() for point in self]
 
-    @staticmethod
-    def from_flatten_xy_pairs(flatten_xy_pairs: Sequence[T_VAL]):
+    @classmethod
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
         # [x0, y0, x1, y1, ...]
         flatten_xy_pairs = tuple(flatten_xy_pairs)
         assert flatten_xy_pairs and len(flatten_xy_pairs) % 2 == 0
@@ -127,8 +127,8 @@ class PointList(List[Point]):
     def to_flatten_xy_pairs(self):
         return list(chain.from_iterable(point.to_xy_pair() for point in self))
 
-    @staticmethod
-    def from_np_array(np_points: np.ndarray):
+    @classmethod
+    def from_np_array(cls, np_points: np.ndarray):
         points = PointList()
         for np_point in np_points:
             x, y = np_point
@@ -186,29 +186,29 @@ class PointTuple(Tuple[Point, ...]):
     ###############
     # Constructor #
     ###############
-    @staticmethod
-    def from_point(point: Point):
-        return PointTuple((point,))
+    @classmethod
+    def from_point(cls, point: Point):
+        return cls((point,))
 
     ##############
     # Conversion #
     ##############
-    @staticmethod
-    def from_xy_pairs(xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+    @classmethod
+    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
         return PointTuple(Point.from_xy_pair(xy_pair) for xy_pair in xy_pairs)
 
     def to_xy_pairs(self):
         return tuple(point.to_xy_pair() for point in self)
 
-    @staticmethod
-    def from_flatten_xy_pairs(flatten_xy_pairs: Sequence[T_VAL]):
+    @classmethod
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
         return PointList.from_flatten_xy_pairs(flatten_xy_pairs).to_point_tuple()
 
     def to_flatten_xy_pairs(self):
         return tuple(chain.from_iterable(point.to_xy_pair() for point in self))
 
-    @staticmethod
-    def from_np_array(np_points: np.ndarray):
+    @classmethod
+    def from_np_array(cls, np_points: np.ndarray):
         return PointList.from_np_array(np_points).to_point_tuple()
 
     def to_np_array(self):

@@ -38,9 +38,9 @@ class NpVec:
     x: np.ndarray
     y: np.ndarray
 
-    @staticmethod
-    def from_point(point: 'Point'):
-        return NpVec(
+    @classmethod
+    def from_point(cls, point: 'Point'):
+        return cls(
             x=np.asarray(point.x, dtype=np.float32),
             y=np.asarray(point.y, dtype=np.float32),
         )
@@ -110,8 +110,9 @@ class ScoreMap(Shapable):
     ###############
     # Constructor #
     ###############
-    @staticmethod
+    @classmethod
     def from_shape(
+        cls,
         shape: Tuple[int, int],
         value: float = 0.0,
         is_prob: bool = True,
@@ -120,22 +121,24 @@ class ScoreMap(Shapable):
         if is_prob:
             assert 0.0 <= value <= 1.0
         mat = np.full((height, width), fill_value=value, dtype=np.float32)
-        return ScoreMap(mat=mat, is_prob=is_prob)
+        return cls(mat=mat, is_prob=is_prob)
 
-    @staticmethod
+    @classmethod
     def from_shapable(
+        cls,
         shapable: Shapable,
         value: float = 0.0,
         is_prob: bool = True,
     ):
-        return ScoreMap.from_shape(
+        return cls.from_shape(
             shape=shapable.shape,
             value=value,
             is_prob=is_prob,
         )
 
-    @staticmethod
+    @classmethod
     def from_quad_interpolation(
+        cls,
         point0: 'Point',
         point1: 'Point',
         point2: 'Point',
@@ -273,7 +276,7 @@ class ScoreMap(Shapable):
 
         # Mat.
         mat = func_np_uv_to_mat(np_uv)
-        return ScoreMap(
+        return cls(
             mat=mat,
             box=bounding_box,
             is_prob=is_prob,
@@ -308,8 +311,9 @@ class ScoreMap(Shapable):
         with self.writable_context:
             object.__setattr__(self, 'mat', mat)
 
-    @staticmethod
+    @classmethod
     def unpack_element_value_pairs(
+        cls,
         is_prob: bool,
         element_value_pairs: Iterable[Tuple[_E, Union['ScoreMap', np.ndarray, float]]],
     ):
@@ -565,7 +569,7 @@ class ScoreMap(Shapable):
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
-        score_map = ScoreMap.from_quad_interpolation(
+        score_map = self.from_quad_interpolation(
             point0=point0,
             point1=point1,
             point2=point2,

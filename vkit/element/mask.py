@@ -97,8 +97,8 @@ class Mask(Shapable):
     ###############
     # Constructor #
     ###############
-    @staticmethod
-    def from_shape(shape: Tuple[int, int], value: int = 0):
+    @classmethod
+    def from_shape(cls, shape: Tuple[int, int], value: int = 0):
         height, width = shape
         if value == 0:
             np_init_func = np.zeros
@@ -106,11 +106,11 @@ class Mask(Shapable):
             assert value == 1
             np_init_func = np.ones
         mat = np_init_func((height, width), dtype=np.uint8)
-        return Mask(mat=mat)
+        return cls(mat=mat)
 
-    @staticmethod
-    def from_shapable(shapable: Shapable, value: int = 0):
-        return Mask.from_shape(shape=shapable.shape, value=value)
+    @classmethod
+    def from_shapable(cls, shapable: Shapable, value: int = 0):
+        return cls.from_shape(shape=shapable.shape, value=value)
 
     ############
     # Property #
@@ -148,8 +148,9 @@ class Mask(Shapable):
         with self.writable_context:
             object.__setattr__(self, 'mat', mat)
 
-    @staticmethod
+    @classmethod
     def unpack_element_value_pairs(
+        cls,
         element_value_pairs: Iterable[Tuple[_E, Union['Mask', np.ndarray, int]]],
     ):
         elements: List[_E] = []

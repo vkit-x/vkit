@@ -304,8 +304,8 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
 
         return config, rng
 
-    @staticmethod
-    def get_shape_from_shapable_or_shape(shapable_or_shape: Union[Shapable, Tuple[int, int]]):
+    @classmethod
+    def get_shape_from_shapable_or_shape(cls, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         if isinstance(shapable_or_shape, (list, tuple)):
             assert len(shapable_or_shape) == 2
             return shapable_or_shape
@@ -328,7 +328,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         disable_state_initialization: bool = False,
     ):
         # yapf: enable
-        shape = Distortion.get_shape_from_shapable_or_shape(shapable_or_shape)
+        shape = self.get_shape_from_shapable_or_shape(shapable_or_shape)
 
         config, rng = self.prepare_config_and_rng(
             config_or_config_generator,
@@ -783,8 +783,9 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         )
         return self.distort_polygons_based_on_internals(internals, polygons)
 
-    @staticmethod
+    @classmethod
     def get_shape(
+        cls,
         shapable_or_shape: Optional[Union[Shapable, Tuple[int, int]]] = None,
         image: Optional[Image] = None,
         mask: Optional[Mask] = None,
@@ -794,7 +795,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
             shapable_or_shape = image or mask or score_map
         assert shapable_or_shape
 
-        return Distortion.get_shape_from_shapable_or_shape(shapable_or_shape)
+        return cls.get_shape_from_shapable_or_shape(shapable_or_shape)
 
     def clip_result_elements(self, result: DistortionResult):
         if not self.is_geometric:
@@ -842,7 +843,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
-        shape = Distortion.get_shape(
+        shape = self.get_shape(
             shapable_or_shape=shapable_or_shape,
             image=image,
             mask=mask,
