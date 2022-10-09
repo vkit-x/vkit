@@ -109,7 +109,7 @@ def test_lexicon_sampler():
         '$VKIT_PRIVATE_DATA/vkit_lexicon/lexicon_collection_combined/chinese.json'
     )
     lexicon_sampler = char_sampler_lexicon_engine_executor_factory.create(
-        {'space_prob': 0.1},
+        {'prob_space': 0.1},
         {'lexicon_collection': lexicon_collection},
     )
     rng = default_rng(0)

@@ -16,7 +16,7 @@ from typing import Sequence, Mapping, Optional, List
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.utility import rng_choice
+from vkit.utility import rng_choice, normalize_to_probs
 from vkit.engine.interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
@@ -24,7 +24,7 @@ from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 @attrs.define
 class CharSamplerLexiconEngineInitConfig:
     tag_to_weight: Optional[Mapping[str, float]] = None
-    space_prob: float = 0.0
+    prob_space: float = 0.0
 
 
 CharSamplerLexiconEngineInitResource = CharSamplerEngineInitResource
@@ -55,26 +55,29 @@ class CharSamplerLexiconEngine(
         assert init_resource
         self.lexicon_collection = init_resource.lexicon_collection
 
-        weights = []
-        if init_config.tag_to_weight:
-            for tag in self.lexicon_collection.tags:
-                assert tag in init_config.tag_to_weight
-                weights.append(init_config.tag_to_weight[tag])
-        else:
-            for tag in self.lexicon_collection.tags:
-                weights.append(len(self.lexicon_collection.tag_to_lexicons[tag]))
+        tag_weights = []
+        for tag in self.lexicon_collection.tags:
+            if init_config.tag_to_weight:
+                # From config.
+                if tag not in init_config.tag_to_weight:
+                    raise RuntimeError(f'missing tag={tag} in tag_to_weight')
+                weight = init_config.tag_to_weight[tag]
+            else:
+                # Based on the number of tagged lexicons.
+                weight = len(self.lexicon_collection.tag_to_lexicons[tag])
+            tag_weights.append(weight)
 
-        self.tags_no_space = list(self.lexicon_collection.tags)
-        total = sum(weights)
-        self.probs_no_space = [val / total for val in weights]
+        self.tags = self.lexicon_collection.tags
+        self.tag_probs = normalize_to_probs(tag_weights)
 
-        self.tags = list(self.tags_no_space)
-        if init_config.space_prob > 0:
-            space_weight = total * init_config.space_prob / (1 - init_config.space_prob)
-            self.tags.append(self.KEY_SPACE)
-            weights.append(space_weight)
-            total += space_weight
-        self.probs = [val / total for val in weights]
+        self.with_space_tags = self.tags
+        self.with_space_tag_probs = self.tag_probs
+        if init_config.prob_space > 0.0:
+            self.with_space_tags = (*self.tags, self.KEY_SPACE)
+            self.with_space_tag_probs = normalize_to_probs((
+                *self.tag_probs,
+                init_config.prob_space / (1 - init_config.prob_space),
+            ))
 
     def run(self, run_config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
         num_chars = run_config.num_chars
@@ -84,9 +87,10 @@ class CharSamplerLexiconEngine(
 
         chars: List[str] = []
         for char_idx in range(num_chars):
-            tag = rng_choice(rng, self.tags, probs=self.probs)
+            tag = rng_choice(rng, self.with_space_tags, probs=self.with_space_tag_probs)
             if tag == self.KEY_SPACE and (char_idx == 0 or char_idx == num_chars - 1):
-                tag = rng_choice(rng, self.tags_no_space, probs=self.probs_no_space)
+                # Disallow leading or trailing space.
+                tag = rng_choice(rng, self.tags, probs=self.tag_probs)
 
             if tag == self.KEY_SPACE:
                 chars.append(' ')

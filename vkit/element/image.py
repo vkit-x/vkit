@@ -30,6 +30,7 @@ from .type import Shapable, FillByElementsMode
 from .opt import generate_shape_and_resized_shape
 
 
+# TODO: Refactor.
 @unique
 class ImageKind(Enum):
     RGB = 'rgb'

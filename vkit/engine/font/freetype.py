@@ -247,7 +247,7 @@ def render_char_glyphs_from_text(
         num_spaces = 0
 
     if num_spaces > 0:
-        raise RuntimeError('Tailing space(s) detected.')
+        raise RuntimeError('Trailing space(s) detected.')
 
     return char_glyphs, prev_num_spaces_for_char_glyphs
 
