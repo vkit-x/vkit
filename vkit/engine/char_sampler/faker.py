@@ -18,7 +18,7 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 from faker import Faker
 
-from vkit.utility import rng_choice
+from vkit.utility import rng_choice, normalize_to_probs
 from vkit.engine.interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
@@ -69,9 +69,9 @@ class CharSamplerFakerEngine(
         self.lexicon_collection = init_resource.lexicon_collection
 
         self.methods = sorted(init_config.method_to_weight)
-        weights = [init_config.method_to_weight[method] for method in self.methods]
-        total = sum(weights)
-        self.methods_probs = [weight / total for weight in weights]
+        self.methods_probs = normalize_to_probs([
+            init_config.method_to_weight[method] for method in self.methods
+        ])
 
         self.faker: Optional[Faker] = None
 
