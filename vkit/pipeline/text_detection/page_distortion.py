@@ -20,8 +20,8 @@ import numpy as np
 
 from vkit.utility import PathType
 from vkit.element import (
-    PointList,
     Point,
+    PointList,
     Polygon,
     Mask,
     ScoreMap,
@@ -164,8 +164,8 @@ class PageDistortionStep(
         text_line_heights_debug_image: Optional[Image] = None
 
         if self.config.enable_distorted_text_line_height_score_map:
-            np_height_points_up = text_line_height_points_up.to_np_array()
-            np_height_points_down = text_line_height_points_down.to_np_array()
+            np_height_points_up = text_line_height_points_up.to_smooth_np_array()
+            np_height_points_down = text_line_height_points_down.to_smooth_np_array()
             np_heights: np.ndarray = np.linalg.norm(
                 np_height_points_down - np_height_points_up,
                 axis=1,
@@ -192,7 +192,7 @@ class PageDistortionStep(
                 painter.paint_polygons(text_line_polygons)
 
                 texts: List[str] = []
-                points: List[Point] = []
+                points = PointList()
                 for polygon, height in zip(text_line_polygons, text_line_heights):
                     texts.append(f'{height:.1f}')
                     points.append(polygon.get_center_point())
@@ -225,8 +225,8 @@ class PageDistortionStep(
         char_heights_debug_image: Optional[Image] = None
 
         if self.config.enable_distorted_char_height_score_map:
-            np_height_points_up = char_height_points_up.to_np_array()
-            np_height_points_down = char_height_points_down.to_np_array()
+            np_height_points_up = char_height_points_up.to_smooth_np_array()
+            np_height_points_down = char_height_points_down.to_smooth_np_array()
             np_heights: np.ndarray = np.linalg.norm(
                 np_height_points_down - np_height_points_up,
                 axis=1,
@@ -255,7 +255,7 @@ class PageDistortionStep(
                 painter.paint_polygons(char_polygons)
 
                 texts: List[str] = []
-                points: List[Point] = []
+                points = PointList()
                 for polygon, height in zip(char_polygons, char_heights):
                     texts.append(f'{height:.1f}')
                     points.append(polygon.get_center_point())

@@ -440,17 +440,17 @@ class TextLine:
             points = PointList()
 
             for x in xs:
-                points.append(Point(y=self.box.up, x=x))
+                points.append(Point.create(y=self.box.up, x=x))
 
             y_mid = (self.box.up + self.box.down) // 2
             if self.box.up < y_mid < self.box.down:
-                points.append(Point(y=y_mid, x=xs[-1]))
+                points.append(Point.create(y=y_mid, x=xs[-1]))
 
             for x in reversed(xs):
-                points.append(Point(y=self.box.down, x=x))
+                points.append(Point.create(y=self.box.down, x=x))
 
             if self.box.up < y_mid < self.box.down:
-                points.append(Point(y=y_mid, x=xs[0]))
+                points.append(Point.create(y=y_mid, x=xs[0]))
 
             return Polygon.create(points=points)
 
@@ -467,17 +467,17 @@ class TextLine:
             points = PointList()
 
             for y in ys:
-                points.append(Point(y=y, x=self.box.right))
+                points.append(Point.create(y=y, x=self.box.right))
 
             x_mid = (self.box.left + self.box.right) // 2
             if self.box.left < x_mid < self.box.right:
-                points.append(Point(y=ys[-1], x=x_mid))
+                points.append(Point.create(y=ys[-1], x=x_mid))
 
             for y in reversed(ys):
-                points.append(Point(y=y, x=self.box.left))
+                points.append(Point.create(y=y, x=self.box.left))
 
             if self.box.left < x_mid < self.box.right:
-                points.append(Point(y=ys[0], x=x_mid))
+                points.append(Point.create(y=ys[0], x=x_mid))
 
             return Polygon.create(points=points)
 
@@ -559,7 +559,7 @@ class TextLine:
                     y = self.box.up
                 else:
                     y = self.box.down
-                points.append(Point(y=y, x=x))
+                points.append(Point.create(y=y, x=x))
             return points
 
         else:
@@ -575,7 +575,7 @@ class TextLine:
                     x = self.box.right
                 else:
                     x = self.box.left
-                points.append(Point(y=y, x=x))
+                points.append(Point.create(y=y, x=x))
             return points
 
     def get_char_level_height_points(self, is_up: bool):
@@ -587,7 +587,7 @@ class TextLine:
                     y = self.box.up
                 else:
                     y = self.box.down
-                points.append(Point(y=y, x=x))
+                points.append(Point.create(y=y, x=x))
             return points
 
         else:
@@ -598,5 +598,5 @@ class TextLine:
                     x = self.box.right
                 else:
                     x = self.box.left
-                points.append(Point(y=y, x=x))
+                points.append(Point.create(y=y, x=x))
             return points

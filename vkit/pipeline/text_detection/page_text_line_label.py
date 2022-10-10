@@ -251,40 +251,40 @@ class PageTextLineLabelStep(
 
             if dilated_up_box:
                 boundary_score_map.fill_by_quad_interpolation(
-                    point0=Point(y=box.up, x=box.right),
-                    point1=Point(y=box.up, x=box.left),
-                    point2=Point(y=dilated_box.up, x=dilated_box.left),
-                    point3=Point(y=dilated_box.up, x=dilated_box.right),
+                    point0=Point.create(y=box.up, x=box.right),
+                    point1=Point.create(y=box.up, x=box.left),
+                    point2=Point.create(y=dilated_box.up, x=dilated_box.left),
+                    point3=Point.create(y=dilated_box.up, x=dilated_box.right),
                     func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
                     keep_min_value=True,
                 )
 
             if dilated_down_box:
                 boundary_score_map.fill_by_quad_interpolation(
-                    point0=Point(y=box.down, x=box.left),
-                    point1=Point(y=box.down, x=box.right),
-                    point2=Point(y=dilated_box.down, x=dilated_box.right),
-                    point3=Point(y=dilated_box.down, x=dilated_box.left),
+                    point0=Point.create(y=box.down, x=box.left),
+                    point1=Point.create(y=box.down, x=box.right),
+                    point2=Point.create(y=dilated_box.down, x=dilated_box.right),
+                    point3=Point.create(y=dilated_box.down, x=dilated_box.left),
                     func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
                     keep_min_value=True,
                 )
 
             if dilated_left_box:
                 boundary_score_map.fill_by_quad_interpolation(
-                    point0=Point(y=box.up, x=box.left),
-                    point1=Point(y=box.down, x=box.left),
-                    point2=Point(y=dilated_box.down, x=dilated_box.left),
-                    point3=Point(y=dilated_box.up, x=dilated_box.left),
+                    point0=Point.create(y=box.up, x=box.left),
+                    point1=Point.create(y=box.down, x=box.left),
+                    point2=Point.create(y=dilated_box.down, x=dilated_box.left),
+                    point3=Point.create(y=dilated_box.up, x=dilated_box.left),
                     func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
                     keep_min_value=True,
                 )
 
             if dilated_right_box:
                 boundary_score_map.fill_by_quad_interpolation(
-                    point0=Point(y=box.down, x=box.right),
-                    point1=Point(y=box.up, x=box.right),
-                    point2=Point(y=dilated_box.up, x=dilated_box.right),
-                    point3=Point(y=dilated_box.down, x=dilated_box.right),
+                    point0=Point.create(y=box.down, x=box.right),
+                    point1=Point.create(y=box.up, x=box.right),
+                    point2=Point.create(y=dilated_box.up, x=dilated_box.right),
+                    point3=Point.create(y=dilated_box.down, x=dilated_box.right),
                     func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
                     keep_min_value=True,
                 )

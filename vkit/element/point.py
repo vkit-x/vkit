@@ -30,15 +30,28 @@ T_VAL = Union[float, str]
 
 @attrs.define(frozen=True)
 class Point:
-    y: int
-    x: int
+    # Smooth positioning is crucial for geometric distortion.
+    #
+    # NOTE: Setting `eq=False` to avoid comparing the float fields directly.
+    # In order words, `point0 == point1` checks only `y` and `x` fields.
+    smooth_y: float = attrs.field(eq=False)
+    smooth_x: float = attrs.field(eq=False)
+
+    # NOTE: Setting `hash=False` is necessary since this class is frozen
+    # and these fields will be set in `__attrs_post_init__`.
+    y: int = attrs.field(init=False, hash=False)
+    x: int = attrs.field(init=False, hash=False)
+
+    def __attrs_post_init__(self):
+        object.__setattr__(self, 'y', round(self.smooth_y))
+        object.__setattr__(self, 'x', round(self.smooth_x))
 
     ###############
     # Constructor #
     ###############
     @classmethod
     def create(cls, y: T_VAL, x: T_VAL):
-        return cls(y=round(float(y)), x=round(float(x)))
+        return cls(smooth_y=float(y), smooth_x=float(x))
 
     ##############
     # Conversion #
@@ -51,6 +64,9 @@ class Point:
     def to_xy_pair(self):
         return (self.x, self.y)
 
+    def to_smooth_xy_pair(self):
+        return (self.smooth_x, self.smooth_y)
+
     ############
     # Operator #
     ############
@@ -59,13 +75,16 @@ class Point:
         if 0 <= self.y < height and 0 <= self.x < width:
             return self
         else:
-            return Point(
-                y=clip_val(self.y, height),
-                x=clip_val(self.x, width),
+            return Point.create(
+                y=clip_val(self.smooth_y, height),
+                x=clip_val(self.smooth_x, width),
             )
 
     def to_shifted_point(self, offset_y: int = 0, offset_x: int = 0):
-        return Point(y=self.y + offset_y, x=self.x + offset_x)
+        return Point.create(
+            y=self.smooth_y + offset_y,
+            x=self.smooth_x + offset_x,
+        )
 
     def to_conducted_resized_point(
         self,
@@ -83,9 +102,9 @@ class Point:
             resized_height=resized_height,
             resized_width=resized_width
         )
-        return Point(
-            y=resize_val(self.y, height, resized_height),
-            x=resize_val(self.x, width, resized_width),
+        return Point.create(
+            y=resize_val(self.smooth_y, height, resized_height),
+            x=resize_val(self.smooth_x, width, resized_width),
         )
 
 
@@ -108,6 +127,9 @@ class PointList(List[Point]):
     def to_xy_pairs(self):
         return [point.to_xy_pair() for point in self]
 
+    def to_smooth_xy_pairs(self):
+        return [point.to_smooth_xy_pair() for point in self]
+
     @classmethod
     def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
         # [x0, y0, x1, y1, ...]
@@ -127,6 +149,9 @@ class PointList(List[Point]):
     def to_flatten_xy_pairs(self):
         return list(chain.from_iterable(point.to_xy_pair() for point in self))
 
+    def to_smooth_flatten_xy_pairs(self):
+        return list(chain.from_iterable(point.to_smooth_xy_pair() for point in self))
+
     @classmethod
     def from_np_array(cls, np_points: np.ndarray):
         points = PointList()
@@ -141,7 +166,10 @@ class PointList(List[Point]):
         return points
 
     def to_np_array(self):
-        return np.array(self.to_xy_pairs(), dtype=np.int32)
+        return np.asarray(self.to_xy_pairs(), dtype=np.int32)
+
+    def to_smooth_np_array(self):
+        return np.asarray(self.to_smooth_xy_pairs(), dtype=np.float32)
 
     def to_point_tuple(self):
         return PointTuple(self)
@@ -200,6 +228,9 @@ class PointTuple(Tuple[Point, ...]):
     def to_xy_pairs(self):
         return tuple(point.to_xy_pair() for point in self)
 
+    def to_smooth_xy_pairs(self):
+        return tuple(point.to_smooth_xy_pair() for point in self)
+
     @classmethod
     def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
         return PointList.from_flatten_xy_pairs(flatten_xy_pairs).to_point_tuple()
@@ -207,12 +238,18 @@ class PointTuple(Tuple[Point, ...]):
     def to_flatten_xy_pairs(self):
         return tuple(chain.from_iterable(point.to_xy_pair() for point in self))
 
+    def to_smooth_flatten_xy_pairs(self):
+        return tuple(chain.from_iterable(point.to_smooth_xy_pair() for point in self))
+
     @classmethod
     def from_np_array(cls, np_points: np.ndarray):
         return PointList.from_np_array(np_points).to_point_tuple()
 
     def to_np_array(self):
         return np.asarray(self.to_xy_pairs(), dtype=np.int32)
+
+    def to_smooth_np_array(self):
+        return np.asarray(self.to_xy_pairs(), dtype=np.float32)
 
     ############
     # Operator #

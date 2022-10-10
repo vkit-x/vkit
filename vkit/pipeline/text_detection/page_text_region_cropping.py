@@ -165,7 +165,7 @@ class PageTextRegionCroppingStep(
             )
 
         # Pick labels.
-        origin_core_shapely_polygon = cropper.origin_core_box.to_polygon().to_shapely_polygon()
+        origin_core_shapely_polygon = cropper.origin_core_box.to_shapely_polygon()
 
         centroid_labels: List[PageCharRegressionLabel] = []
         for shapely_point in centroid_strtree.query(origin_core_shapely_polygon):

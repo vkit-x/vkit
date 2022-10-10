@@ -382,10 +382,13 @@ class Painter:
     def paint_polygons(
         self,
         polygons: Iterable[Polygon],
-        enable_index: bool = False,
         color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
         alpha: float = 0.5,
         palette: Sequence[str] = PALETTE,
+        enable_index: bool = False,
+        enable_polygon_points: bool = False,
+        polygon_points_color: str = 'red',
+        polygon_points_alpha: float = 1.0,
     ):
         layer_image = self.generate_layer_image()
 
@@ -399,13 +402,22 @@ class Painter:
         for idx, (polygon, rgba_tuple) in enumerate(zip(polygons, rgba_tuples)):
             polygon.fill_image(image=layer_image, value=rgba_tuple)
 
-            if enable_index:
+        if enable_index:
+            for idx, (polygon, rgba_tuple) in enumerate(zip(polygons, rgba_tuples)):
                 center_point = polygon.get_center_point()
                 self.paint_text_to_layer_image(
                     layer_image=layer_image,
                     text=str(idx),
                     point=center_point,
                     rgba_tuple=rgba_tuple,
+                )
+
+        if enable_polygon_points:
+            for idx, (polygon, rgba_tuple) in enumerate(zip(polygons, rgba_tuples)):
+                self.paint_points(
+                    polygon.points,
+                    color=polygon_points_color,
+                    alpha=polygon_points_alpha,
                 )
 
         self.overlay_layer_image(layer_image)

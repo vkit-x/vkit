@@ -14,7 +14,7 @@
 from typing import List
 from itertools import chain
 
-from vkit.element import Point
+from vkit.element import Point, PointList
 from .type import ImageGrid
 from .point_projector import PointProjector
 
@@ -32,7 +32,7 @@ def create_src_image_grid(height: int, width: int, grid_size: int):
     for y in ys:
         points = []
         for x in xs:
-            points.append(Point(y=y, x=x))
+            points.append(Point.create(y=y, x=x))
         points_2d.append(points)
 
     return ImageGrid(
@@ -54,9 +54,9 @@ def create_dst_image_grid_and_shift_amounts_and_resize_ratios(
     dst_flatten_points = point_projector.project_points(src_flatten_points)
 
     assert len(dst_flatten_points) == num_src_flatten_points
-    dst_points_2d: List[List[Point]] = []
+    dst_points_2d: List[PointList] = []
     for begin in range(0, num_src_flatten_points, src_image_grid.num_cols):
-        dst_points_2d.append(dst_flatten_points[begin:begin + src_image_grid.num_cols])
+        dst_points_2d.append(PointList(dst_flatten_points[begin:begin + src_image_grid.num_cols]))
 
     y_min = dst_points_2d[0][0].y
     y_max = y_min

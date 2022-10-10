@@ -28,8 +28,8 @@ class CharSlot:
     @classmethod
     def build(cls, point_up: Point, point_down: Point):
         theta = np.arctan2(
-            point_up.y - point_down.y,
-            point_up.x - point_down.x,
+            point_up.smooth_y - point_down.smooth_y,
+            point_up.smooth_x - point_down.smooth_x,
         )
         two_pi = 2 * np.pi
         theta = theta % two_pi

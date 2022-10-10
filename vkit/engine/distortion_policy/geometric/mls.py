@@ -16,7 +16,7 @@ from typing import Tuple, List
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.element import Point
+from vkit.element import Point, PointList
 from vkit.engine import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
 from ..opt import sample_float, SampleFloatMode, generate_grid_size
@@ -72,10 +72,10 @@ class SimilarityMlsConfigGenerator(
         # 2. Distance of any two points >= step.
         coord_y = self.generate_coord(height, step, rng)
         coord_x = self.generate_coord(width, step, rng)
-        src_handle_points: List[Point] = []
+        src_handle_points = PointList()
         for y in coord_y:
             for x in coord_x:
-                src_handle_points.append(Point(y=y, x=x))
+                src_handle_points.append(Point.create(y=y, x=x))
 
         # Generate deformed points.
         assert self.config.radius_max_ratio_max < 0.5
@@ -88,11 +88,11 @@ class SimilarityMlsConfigGenerator(
             mode=SampleFloatMode.QUAD,
         )
         radius = int(radius_max_ratio * step)
-        dst_handle_points: List[Point] = []
+        dst_handle_points = PointList()
         for point in src_handle_points:
             delta_y = rng.integers(-radius, radius + 1)
             delta_x = rng.integers(-radius, radius + 1)
-            dst_handle_points.append(Point(
+            dst_handle_points.append(Point.create(
                 y=point.y + delta_y,
                 x=point.x + delta_x,
             ))
@@ -105,8 +105,8 @@ class SimilarityMlsConfigGenerator(
         )
 
         return distortion.SimilarityMlsConfig(
-            src_handle_points=src_handle_points,
-            dst_handle_points=dst_handle_points,
+            src_handle_points=src_handle_points.to_point_tuple(),
+            dst_handle_points=dst_handle_points.to_point_tuple(),
             grid_size=grid_size,
         )
 

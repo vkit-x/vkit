@@ -58,9 +58,9 @@ class Line:
     # Operator #
     ############
     def get_center_point(self):
-        return Point(
-            y=(self.point_begin.y + self.point_end.y) // 2,
-            x=(self.point_begin.x + self.point_end.x) // 2,
+        return Point.create(
+            y=(self.point_begin.y + self.point_end.y) / 2,
+            x=(self.point_begin.x + self.point_end.x) / 2,
         )
 
 

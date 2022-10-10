@@ -11,13 +11,13 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Sequence, Tuple, Optional
+from typing import Tuple, Optional
 
 import numpy as np
 from numpy.random import Generator as RandomGenerator
 import attrs
 
-from vkit.element import Point
+from vkit.element import Point, PointTuple
 from ..interface import DistortionConfig
 from .grid_rendering.interface import (
     PointProjector,
@@ -29,38 +29,32 @@ from .grid_rendering.grid_creator import create_src_image_grid
 
 @attrs.define
 class SimilarityMlsConfig(DistortionConfig):
-    src_handle_points: Sequence[Point]
-    dst_handle_points: Sequence[Point]
+    src_handle_points: PointTuple
+    dst_handle_points: PointTuple
     grid_size: int
     resize_as_src: bool = False
 
 
 class SimilarityMlsPointProjector(PointProjector):
 
-    def __init__(self, src_handle_points: Sequence[Point], dst_handle_points: Sequence[Point]):
+    def __init__(self, src_handle_points: PointTuple, dst_handle_points: PointTuple):
         self.src_handle_points = src_handle_points
         self.dst_handle_points = dst_handle_points
 
         self.src_xy_pair_to_dst_point = {
-            (src_point.x, src_point.y): dst_point
+            (src_point.smooth_x, src_point.smooth_y): dst_point
             for src_point, dst_point in zip(src_handle_points, dst_handle_points)
         }
 
-        self.src_handle_np_points = np.asarray(
-            [(point.x, point.y) for point in src_handle_points],
-            dtype=np.int32,
-        )
-        self.dst_handle_np_points = np.asarray(
-            [(point.x, point.y) for point in dst_handle_points],
-            dtype=np.int32,
-        )
+        self.src_handle_np_points = src_handle_points.to_smooth_np_array()
+        self.dst_handle_np_points = dst_handle_points.to_smooth_np_array()
 
     def project_point(self, src_point: Point):
         '''
         Calculate the corresponding dst point given the src point.
         Paper: https://people.engr.tamu.edu/schaefer/research/mls.pdf
         '''
-        src_xy_pair = (src_point.x, src_point.y)
+        src_xy_pair = (src_point.smooth_x, src_point.smooth_y)
 
         if src_xy_pair in self.src_xy_pair_to_dst_point:
             # Identity.
@@ -68,8 +62,8 @@ class SimilarityMlsPointProjector(PointProjector):
 
         # Calculate the distance to src handles.
         src_distance_squares = self.src_handle_np_points.copy()
-        src_distance_squares[:, 0] -= src_point.x
-        src_distance_squares[:, 1] -= src_point.y
+        src_distance_squares[:, 0] -= src_point.smooth_x
+        src_distance_squares[:, 1] -= src_point.smooth_y
         np.square(src_distance_squares, out=src_distance_squares)
         # (N), and should not contain 0.0.
         src_distance_squares = np.sum(src_distance_squares, axis=1)
@@ -99,13 +93,13 @@ class SimilarityMlsPointProjector(PointProjector):
                 [
                     # v - p*
                     (
-                        src_point.x - src_centroid_x,
-                        src_point.y - src_centroid_y,
+                        src_point.smooth_x - src_centroid_x,
+                        src_point.smooth_y - src_centroid_y,
                     ),
                     # -(v - p*)^vert
                     (
-                        src_point.y - src_centroid_y,
-                        -(src_point.x - src_centroid_x),
+                        src_point.smooth_y - src_centroid_y,
+                        -(src_point.smooth_x - src_centroid_x),
                     ),
                 ],
                 dtype=np.float32,
@@ -135,7 +129,10 @@ class SimilarityMlsPointProjector(PointProjector):
         mu = np.sum(src_distance_squares_inverse * np.sum(src_hat * src_hat, axis=1))
         dst_x, dst_y = np.sum(dst_prod, axis=0) / mu + dst_centroid
 
-        return Point(y=round(dst_y), x=round(dst_x))
+        dst_x = float(dst_x)
+        dst_y = float(dst_y)
+
+        return Point.create(y=dst_y, x=dst_x)
 
 
 class SimilarityMlsState(DistortionStateImageGridBased[SimilarityMlsConfig]):

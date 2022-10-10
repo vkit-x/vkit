@@ -49,7 +49,7 @@ def affine_np_points(trans_mat: np.ndarray, np_points: np.ndarray) -> np.ndarray
     # (3, *)
     np_points = np.concatenate((
         np_points,
-        np.ones((1, np_points.shape[1]), dtype=np.int32),
+        np.ones((1, np_points.shape[1]), dtype=np.float32),
     ))
 
     new_np_points = np.matmul(trans_mat, np_points)
@@ -65,7 +65,7 @@ def affine_np_points(trans_mat: np.ndarray, np_points: np.ndarray) -> np.ndarray
 
 
 def affine_points(trans_mat: np.ndarray, points: PointTuple):
-    new_np_points = affine_np_points(trans_mat, points.to_np_array())
+    new_np_points = affine_np_points(trans_mat, points.to_smooth_np_array())
     return PointTuple.from_np_array(new_np_points)
 
 
@@ -76,7 +76,7 @@ def affine_polygons(trans_mat: np.ndarray, polygons: Sequence[Polygon]) -> Seque
         points_ranges.append((len(points), len(points) + polygon.num_points))
         points.extend(polygon.points)
 
-    new_np_points = affine_np_points(trans_mat, points.to_np_array())
+    new_np_points = affine_np_points(trans_mat, points.to_smooth_np_array())
     new_polygons = []
     for begin, end in points_ranges:
         new_polygons.append(Polygon.from_np_array(new_np_points[begin:end]))

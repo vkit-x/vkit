@@ -87,7 +87,7 @@ def fill_text_line_to_seal_impression(
                 with char_score_map.writable_context:
                     char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
 
-            point_up = Point(y=0, x=char_score_map.width // 2)
+            point_up = Point.create(y=0, x=char_score_map.width / 2)
 
             # Rotate.
             rotated_result = rotate.distort(

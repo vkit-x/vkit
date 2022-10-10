@@ -115,8 +115,8 @@ class DistortionStateImageGridBased(DistortionState[_T_CONFIG]):
 
     def shift_and_resize_point(self, point: Point):
         return Point.create(
-            y=(point.y - self.shift_amount_y) * self.resize_ratio_y,
-            x=(point.x - self.shift_amount_x) * self.resize_ratio_x,
+            y=(point.smooth_y - self.shift_amount_y) * self.resize_ratio_y,
+            x=(point.smooth_x - self.shift_amount_x) * self.resize_ratio_x,
         )
 
     @property
@@ -209,7 +209,7 @@ class FuncImageGridBased(Generic[_T_CONFIG, _T_STATE]):
         polygon_col = point.x // src_image_grid.grid_size
 
         trans_mat = src_image_grid.get_trans_mat(polygon_row, polygon_col, dst_image_grid)
-        dst_tx, dst_ty, dst_t = np.matmul(trans_mat, (point.x, point.y, 1.0))
+        dst_tx, dst_ty, dst_t = np.matmul(trans_mat, (point.smooth_x, point.smooth_y, 1.0))
         return Point.create(
             y=float(dst_ty / dst_t),
             x=float(dst_tx / dst_t),

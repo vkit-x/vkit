@@ -33,16 +33,16 @@ def test_quad_interpolation():
 
     for idx, points in enumerate([
         [
-            Point(y=0, x=0),
-            Point(y=0, x=149),
-            Point(y=149, x=149),
-            Point(y=149, x=0),
+            Point.create(y=0, x=0),
+            Point.create(y=0, x=149),
+            Point.create(y=149, x=149),
+            Point.create(y=149, x=0),
         ],
         [
-            Point(y=0, x=50),
-            Point(y=0, x=100),
-            Point(y=149, x=149),
-            Point(y=149, x=0),
+            Point.create(y=0, x=50),
+            Point.create(y=0, x=100),
+            Point.create(y=149, x=149),
+            Point.create(y=149, x=0),
         ],
     ]):
         for shift in range(4):
@@ -73,17 +73,17 @@ def test_quad_interpolation():
 
     score_map = ScoreMap.from_shape((300, 300))
     score_map.fill_by_quad_interpolation(
-        point0=Point(y=0, x=0),
-        point1=Point(y=0, x=149),
-        point2=Point(y=149, x=149),
-        point3=Point(y=149, x=0),
+        point0=Point.create(y=0, x=0),
+        point1=Point.create(y=0, x=149),
+        point2=Point.create(y=149, x=149),
+        point3=Point.create(y=149, x=0),
         func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
     )
     score_map.fill_by_quad_interpolation(
-        point0=Point(y=200, x=50),
-        point1=Point(y=250, x=150),
-        point2=Point(y=280, x=150),
-        point3=Point(y=280, x=50),
+        point0=Point.create(y=200, x=50),
+        point1=Point.create(y=250, x=150),
+        point2=Point.create(y=280, x=150),
+        point3=Point.create(y=280, x=50),
         func_np_uv_to_mat=lambda np_uv: np_uv[:, :, 1],
     )
     image = Image.from_shapable(score_map)
