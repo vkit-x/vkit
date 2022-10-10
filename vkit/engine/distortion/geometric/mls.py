@@ -42,7 +42,7 @@ class SimilarityMlsPointProjector(PointProjector):
         self.dst_handle_points = dst_handle_points
 
         self.src_xy_pair_to_dst_point = {
-            (src_point.x, src_point.y): dst_point
+            (src_point.smooth_x, src_point.smooth_y): dst_point
             for src_point, dst_point in zip(src_handle_points, dst_handle_points)
         }
 
@@ -54,7 +54,7 @@ class SimilarityMlsPointProjector(PointProjector):
         Calculate the corresponding dst point given the src point.
         Paper: https://people.engr.tamu.edu/schaefer/research/mls.pdf
         '''
-        src_xy_pair = (src_point.x, src_point.y)
+        src_xy_pair = (src_point.smooth_x, src_point.smooth_y)
 
         if src_xy_pair in self.src_xy_pair_to_dst_point:
             # Identity.

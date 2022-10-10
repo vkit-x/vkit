@@ -129,20 +129,20 @@ class PageCharRegressionLabel:
             return
 
         self._up_left_vector = Vector(
-            y=self.up_left.y - self.label_point_y,
-            x=self.up_left.x - self.label_point_x,
+            y=self.up_left.smooth_y - self.label_point_y,
+            x=self.up_left.smooth_x - self.label_point_x,
         )
         self._up_right_vector = Vector(
-            y=self.up_right.y - self.label_point_y,
-            x=self.up_right.x - self.label_point_x,
+            y=self.up_right.smooth_y - self.label_point_y,
+            x=self.up_right.smooth_x - self.label_point_x,
         )
         self._down_right_vector = Vector(
-            y=self.down_right.y - self.label_point_y,
-            x=self.down_right.x - self.label_point_x,
+            y=self.down_right.smooth_y - self.label_point_y,
+            x=self.down_right.smooth_x - self.label_point_x,
         )
         self._down_left_vector = Vector(
-            y=self.down_left.y - self.label_point_y,
-            x=self.down_left.x - self.label_point_x,
+            y=self.down_left.smooth_y - self.label_point_y,
+            x=self.down_left.smooth_x - self.label_point_x,
         )
 
         self._up_left_to_up_right_angle = Vector.calculate_theta_delta(
@@ -434,7 +434,7 @@ class PageTextRegionLabelStep(
 
             # Sample points in shfited bounding box space.
             deviate_points_in_bounding_box = PointList()
-            # Some points are invalid, hence double the size of samplings.
+            # Some points are invalid, hence multiply the number of samplings by a factor.
             # Also not to sample the points lying on the border to increase the chance of valid.
             for _ in range(
                 self.config.num_deviate_char_regression_labels_candiates_factor
@@ -445,7 +445,6 @@ class PageTextRegionLabelStep(
                 deviate_points_in_bounding_box.append(Point.create(y=y, x=x))
 
             # Then transform to the polygon space.
-            np_dst_points = polygon.internals.np_self_relative_points.astype(np.float32)
             np_src_points = np.asarray(
                 [
                     (0, 0),
@@ -455,6 +454,7 @@ class PageTextRegionLabelStep(
                 ],
                 dtype=np.float32,
             )
+            np_dst_points = polygon.internals.np_self_relative_points
             trans_mat = cv.getPerspectiveTransform(
                 np_src_points,
                 np_dst_points,

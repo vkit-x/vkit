@@ -41,8 +41,8 @@ class NpVec:
     @classmethod
     def from_point(cls, point: 'Point'):
         return cls(
-            x=np.asarray(point.x, dtype=np.float32),
-            y=np.asarray(point.y, dtype=np.float32),
+            x=np.asarray(point.smooth_x, dtype=np.float32),
+            y=np.asarray(point.smooth_y, dtype=np.float32),
         )
 
     def __add__(self, other: 'NpVec'):

@@ -212,8 +212,14 @@ class TextRegionFlattener:
         for polygon in bounding_rectangular_polygons:
             # Get reference line.
             point0, point1, _, point3 = polygon.points
-            side0_length = math.hypot(point0.y - point1.y, point0.x - point1.x)
-            side1_length = math.hypot(point0.y - point3.y, point0.x - point3.x)
+            side0_length = math.hypot(
+                point0.smooth_y - point1.smooth_y,
+                point0.smooth_x - point1.smooth_x,
+            )
+            side1_length = math.hypot(
+                point0.smooth_y - point3.smooth_y,
+                point0.smooth_x - point3.smooth_x,
+            )
 
             long_side_ratios.append(
                 max(side0_length, side1_length) / min(side0_length, side1_length)
@@ -229,8 +235,8 @@ class TextRegionFlattener:
 
             # Get angle of reference line in [0, 180)
             np_theta = np.arctan2(
-                point_a.y - point_b.y,
-                point_a.x - point_b.x,
+                point_a.smooth_y - point_b.smooth_y,
+                point_a.smooth_x - point_b.smooth_x,
             )
             np_theta = np_theta % np.pi
             angle = round(np_theta / np.pi * 180)
