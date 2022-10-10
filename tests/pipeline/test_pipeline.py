@@ -216,7 +216,10 @@ def visualize_page_text_region_step_output(
 
             painter = Painter.create(flattened_text_region.flattened_image)
             assert flattened_text_region.flattened_char_polygons
-            painter.paint_polygons(flattened_text_region.flattened_char_polygons)
+            painter.paint_polygons(
+                flattened_text_region.flattened_char_polygons,
+                enable_polygon_points=True,
+            )
             cur_write_image(f'page_{seed}_flat_text_region_{idx}_char_polygons.jpg', painter.image)
 
     cur_write_image(f'page_{seed}_stacked_image.jpg', output.page_image)

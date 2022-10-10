@@ -72,7 +72,7 @@ class PolygonInternals:
             return self._np_mask
 
         np_mask = np.zeros(self.bounding_box.shape, dtype=np.uint8)
-        cv.fillPoly(np_mask, [self.np_self_relative_points], 1)
+        cv.fillPoly(np_mask, [self.self_relative_polygon.to_np_array()], 1)
         self._np_mask = np_mask.astype(np.bool8)
         return self._np_mask
 
@@ -106,25 +106,30 @@ class Polygon:
         if self._internals is not None:
             return self._internals
 
-        np_points = self.to_np_array()
+        np_self_relative_points = self.to_smooth_np_array()
 
-        x_min = int(np_points[:, 0].min())
-        y_min = int(np_points[:, 1].min())
+        y_min = np_self_relative_points[:, 1].min()
+        y_max = np_self_relative_points[:, 1].max()
 
-        x_max = int(np_points[:, 0].max())
-        y_max = int(np_points[:, 1].max())
+        x_min = np_self_relative_points[:, 0].min()
+        x_max = np_self_relative_points[:, 0].max()
 
-        bounding_box = Box(up=y_min, down=y_max, left=x_min, right=x_max)
+        np_self_relative_points[:, 0] -= x_min
+        np_self_relative_points[:, 1] -= y_min
 
-        np_points[:, 0] -= x_min
-        np_points[:, 1] -= y_min
+        bounding_box = Box(
+            up=round(y_min),
+            down=round(y_max),
+            left=round(x_min),
+            right=round(x_max),
+        )
 
         object.__setattr__(
             self,
             '_internals',
             PolygonInternals(
                 bounding_box=bounding_box,
-                np_self_relative_points=np_points,
+                np_self_relative_points=np_self_relative_points,
             ),
         )
         return cast(PolygonInternals, self._internals)
@@ -173,6 +178,9 @@ class Polygon:
     def to_xy_pairs(self):
         return self.points.to_xy_pairs()
 
+    def to_smooth_xy_pairs(self):
+        return self.points.to_smooth_xy_pairs()
+
     @classmethod
     def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
         return cls(points=PointTuple.from_flatten_xy_pairs(flatten_xy_pairs))
@@ -180,12 +188,18 @@ class Polygon:
     def to_flatten_xy_pairs(self):
         return self.points.to_flatten_xy_pairs()
 
+    def to_smooth_flatten_xy_pairs(self):
+        return self.points.to_smooth_flatten_xy_pairs()
+
     @classmethod
     def from_np_array(cls, np_points: np.ndarray):
         return cls(points=PointTuple.from_np_array(np_points))
 
     def to_np_array(self):
         return self.points.to_np_array()
+
+    def to_smooth_np_array(self):
+        return self.points.to_smooth_np_array()
 
     @classmethod
     def from_shapely_polygon(cls, shapely_polygon: ShapelyPolygon):
@@ -195,11 +209,14 @@ class Polygon:
     def to_shapely_polygon(self):
         return ShapelyPolygon(self.to_xy_pairs())
 
+    def to_smooth_shapely_polygon(self):
+        return ShapelyPolygon(self.to_smooth_xy_pairs())
+
     ############
     # Operator #
     ############
     def get_center_point(self):
-        shapely_polygon = self.to_shapely_polygon()
+        shapely_polygon = self.to_smooth_shapely_polygon()
         centroid = shapely_polygon.centroid
         x, y = centroid.coords[0]
         return Point.create(y=y, x=x)
@@ -214,12 +231,12 @@ class Polygon:
             point_down_left,
         ) = self.points
         left_side_height = math.hypot(
-            point_up_left.y - point_down_left.y,
-            point_up_left.x - point_down_left.x,
+            point_up_left.smooth_y - point_down_left.smooth_y,
+            point_up_left.smooth_x - point_down_left.smooth_x,
         )
         right_side_height = math.hypot(
-            point_up_right.y - point_down_right.y,
-            point_up_right.x - point_down_right.x,
+            point_up_right.smooth_y - point_down_right.smooth_y,
+            point_up_right.smooth_x - point_down_right.smooth_x,
         )
         return (left_side_height + right_side_height) / 2
 
@@ -233,12 +250,12 @@ class Polygon:
             point_down_left,
         ) = self.points
         up_side_width = math.hypot(
-            point_up_left.y - point_up_right.y,
-            point_up_left.x - point_up_right.x,
+            point_up_left.smooth_y - point_up_right.smooth_y,
+            point_up_left.smooth_x - point_up_right.smooth_x,
         )
         down_side_width = math.hypot(
-            point_down_left.y - point_down_right.y,
-            point_down_left.x - point_down_right.x,
+            point_down_left.smooth_y - point_down_right.smooth_y,
+            point_down_left.smooth_x - point_down_right.smooth_x,
         )
         return (up_side_width + down_side_width) / 2
 
@@ -286,7 +303,7 @@ class Polygon:
         )
 
     def to_bounding_rectangular_polygon(self):
-        shapely_polygon = self.to_shapely_polygon()
+        shapely_polygon = self.to_smooth_shapely_polygon()
 
         assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
         polygon = self.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
@@ -388,7 +405,7 @@ class Polygon:
         if ratio == 1.0:
             return self, 0.0
 
-        xy_pairs = self.to_xy_pairs()
+        xy_pairs = self.to_smooth_xy_pairs()
 
         shapely_polygon = ShapelyPolygon(xy_pairs)
         if shapely_polygon.area == 0:
@@ -403,7 +420,7 @@ class Polygon:
 
         clipped_paths = clipper.Execute(distance)
         assert clipped_paths
-        clipped_path = clipped_paths[0]
+        clipped_path: Sequence[Tuple[int, int]] = clipped_paths[0]
 
         clipped_xy_pairs = self.remove_duplicated_xy_pairs(clipped_path)
         clipped_polygon = self.from_xy_pairs(clipped_xy_pairs)
@@ -487,10 +504,7 @@ def patch_unionized_unionized_shapely_polygon(unionized_shapely_polygon: Shapely
 
 
 def unionize_polygons(polygons: Iterable[Polygon]):
-    shapely_polygons = []
-    for polygon in polygons:
-        xy_pairs = polygon.to_xy_pairs()
-        shapely_polygons.append(ShapelyPolygon(xy_pairs))
+    shapely_polygons = [polygon.to_smooth_shapely_polygon() for polygon in polygons]
 
     unionized_shapely_polygons = []
 

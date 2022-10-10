@@ -28,7 +28,7 @@ import cv2 as cv
 import numpy as np
 from numpy.random import Generator as RandomGenerator
 
-from vkit.element import Point, PointList
+from vkit.element import Point, PointList, PointTuple
 from ..interface import DistortionConfig
 from .grid_rendering.interface import (
     PointProjector,
@@ -42,7 +42,7 @@ _T_CONFIG = TypeVar('_T_CONFIG', bound=DistortionConfig)
 
 class Point2dTo3dStrategy:
 
-    def generate_np_3d_points(self, points: PointList) -> np.ndarray:
+    def generate_np_3d_points(self, points: PointTuple) -> np.ndarray:
         raise NotImplementedError()
 
 
@@ -206,13 +206,13 @@ class CameraPointProjector(PointProjector):
         self.point_2d_to_3d_strategy = point_2d_to_3d_strategy
         self.camera_model = CameraModel(camera_model_config)
 
-    def project_points(self, src_points: Union[PointList, Iterable[Point]]):
-        np_3d_points = self.point_2d_to_3d_strategy.generate_np_3d_points(PointList(src_points))
+    def project_points(self, src_points: Union[PointList, PointTuple, Iterable[Point]]):
+        np_3d_points = self.point_2d_to_3d_strategy.generate_np_3d_points(PointTuple(src_points))
         camera_2d_points = self.camera_model.project_np_points_from_3d_to_2d(np_3d_points)
-        return PointList.from_np_array(camera_2d_points)
+        return PointTuple.from_np_array(camera_2d_points)
 
     def project_point(self, src_point: Point):
-        return self.project_points(PointList.from_point(src_point))[0]
+        return self.project_points(PointTuple.from_point(src_point))[0]
 
 
 class DistortionStateCameraOperation(DistortionStateImageGridBased[_T_CONFIG]):
@@ -273,8 +273,8 @@ class CameraPlaneOnlyConfig(DistortionConfig):
 
 class CameraPlaneOnlyPoint2dTo3dStrategy(Point2dTo3dStrategy):
 
-    def generate_np_3d_points(self, points: PointList) -> np.ndarray:
-        np_2d_points = points.to_np_array().astype(np.float32)
+    def generate_np_3d_points(self, points: PointTuple) -> np.ndarray:
+        np_2d_points = points.to_smooth_np_array()
         np_3d_points = np.hstack((
             np_2d_points,
             np.zeros((np_2d_points.shape[0], 1), dtype=np.float32),
@@ -372,8 +372,8 @@ class CameraCubicCurvePoint2dTo3dStrategy(Point2dTo3dStrategy):
 
         self.curve_scale = curve_scale
 
-    def generate_np_3d_points(self, points: PointList) -> np.ndarray:
-        np_2d_points = points.to_np_array().astype(np.float32)
+    def generate_np_3d_points(self, points: PointTuple) -> np.ndarray:
+        np_2d_points = points.to_smooth_np_array()
 
         # Project based on theta.
         plane_projected_points = np.matmul(self.rotation_mat, np_2d_points.transpose())
@@ -461,8 +461,8 @@ class CameraPlaneLinePoint2dTo3dStrategy(Point2dTo3dStrategy):
         # Deformation vector.
         self.perturb_vec = np.asarray(perturb_vec, dtype=np.float32)
 
-    def generate_np_3d_points(self, points: PointList) -> np.ndarray:
-        np_2d_points = points.to_np_array().astype(np.float32)
+    def generate_np_3d_points(self, points: PointTuple) -> np.ndarray:
+        np_2d_points = points.to_smooth_np_array()
 
         # Calculate weights.
         distances = np.abs((np_2d_points * self.line_params_a_b).sum(axis=1) + self.line_param_c)

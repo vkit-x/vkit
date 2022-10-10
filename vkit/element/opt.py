@@ -11,20 +11,22 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, TypeVar
 
 import numpy as np
 
 from .type import Shapable
 
-
-def clip_val(val: int, size: int):
-    return max(0, min(val, size - 1))
+_T = TypeVar('_T', float, int)
 
 
-def resize_val(val: int, size: int, resized_size: int):
-    resized_val = round(resized_size * val / size)
-    return clip_val(resized_val, resized_size)
+def clip_val(val: _T, size: int) -> _T:
+    # Hack to work.
+    return max(0, min(val, size - 1))  # type: ignore
+
+
+def resize_val(val: _T, size: int, resized_size: int):
+    return clip_val(val * resized_size / size, resized_size)
 
 
 def extract_shape_from_shapable_or_shape(shapable_or_shape: Union[Shapable, Tuple[int, int]],):

@@ -121,16 +121,16 @@ class Box(Shapable):
             points = PointList()
             # Up.
             for x in xs:
-                points.append(Point(y=self.up, x=x))
+                points.append(Point.create(y=self.up, x=x))
             # Right.
             for y in ys:
-                points.append(Point(y=y, x=self.right))
+                points.append(Point.create(y=y, x=self.right))
             # Down.
             for x in reversed(xs):
-                points.append(Point(y=self.down, x=x))
+                points.append(Point.create(y=self.down, x=x))
             # Left.
             for y in reversed(ys):
-                points.append(Point(y=y, x=self.left))
+                points.append(Point.create(y=y, x=self.left))
 
         return Polygon.create(points=points)
 
@@ -146,7 +146,7 @@ class Box(Shapable):
     # Operator #
     ############
     def get_center_point(self):
-        return Point(y=(self.up + self.down) // 2, x=(self.left + self.right) // 2)
+        return Point.create(y=(self.up + self.down) / 2, x=(self.left + self.right) / 2)
 
     def to_clipped_box(self, shapable_or_shape: Union[Shapable, Tuple[int, int]]):
         height, width = extract_shape_from_shapable_or_shape(shapable_or_shape)
@@ -174,10 +174,10 @@ class Box(Shapable):
             resized_width=resized_width
         )
         return Box(
-            up=resize_val(self.up, height, resized_height),
-            down=resize_val(self.down, height, resized_height),
-            left=resize_val(self.left, width, resized_width),
-            right=resize_val(self.right, width, resized_width),
+            up=round(resize_val(self.up, height, resized_height)),
+            down=round(resize_val(self.down, height, resized_height)),
+            left=round(resize_val(self.left, width, resized_width)),
+            right=round(resize_val(self.right, width, resized_width)),
         )
 
     def to_resized_box(

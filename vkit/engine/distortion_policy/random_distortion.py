@@ -170,10 +170,10 @@ class RandomDistortionStage:
 
             for x in (0, width - 1):
                 for y in ys:
-                    corner_points.append(Point(y=y, x=x))
+                    corner_points.append(Point.create(y=y, x=x))
             for y in (0, height - 1):
                 for x in xs:
-                    corner_points.append(Point(y=y, x=x))
+                    corner_points.append(Point.create(y=y, x=x))
 
             distortion_result.corner_points = corner_points.to_point_tuple()
 

@@ -442,7 +442,7 @@ class PageTextRegionLabelStep(
             ):
                 y = int(rng.integers(1, bounding_box.height - 1))
                 x = int(rng.integers(1, bounding_box.width - 1))
-                deviate_points_in_bounding_box.append(Point(y=y, x=x))
+                deviate_points_in_bounding_box.append(Point.create(y=y, x=x))
 
             # Then transform to the polygon space.
             np_dst_points = polygon.internals.np_self_relative_points.astype(np.float32)
@@ -470,7 +470,7 @@ class PageTextRegionLabelStep(
                 x = bounding_box.left + shifted_deviate_point.x
                 assert 0 <= y < page_height
                 assert 0 <= x < page_width
-                deviate_points.append(Point(y=y, x=x))
+                deviate_points.append(Point.create(y=y, x=x))
 
             # Remove those are too close to another center point.
             _, np_kd_nbr_indices = kd_tree.query(deviate_points.to_np_array())

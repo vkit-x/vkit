@@ -20,7 +20,7 @@ import numpy as np
 import cv2 as cv
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
-from vkit.element import Point, Box, Mask, ImageKind
+from vkit.element import Point, PointList, Box, Mask, ImageKind
 from vkit.engine.interface import (
     NoneTypeEngineInitResource,
     Engine,
@@ -239,7 +239,7 @@ class SealImpressionEllipseEngine(
             angle += angle_step
 
         # Reshape to ellipse.
-        points: List[Point] = []
+        points = PointList()
         half_ellipse_height = ellipse_height / 2
         half_ellipse_width = ellipse_width / 2
         for x, y in unit_circle_xy_pairs:

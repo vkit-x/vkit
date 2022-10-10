@@ -19,12 +19,12 @@ import numpy as np
 import cv2 as cv
 
 from vkit.utility import attrs_lazy_field
-from vkit.element import Shapable, Point, Polygon, PointList
+from vkit.element import Shapable, PointList, Polygon
 
 
 @attrs.define
 class ImageGrid:
-    points_2d: List[List[Point]]
+    points_2d: List[PointList]
 
     # If set, then this is a src image grid.
     grid_size: Optional[int] = None
@@ -152,9 +152,9 @@ class ImageGrid:
         resized_height: int,
         resized_width: int,
     ):
-        new_points_2d: List[List[Point]] = []
+        new_points_2d: List[PointList] = []
         for points in self.points_2d:
-            new_points: List[Point] = []
+            new_points = PointList()
             for point in points:
                 new_points.append(
                     point.to_conducted_resized_point(
