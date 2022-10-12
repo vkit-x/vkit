@@ -11,17 +11,32 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Sequence, List, Optional, Mapping, Dict, DefaultDict, Iterable, Set, Tuple
+from typing import (
+    cast,
+    Sequence,
+    List,
+    Optional,
+    Mapping,
+    Dict,
+    DefaultDict,
+    Iterable,
+    Set,
+    Tuple,
+)
 from enum import Enum, unique
 from collections import defaultdict
 
 import attrs
-import cattrs
 import iolite as io
 import numpy as np
 import cv2 as cv
 
-from vkit.utility import attrs_lazy_field, dyn_structure, PathType
+from vkit.utility import (
+    attrs_lazy_field,
+    get_cattrs_converter_ignoring_init_equals_false,
+    dyn_structure,
+    PathType,
+)
 from vkit.element import (
     Image,
     Box,
@@ -32,6 +47,48 @@ from vkit.element import (
     PointList,
     Polygon,
 )
+
+
+@attrs.define(frozen=True)
+class FontGlyphInfo:
+    tags: Sequence[str]
+    ascent_plus_pad_up_min_to_font_size_ratio: float
+    height_min_to_font_size_ratio: float
+    width_min_to_font_size_ratio: float
+
+
+@attrs.define
+class FontGlyphInfoCollection:
+    font_glyph_infos: Sequence[FontGlyphInfo]
+
+    _tag_to_font_glyph_info: Mapping[str, FontGlyphInfo] = attrs_lazy_field()
+
+    def lazy_post_init_tag_to_font_glyph_info(self):
+        if self._tag_to_font_glyph_info:
+            return self._tag_to_font_glyph_info
+
+        tag_to_font_glyph_info = {}
+        for font_glyph_info in self.font_glyph_infos:
+            assert font_glyph_info.tags
+            for tag in font_glyph_info.tags:
+                assert tag not in tag_to_font_glyph_info
+                tag_to_font_glyph_info[tag] = font_glyph_info
+
+        self._tag_to_font_glyph_info = cast(Mapping[str, FontGlyphInfo], tag_to_font_glyph_info)
+        return self._tag_to_font_glyph_info
+
+    @property
+    def tag_to_font_glyph_info(self):
+        return self.lazy_post_init_tag_to_font_glyph_info()
+
+
+@attrs.define
+class FontVariant:
+    char_to_tags: Mapping[str, Sequence[str]]
+    font_file: PathType
+    font_glyph_info_collection: FontGlyphInfoCollection
+    is_ttc: bool = False
+    ttc_font_index: Optional[int] = None
 
 
 @unique
@@ -45,33 +102,34 @@ class FontKind(Enum):
 
 
 @attrs.define
-class FontVariant:
-    font_file: PathType
-    ascent_plus_pad_up_min_to_font_size_ratio: float
-    height_min_to_font_size_ratio: float
-    width_min_to_font_size_ratio: float
-    is_ttc: bool = False
-    ttc_font_index: Optional[int] = None
-
-
-@attrs.define
 class FontMeta:
     name: str
     kind: FontKind
-    chars: Sequence[str]
+    char_to_tags: Mapping[str, Sequence[str]]
     font_files: Sequence[str]
-    ascent_plus_pad_up_min_to_font_size_ratio: float
-    height_min_to_font_size_ratio: float
-    width_min_to_font_size_ratio: float
+    font_glyph_info_collection: FontGlyphInfoCollection
     # NOTE: ttc_font_index_max is inclusive.
     ttc_font_index_max: Optional[int] = None
+
+    _chars: Sequence[str] = attrs_lazy_field()
+
+    def lazy_post_init_chars(self):
+        if self._chars:
+            return self._chars
+
+        self._chars = cast(Sequence[str], sorted(self.char_to_tags))
+        return self._chars
+
+    @property
+    def chars(self):
+        return self.lazy_post_init_chars()
 
     def __repr__(self):
         return (
             'FontMeta('
             f'name="{self.name}", '
             f'kind={self.kind}, '
-            f'num_chars={len(self.chars)}), '
+            f'num_chars={len(self.char_to_tags)}), '
             f'font_files={self.font_files}, '
             f'ttc_font_index_max={self.ttc_font_index_max})'
         )
@@ -108,7 +166,8 @@ class FontMeta:
                 font_files.append(str(io.file(font_file).relative_to(font_file_prefix_fd)))
             font = attrs.evolve(self, font_files=font_files)
 
-        io.write_json(path, cattrs.unstructure(font), indent=2, ensure_ascii=False)
+        converter = get_cattrs_converter_ignoring_init_equals_false()
+        io.write_json(path, converter.unstructure(font), indent=2, ensure_ascii=False)
 
     @property
     def num_font_variants(self):
@@ -126,24 +185,18 @@ class FontMeta:
         if self.kind in (FontKind.VOTC, FontKind.VTTC):
             assert variant_idx < len(self.font_files)
             return FontVariant(
+                char_to_tags=self.char_to_tags,
                 font_file=io.file(self.font_files[variant_idx]),
-                ascent_plus_pad_up_min_to_font_size_ratio=(
-                    self.ascent_plus_pad_up_min_to_font_size_ratio
-                ),
-                height_min_to_font_size_ratio=self.height_min_to_font_size_ratio,
-                width_min_to_font_size_ratio=self.width_min_to_font_size_ratio,
+                font_glyph_info_collection=self.font_glyph_info_collection,
             )
 
         elif self.kind == FontKind.TTC:
             assert self.ttc_font_index_max is not None
             assert variant_idx <= self.ttc_font_index_max
             return FontVariant(
+                char_to_tags=self.char_to_tags,
                 font_file=io.file(self.font_files[0]),
-                ascent_plus_pad_up_min_to_font_size_ratio=(
-                    self.ascent_plus_pad_up_min_to_font_size_ratio
-                ),
-                height_min_to_font_size_ratio=self.height_min_to_font_size_ratio,
-                width_min_to_font_size_ratio=self.width_min_to_font_size_ratio,
+                font_glyph_info_collection=self.font_glyph_info_collection,
                 is_ttc=True,
                 ttc_font_index=variant_idx,
             )
@@ -268,11 +321,16 @@ class CharGlyph:
     char: str
     image: Image
     score_map: Optional[ScoreMap]
+    # Load from font face. See build_char_glyph.
     ascent: int
     pad_up: int
     pad_down: int
     pad_left: int
     pad_right: int
+    # For rendering text line and generating char-level polygon, based on the reference char.
+    ref_ascent_plus_pad_up: int
+    ref_char_height: int
+    ref_char_width: int
 
     def __attrs_post_init__(self):
         # NOTE: ascent could be negative for char like '_'.
@@ -331,8 +389,6 @@ class TextLine:
     cv_resize_interpolation: int
     style: FontEngineRunConfigStyle
     font_size: int
-    ref_char_height: int
-    ref_char_width: int
     text: str
     is_hori: bool
 
@@ -393,6 +449,7 @@ class TextLine:
         for text in texts:
             end = begin + len(text) - 1
             char_boxes = self.char_boxes[begin:end + 1]
+            char_glyphs = self.char_glyphs[begin:end + 1]
 
             if self.is_hori:
                 left = char_boxes[0].left
@@ -419,6 +476,7 @@ class TextLine:
                     mask=mask,
                     score_map=score_map,
                     char_boxes=char_boxes,
+                    char_glyphs=char_glyphs,
                     text=text,
                 )
             )
@@ -481,19 +539,14 @@ class TextLine:
 
             return Polygon.create(points=points)
 
-    def to_char_polygons(
-        self,
-        page_height: int,
-        page_width: int,
-        ref_char_height_ratio: float = 1.0,
-        ref_char_width_ratio: float = 1.0,
-    ):
-        ref_char_height = round(self.ref_char_height * ref_char_height_ratio)
-        ref_char_width = round(self.ref_char_width * ref_char_width_ratio)
+    def to_char_polygons(self, page_height: int, page_width: int):
+        assert len(self.char_boxes) == len(self.char_glyphs)
 
         if self.is_hori:
             polygons: List[Polygon] = []
-            for char_box in self.char_boxes:
+            for char_box, char_glyph in zip(self.char_boxes, self.char_glyphs):
+                ref_char_height = char_glyph.ref_char_height
+                ref_char_width = char_glyph.ref_char_width
                 box = char_box.box
 
                 up = box.up
@@ -520,7 +573,9 @@ class TextLine:
 
         else:
             polygons: List[Polygon] = []
-            for char_box in self.char_boxes:
+            for char_box, char_glyph in zip(self.char_boxes, self.char_glyphs):
+                ref_char_height = char_glyph.ref_char_height
+                ref_char_width = char_glyph.ref_char_width
                 box = char_box.box
 
                 left = box.left

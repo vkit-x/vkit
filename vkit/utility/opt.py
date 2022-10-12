@@ -43,6 +43,19 @@ def attrs_lazy_field():
     return attrs.field(default=None, init=False, repr=False)
 
 
+def get_cattrs_converter_ignoring_init_equals_false():
+    converter = cattrs.Converter()
+    converter.register_unstructure_hook_factory(
+        attrs.has,
+        lambda cl: cattrs.gen.make_dict_unstructure_fn(
+            cl,
+            converter,
+            **{a.name: cattrs.override(omit=True) for a in attrs.fields(cl) if not a.init},
+        ),
+    )
+    return converter
+
+
 def is_path_type(path: Any):
     return isinstance(path, (str, PathLike))  # type: ignore
 
