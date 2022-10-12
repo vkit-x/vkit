@@ -18,7 +18,7 @@ import warnings
 import attrs
 import numpy as np
 from shapely.errors import ShapelyDeprecationWarning
-from shapely.geometry import box as ShapelyBox
+from shapely.geometry import box as build_shapely_polygon_as_box
 from shapely.strtree import STRtree
 
 from .type import Shapable, FillByElementsMode
@@ -135,7 +135,7 @@ class Box(Shapable):
         return Polygon.create(points=points)
 
     def to_shapely_polygon(self):
-        return ShapelyBox(
+        return build_shapely_polygon_as_box(
             miny=self.up,
             maxy=self.down,
             minx=self.left,
