@@ -42,9 +42,17 @@ def fill_text_line_to_seal_impression(
         assert text_line.is_hori
         assert not text_line.shifted
 
+        ref_char_height = 0
+        ref_char_width = 0
+        for char_glyph in text_line.char_glyphs:
+            if char_glyph.ref_char_height > ref_char_height:
+                ref_char_height = char_glyph.ref_char_height
+                ref_char_width = char_glyph.ref_char_width
+        assert ref_char_height > 0 and ref_char_width > 0
+
         text_line_slot = seal_impression.text_line_slots[text_line_slot_idx]
         char_aspect_ratio = text_line_slot.char_aspect_ratio
-        text_line_aspect_ratio = text_line.ref_char_width / text_line.ref_char_height
+        text_line_aspect_ratio = ref_char_width / ref_char_height
         resized_width_factor = char_aspect_ratio / text_line_aspect_ratio
 
         for char_slot_idx, (char_box, char_glyph) \

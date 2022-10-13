@@ -75,18 +75,20 @@ class PageTextLineBoundingBoxStep(
         text_line: TextLine,
         rng: RandomGenerator,
     ):
-        ref_char_height = text_line.ref_char_height
+        ref_char_height_max = max(
+            char_glyph.ref_char_height for char_glyph in text_line.char_glyphs
+        )
 
         # Sample shape.
-        offset_up = self.sample_offset(ref_char_height, rng)
-        offset_down = self.sample_offset(ref_char_height, rng)
-        offset_left = self.sample_offset(ref_char_height, rng)
-        offset_right = self.sample_offset(ref_char_height, rng)
+        offset_up = self.sample_offset(ref_char_height_max, rng)
+        offset_down = self.sample_offset(ref_char_height_max, rng)
+        offset_left = self.sample_offset(ref_char_height_max, rng)
+        offset_right = self.sample_offset(ref_char_height_max, rng)
 
         box_height = text_line.box.height + offset_up + offset_down
         box_width = text_line.box.width + offset_left + offset_right
 
-        border_thickness = self.sample_border_thickness(ref_char_height, rng)
+        border_thickness = self.sample_border_thickness(ref_char_height_max, rng)
         alpha = float(rng.uniform(self.config.alpha_max, self.config.alpha_max))
 
         # Fill empty area.

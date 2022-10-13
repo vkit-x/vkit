@@ -23,8 +23,6 @@ from .page_text_line import PageTextLineStepOutput, PageTextLineCollection
 
 @attrs.define
 class PageTextLineLabelStepConfig:
-    ref_char_height_ratio: float = 0.6
-    ref_char_width_ratio: float = 0.6
     num_sample_height_points: int = 3
     enable_text_line_mask: bool = False
     enable_boundary_mask: bool = False
@@ -87,8 +85,6 @@ class PageTextLineLabelStep(
                 text_line.to_char_polygons(
                     page_height=page_text_line_collection.height,
                     page_width=page_text_line_collection.width,
-                    ref_char_height_ratio=self.config.ref_char_height_ratio,
-                    ref_char_width_ratio=self.config.ref_char_width_ratio,
                 )
             )
             height_points_up.extend(text_line.get_char_level_height_points(is_up=True))

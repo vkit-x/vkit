@@ -12,6 +12,7 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Any, Callable, List, Sequence
+import itertools
 
 import attrs
 import numpy as np
@@ -49,24 +50,6 @@ def estimate_font_size(config: FontEngineRunConfig):
 
     font_size = int(np.clip(font_size, style.font_size_min, style.font_size_max))
     return font_size
-
-
-def get_ref_ascent_plus_pad_up_min(config: FontEngineRunConfig):
-    font_size = estimate_font_size(config)
-    ratio = config.font_variant.ascent_plus_pad_up_min_to_font_size_ratio
-    return round(ratio * font_size)
-
-
-def get_ref_char_height(config: FontEngineRunConfig):
-    font_size = estimate_font_size(config)
-    ratio = config.font_variant.height_min_to_font_size_ratio
-    return round(ratio * font_size)
-
-
-def get_ref_char_width(config: FontEngineRunConfig):
-    font_size = estimate_font_size(config)
-    ratio = config.font_variant.width_min_to_font_size_ratio
-    return round(ratio * font_size)
 
 
 def load_freetype_font_face(
@@ -115,103 +98,112 @@ def build_freetype_font_face_lcd_hc_matrix(lcd_compression_factor: int):
 
 def trim_char_np_image_vert(np_image: np.ndarray):
     # (H, W) or (H, W, 3)
+    np_vert_max: np.ndarray = np.amax(np_image, axis=1)
+    if np_vert_max.ndim == 2:
+        np_vert_max = np.amax(np_vert_max, axis=1)
+    assert np_vert_max.ndim == 1
+
+    np_vert_nonzero = np.nonzero(np_vert_max)[0]
+    if len(np_vert_nonzero) == 0:
+        raise RuntimeError('trim_char_np_image_vert: empty np_image.')
+
+    up = int(np_vert_nonzero[0])
+    down = int(np_vert_nonzero[-1])
+
     height = np_image.shape[0]
-
-    up = 0
-    while up < height:
-        all_empty = (np_image[up] == 0).all()
-        if all_empty:
-            up += 1
-        else:
-            break
-
-    if up >= height:
-        raise RuntimeError('trim_char_np_image_vert: up oob.')
-
-    down = height - 1
-    while up <= down:
-        all_empty = (np_image[down] == 0).all()
-        if all_empty:
-            down -= 1
-        else:
-            break
-
-    if down < up:
-        raise RuntimeError('trim_char_np_image_vert: down oob.')
-
     return np_image[up:down + 1], up, height - 1 - down
 
 
 def trim_char_np_image_hori(np_image: np.ndarray):
     # (H, W) or (H, W, 3)
+    np_hori_max: np.ndarray = np.amax(np_image, axis=0)
+    if np_hori_max.ndim == 2:
+        np_hori_max = np.amax(np_hori_max, axis=1)
+    assert np_hori_max.ndim == 1
+
+    np_hori_nonzero = np.nonzero(np_hori_max)[0]
+    if len(np_hori_nonzero) == 0:
+        raise RuntimeError('trim_char_np_image_hori: empty np_image.')
+
+    left = int(np_hori_nonzero[0])
+    right = int(np_hori_nonzero[-1])
+
     width = np_image.shape[1]
-
-    left = 0
-    while left < width:
-        all_empty = (np_image[:, left] == 0).all()
-        if all_empty:
-            left += 1
-        else:
-            break
-
-    if left >= width:
-        raise RuntimeError('trim_char_np_image_hori: left oob.')
-
-    right = width - 1
-    while left <= right:
-        all_empty = (np_image[:, right] == 0).all()
-        if all_empty:
-            right -= 1
-        else:
-            break
-
-    if right < left:
-        raise RuntimeError('trim_char_np_image_hori: right oob.')
-
     return np_image[:, left:right + 1], left, width - 1 - right
 
 
 def build_char_glyph(
-    style: FontEngineRunConfigStyle,
+    config: FontEngineRunConfig,
     char: str,
     glyph: Any,
     np_image: np.ndarray,
 ):
-    width = np_image.shape[1]
+    assert not char.isspace()
+
+    # References:
+    # https://freetype.org/freetype2/docs/tutorial/step2.html
+    # https://freetype-py.readthedocs.io/en/latest/glyph_slot.html
 
     # "the distance from the baseline to the top-most glyph scanline"
     ascent = glyph.bitmap_top
 
     # "It is always zero for horizontal layouts, and positive for vertical layouts."
     assert glyph.advance.y == 0
-    pad_up = 0
-    pad_down = 0
+
+    # Trim vertically to get pad_up & pad_down.
+    np_image, pad_up, pad_down = trim_char_np_image_vert(np_image)
+    ascent -= pad_up
 
     # "bitmap’s left bearing"
-    pad_left = glyph.bitmap_left
+    # NOTE: `bitmap_left` could be negative, we simply ignore the negative value.
+    pad_left = max(0, glyph.bitmap_left)
+
     # "It is always zero for horizontal layouts, and zero for vertical ones."
     assert glyph.advance.x > 0
+    width = np_image.shape[1]
+    # Aforementioned, 1 unit = 1/64 pixel.
     pad_right = round(glyph.advance.x / 64) - pad_left - width
-
-    # NOTE: `bitmap_left` could be negative, we simply ignore the negative value.
-    pad_left = max(0, pad_left)
+    # Apply defensive clipping.
     pad_right = max(0, pad_right)
 
-    assert not char.isspace()
-    np_image, pad_up_inc, pad_down_inc = trim_char_np_image_vert(np_image)
-    pad_up += pad_up_inc
-    ascent -= pad_up_inc
-    pad_down += pad_down_inc
-
+    # Trim horizontally to increase pad_left & pad_right.
     np_image, pad_left_inc, pad_right_inc = trim_char_np_image_hori(np_image)
     pad_left += pad_left_inc
     pad_right += pad_right_inc
 
     score_map = None
     if np_image.ndim == 2:
-        # Gamma correction.
-        np_alpha = np.power(np_image.astype(np.float32) / 255.0, style.glyph_color_gamma)
+        # Apply gamma correction.
+        np_alpha = np.power(
+            np_image.astype(np.float32) / 255.0,
+            config.style.glyph_color_gamma,
+        )
         score_map = ScoreMap(mat=np_alpha)
+
+    # Reference statistics.
+    font_variant = config.font_variant
+    tag_to_font_glyph_info = font_variant.font_glyph_info_collection.tag_to_font_glyph_info
+
+    assert char in font_variant.char_to_tags
+    tags = font_variant.char_to_tags[char]
+
+    font_glyph_info = None
+    for tag in tags:
+        assert tag in tag_to_font_glyph_info
+        cur_font_glyph_info = tag_to_font_glyph_info[tag]
+        if font_glyph_info is None:
+            font_glyph_info = cur_font_glyph_info
+        else:
+            assert font_glyph_info == cur_font_glyph_info
+
+    assert font_glyph_info is not None
+
+    font_size = estimate_font_size(config)
+    ref_ascent_plus_pad_up = round(
+        font_glyph_info.ascent_plus_pad_up_min_to_font_size_ratio * font_size
+    )
+    ref_char_height = round(font_glyph_info.height_min_to_font_size_ratio * font_size)
+    ref_char_width = round(font_glyph_info.width_min_to_font_size_ratio * font_size)
 
     return CharGlyph(
         char=char,
@@ -222,6 +214,9 @@ def build_char_glyph(
         pad_down=pad_down,
         pad_left=pad_left,
         pad_right=pad_right,
+        ref_ascent_plus_pad_up=ref_ascent_plus_pad_up,
+        ref_char_height=ref_char_height,
+        ref_char_width=ref_char_width,
     )
 
 
@@ -407,11 +402,13 @@ def place_char_glyphs_in_text_line_hori_default(
     word_space_std = char_widths_avg * style.word_space_std
 
     ascent_plus_pad_up_max = max(
-        char_glyph.ascent + char_glyph.pad_up for char_glyph in char_glyphs
+        itertools.chain.from_iterable(
+            (char_glyph.ascent + char_glyph.pad_up, char_glyph.ref_ascent_plus_pad_up)
+            for char_glyph in char_glyphs
+        )
     )
-    ascent_plus_pad_up_max = max(ascent_plus_pad_up_max, get_ref_ascent_plus_pad_up_min(run_config))
 
-    text_line_height = get_ref_char_height(run_config)
+    text_line_height = max(char_glyph.ref_char_height for char_glyph in char_glyphs)
 
     char_boxes: List[CharBox] = []
     hori_offset = 0
@@ -514,9 +511,11 @@ def place_char_glyphs_in_text_line_vert_default(
     word_space_std = char_widths_avg * style.word_space_std
 
     text_line_width = max(
-        char_glyph.pad_left + char_glyph.width + char_glyph.pad_right for char_glyph in char_glyphs
+        itertools.chain.from_iterable((
+            char_glyph.pad_left + char_glyph.width + char_glyph.pad_right,
+            char_glyph.ref_char_width,
+        ) for char_glyph in char_glyphs)
     )
-    text_line_width = max(text_line_width, get_ref_char_width(run_config))
 
     text_line_width_mid = text_line_width // 2
 
@@ -948,8 +947,6 @@ def render_text_line_meta(
             cv_resize_interpolation=cv_resize_interpolation,
             font_size=estimate_font_size(run_config),
             style=run_config.style,
-            ref_char_height=get_ref_char_height(run_config),
-            ref_char_width=get_ref_char_width(run_config),
             text=''.join(run_config.chars[:char_idx]),
             is_hori=is_hori,
             font_variant=run_config.font_variant if run_config.return_font_variant else None,
@@ -991,7 +988,7 @@ class FontFreetypeDefaultEngine(
         # (H, W), [0, 255]
         np_image = np.asarray(bitmap.buffer, dtype=np.uint8).reshape(height, width)
 
-        return build_char_glyph(run_config.style, char, glyph, np_image)
+        return build_char_glyph(run_config, char, glyph, np_image)
 
     def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
         font_face = load_freetype_font_face(run_config)
@@ -1050,7 +1047,7 @@ class FontFreetypeLcdEngine(
         np_image = np.asarray(bitmap.buffer, dtype=np.uint8).reshape(height, pitch)
         np_image = np_image[:, :width * 3].reshape(height, width, 3)
 
-        return build_char_glyph(run_config.style, char, glyph, np_image)
+        return build_char_glyph(run_config, char, glyph, np_image)
 
     @classmethod
     def bind_render_char_glyph(cls, lcd_hc_matrix: freetype.Matrix):
@@ -1134,7 +1131,7 @@ class FontFreetypeMonochromeEngine(
         np_image = np.asarray(data, dtype=np.uint8)
         assert np_image.shape == (height, width)
 
-        return build_char_glyph(run_config.style, char, glyph, np_image)
+        return build_char_glyph(run_config, char, glyph, np_image)
 
     def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
         font_face = load_freetype_font_face(run_config)

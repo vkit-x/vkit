@@ -32,7 +32,7 @@ from .type import Shapable, FillByElementsMode
 
 logger = logging.getLogger(__name__)
 
-T_VAL = Union[float, str]
+_T = Union[float, str]
 
 
 @attrs.define
@@ -172,7 +172,7 @@ class Polygon:
     # Conversion #
     ##############
     @classmethod
-    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[_T, _T]]):
         return cls(points=PointTuple.from_xy_pairs(xy_pairs))
 
     def to_xy_pairs(self):
@@ -182,7 +182,7 @@ class Polygon:
         return self.points.to_smooth_xy_pairs()
 
     @classmethod
-    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[_T]):
         return cls(points=PointTuple.from_flatten_xy_pairs(flatten_xy_pairs))
 
     def to_flatten_xy_pairs(self):

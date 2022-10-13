@@ -371,7 +371,7 @@ class PageTextRegionLabelStep(
         for polygon in page_char_polygons:
             # Transform.
             bounding_box = polygon.bounding_box
-            np_dst_points = polygon.internals.np_self_relative_points.astype(np.float32)
+            np_dst_points = polygon.internals.np_self_relative_points
 
             np_dst_gaussian_map = cv.warpPerspective(
                 np_src_gaussian_map,
