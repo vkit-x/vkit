@@ -1,4 +1,4 @@
-name: release-nightly
+name: (Procedure) Release API reference (nightly)
 on:
   push:
     branches:
@@ -12,34 +12,25 @@ jobs:
     outputs:
       abort: ${{ steps.set-output.outputs.abort }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 2
       - id: set-output
         name: Check if the code or workflows has been changed.
         run: |
           if [ $(git --no-pager diff --name-only HEAD^ vkit | wc -l) -eq 0 ] \
-              && [ $(git --no-pager diff HEAD^ setup.cfg | wc -l) -eq 0 ] \
               && [ $(git --no-pager diff --name-only HEAD^ .github | wc -l) -eq 0 ]
           then
-            echo "::set-output name=abort::1"
+            echo "abort=1" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=abort::0"
+            echo "abort=0" >> $GITHUB_OUTPUT
           fi
-  call-type-checking:
-    uses: ./.github/workflows/type-checking.yaml
+  call-workflow-publish-api-reference:
+    uses: ./.github/workflows/workflow-publish-api-reference.yaml
     needs: check-code-update
     if: needs.check-code-update.outputs.abort != 1
-  call-test:
-    uses: ./.github/workflows/test.yaml
-    needs: check-code-update
-    if: needs.check-code-update.outputs.abort != 1
-  call-push-to-pypi:
-    uses: ./.github/workflows/push-to-pypi.yaml
-    needs: [call-type-checking, call-test]
     with:
-      package-name: "vkit-nightly"
-      nightly: true
+      github-page-repo: "vkit-x/vkit-api-reference-nightly-github-page"
+      domain: "vkit-api-reference-nightly.vkit-x.com"
     secrets:
-      pypi-username: ${{ secrets.PYPI_USERNAME }}
-      pypi-password: ${{ secrets.PYPI_PASSWORD }}
+      github-page-repo-deploy-key: ${{ secrets.VKIT_API_REFERENCE_NIGHTLY_GITHUB_PAGE_DEPLOY_KEY }}

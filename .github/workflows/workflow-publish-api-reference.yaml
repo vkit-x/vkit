@@ -1,0 +1,51 @@
+name: (Workflow) Publish API reference to GitHub Page
+on:
+  workflow_call:
+    inputs:
+      github-page-repo:
+        required: true
+        type: string
+      domain:
+        required: true
+        type: string
+    secrets:
+      github-page-repo-deploy-key:
+        required: true
+jobs:
+  workflow-publish-api-reference:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install ssh-agent
+        run: |
+          sudo apt-get install -y openssh-client
+      - uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: |
+            ${{ secrets.github-page-repo-deploy-key }}
+      - name: Install project (required by pdoc)
+        run: |
+          pip install -e .
+          pip install pdoc
+      - name: Build and publish
+        run: |
+          pdoc \
+            --favicon https://vkit-logo.vkit-x.com/img/favicon.ico \
+            --logo https://vkit-logo.vkit-x.com/img/logo.svg \
+            -o ../api-reference-github-page \
+            vkit
+
+          cd ../api-reference-github-page
+
+          # Configure domain for github page.
+          echo "${{ inputs.domain }}" > CNAME
+
+          git config --global user.email "huntzhan.dev@gmail.com"
+          git config --global user.name "Hunt Zhan"
+
+          git init
+          git add --all
+          git commit -m "Published by GitHub Action."
+
+          git remote add origin git@github.com:${{ inputs.github-page-repo }}.git
+          git push -u origin master --force

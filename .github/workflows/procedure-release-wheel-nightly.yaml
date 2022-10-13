@@ -1,0 +1,45 @@
+name: (Procedure) Release wheel (nightly)
+on:
+  push:
+    branches:
+      - master
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  check-code-update:
+    runs-on: ubuntu-20.04
+    outputs:
+      abort: ${{ steps.set-output.outputs.abort }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - id: set-output
+        name: Check if the code or workflows has been changed.
+        run: |
+          if [ $(git --no-pager diff --name-only HEAD^ vkit | wc -l) -eq 0 ] \
+              && [ $(git --no-pager diff HEAD^ setup.cfg | wc -l) -eq 0 ] \
+              && [ $(git --no-pager diff --name-only HEAD^ .github | wc -l) -eq 0 ]
+          then
+            echo "abort=1" >> $GITHUB_OUTPUT
+          else
+            echo "abort=0" >> $GITHUB_OUTPUT
+          fi
+  call-workflow-type-checking:
+    uses: ./.github/workflows/workflow-type-checking.yaml
+    needs: check-code-update
+    if: needs.check-code-update.outputs.abort != 1
+  call-workflow-test:
+    uses: ./.github/workflows/workflow-test.yaml
+    needs: check-code-update
+    if: needs.check-code-update.outputs.abort != 1
+  call-workflow-push-wheel-to-pypi:
+    uses: ./.github/workflows/workflow-push-wheel-to-pypi.yaml
+    needs: [call-workflow-type-checking, call-workflow-test]
+    with:
+      package-name: "vkit-nightly"
+      nightly: true
+    secrets:
+      pypi-username: ${{ secrets.PYPI_USERNAME }}
+      pypi-password: ${{ secrets.PYPI_PASSWORD }}

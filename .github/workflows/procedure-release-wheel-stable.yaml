@@ -1,4 +1,4 @@
-name: release-stable
+name: (Procedure) Release wheel (stable)
 on:
   push:
     branches:
@@ -17,28 +17,28 @@ jobs:
     outputs:
       abort: ${{ steps.set-output.outputs.abort }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 2
       - id: set-output
         name: Check if the version has been changed.
         run: |
           if [ $(git --no-pager diff HEAD^ setup.cfg | grep +version | wc -l) -eq 0 ] ; then
-            echo "::set-output name=abort::1"
+            echo "abort=1" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=abort::0"
+            echo "abort=0" >> $GITHUB_OUTPUT
           fi
-  call-type-checking:
-    uses: ./.github/workflows/type-checking.yaml
+  call-workflow-type-checking:
+    uses: ./.github/workflows/workflow-type-checking.yaml
     needs: check-version-update
     if: needs.check-version-update.outputs.abort != 1 || github.event.inputs.confirm == 'yes'
-  call-test:
-    uses: ./.github/workflows/test.yaml
+  call-workflow-test:
+    uses: ./.github/workflows/workflow-test.yaml
     needs: check-version-update
     if: needs.check-version-update.outputs.abort != 1 || github.event.inputs.confirm == 'yes'
-  call-push-to-pypi:
-    uses: ./.github/workflows/push-to-pypi.yaml
-    needs: [call-type-checking, call-test]
+  call-workflow-push-wheel-to-pypi:
+    uses: ./.github/workflows/workflow-push-wheel-to-pypi.yaml
+    needs: [call-workflow-type-checking, call-workflow-test]
     with:
       package-name: "vkit"
       nightly: false

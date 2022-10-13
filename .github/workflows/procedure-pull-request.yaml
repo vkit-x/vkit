@@ -1,4 +1,4 @@
-name: ci
+name: (Procedure) Pull request
 on:
   pull_request:
 concurrency:
@@ -10,10 +10,10 @@ jobs:
     outputs:
       abort: ${{ steps.set-output.outputs.abort }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: master
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - id: set-output
         name: Check if the code or workflows has been changed.
         run: |
@@ -21,21 +21,21 @@ jobs:
               && [ $(git --no-pager diff origin/master HEAD -- setup.cfg | wc -l) -eq 0 ] \
               && [ $(git --no-pager diff --name-only origin/master HEAD -- .github | wc -l) -eq 0 ]
           then
-            echo "::set-output name=abort::1"
+            echo "abort=1" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=abort::0"
+            echo "abort=0" >> $GITHUB_OUTPUT
           fi
-  call-type-checking:
-    uses: ./.github/workflows/type-checking.yaml
+  call-workflow-type-checking:
+    uses: ./.github/workflows/workflow-type-checking.yaml
     needs: check-code-update
     if: needs.check-code-update.outputs.abort != 1
-  call-test:
-    uses: ./.github/workflows/test.yaml
+  call-workflow-test:
+    uses: ./.github/workflows/workflow-test.yaml
     needs: check-code-update
     if: needs.check-code-update.outputs.abort != 1
   signoff:
     runs-on: ubuntu-20.04
-    needs: [check-code-update, call-type-checking, call-test]
+    needs: [check-code-update, call-workflow-type-checking, call-workflow-test]
     if: ${{ always() }}
     steps:
       - name: Signoff based on the previous jobs.
@@ -43,8 +43,8 @@ jobs:
           if [ "${{ needs.check-code-update.outputs.abort }}" = "1" ] ; then
             exit 0
           else
-            if [ "${{ needs.call-type-checking.result }}" = "success" ] \
-              && [ "${{ needs.call-test.result }}" = "success"  ]
+            if [ "${{ needs.call-workflow-type-checking.result }}" = "success" ] \
+              && [ "${{ needs.call-workflow-test.result }}" = "success"  ]
             then
               exit 0
             else

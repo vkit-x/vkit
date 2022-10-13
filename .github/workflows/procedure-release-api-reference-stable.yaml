@@ -1,0 +1,39 @@
+name: (Procedure) Release API reference (stable)
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm'
+        required: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  check-version-update:
+    runs-on: ubuntu-20.04
+    outputs:
+      abort: ${{ steps.set-output.outputs.abort }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - id: set-output
+        name: Check if the version has been changed.
+        run: |
+          if [ $(git --no-pager diff HEAD^ setup.cfg | grep +version | wc -l) -eq 0 ] ; then
+            echo "abort=1" >> $GITHUB_OUTPUT
+          else
+            echo "abort=0" >> $GITHUB_OUTPUT
+          fi
+  call-workflow-publish-api-reference:
+    uses: ./.github/workflows/workflow-publish-api-reference.yaml
+    needs: check-version-update
+    if: needs.check-version-update.outputs.abort != 1 || github.event.inputs.confirm == 'yes'
+    with:
+      github-page-repo: "vkit-x/vkit-api-reference-stable-github-page"
+      domain: "vkit-api-reference.vkit-x.com"
+    secrets:
+      github-page-repo-deploy-key: ${{ secrets.VKIT_API_REFERENCE_STABLE_GITHUB_PAGE_DEPLOY_KEY }}

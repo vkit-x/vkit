@@ -1,0 +1,12 @@
+name: (Procedure) Test every hour
+on:
+  schedule:
+    - cron: "0 */1 * * *"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  call-workflow-type-checking:
+    uses: ./.github/workflows/workflow-type-checking.yaml
+  call-workflow-test:
+    uses: ./.github/workflows/workflow-test.yaml
