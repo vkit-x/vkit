@@ -539,6 +539,21 @@ class TextLine:
 
             return Polygon.create(points=points)
 
+    @classmethod
+    def build_char_polygon(
+        cls,
+        up: float,
+        down: float,
+        left: float,
+        right: float,
+    ):
+        return Polygon.from_xy_pairs([
+            (left, up),
+            (right, up),
+            (right, down),
+            (left, down),
+        ])
+
     def to_char_polygons(self, page_height: int, page_width: int):
         assert len(self.char_boxes) == len(self.char_glyphs)
 
@@ -553,22 +568,24 @@ class TextLine:
                 down = box.down
                 if box.height < ref_char_height:
                     inc = ref_char_height - box.height
-                    inc_up = inc // 2
-                    inc_down = inc - inc_up
-                    up = max(0, up - inc_up)
-                    down = min(page_height - 1, down + inc_down)
+                    half_inc = inc / 2
+                    up = max(0, up - half_inc)
+                    down = min(page_height - 1, down + half_inc)
 
                 left = box.left
                 right = box.right
                 if box.width < ref_char_width:
                     inc = ref_char_width - box.width
-                    inc_left = inc // 2
-                    inc_right = inc - inc_left
-                    left = max(0, left - inc_left)
-                    right = min(page_width - 1, right + inc_right)
+                    half_inc = inc / 2
+                    left = max(0, left - half_inc)
+                    right = min(page_width - 1, right + half_inc)
 
-                box = Box(up=up, down=down, left=left, right=right)
-                polygons.append(box.to_polygon())
+                polygons.append(self.build_char_polygon(
+                    up=up,
+                    down=down,
+                    left=left,
+                    right=right,
+                ))
             return polygons
 
         else:
@@ -582,22 +599,24 @@ class TextLine:
                 right = box.right
                 if box.width < ref_char_height:
                     inc = ref_char_height - box.width
-                    inc_left = inc // 2
-                    inc_right = inc - inc_left
-                    left = max(0, left - inc_left)
-                    right = min(page_width - 1, right + inc_right)
+                    half_inc = inc / 2
+                    left = max(0, left - half_inc)
+                    right = min(page_width - 1, right + half_inc)
 
                 up = box.up
                 down = box.down
                 if box.height < ref_char_width:
                     inc = ref_char_width - box.height
-                    inc_up = inc // 2
-                    inc_down = inc - inc_up
-                    up = max(self.box.up, up - inc_up)
-                    down = min(page_height - 1, down + inc_down)
+                    half_inc = inc / 2
+                    up = max(self.box.up, up - half_inc)
+                    down = min(page_height - 1, down + half_inc)
 
-                box = Box(up=up, down=down, left=left, right=right)
-                polygons.append(box.to_polygon())
+                polygons.append(self.build_char_polygon(
+                    up=up,
+                    down=down,
+                    left=left,
+                    right=right,
+                ))
             return polygons
 
     def get_height_points(self, num_points: int, is_up: bool):
@@ -637,7 +656,7 @@ class TextLine:
         if self.is_hori:
             points = PointList()
             for char_box in self.char_boxes:
-                x = (char_box.left + char_box.right) // 2
+                x = (char_box.left + char_box.right) / 2
                 if is_up:
                     y = self.box.up
                 else:
@@ -648,7 +667,7 @@ class TextLine:
         else:
             points = PointList()
             for char_box in self.char_boxes:
-                y = (char_box.up + char_box.down) // 2
+                y = (char_box.up + char_box.down) / 2
                 if is_up:
                     x = self.box.right
                 else:

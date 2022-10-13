@@ -15,7 +15,7 @@ from typing import Tuple, Sequence, Union
 
 import attrs
 
-T_VAL = Union[float, str]
+_T = Union[float, str]
 
 
 @attrs.define
@@ -27,7 +27,7 @@ class Line:
     # Conversion #
     ##############
     @classmethod
-    def from_xy_pairs(cls, xy_pairs: Sequence[Tuple[T_VAL, T_VAL]]):
+    def from_xy_pairs(cls, xy_pairs: Sequence[Tuple[_T, _T]]):
         assert len(xy_pairs) == 2
         return cls(
             point_begin=Point.from_xy_pair(xy_pairs[0]),
@@ -38,7 +38,7 @@ class Line:
         return [self.point_begin.to_xy_pair(), self.point_end.to_xy_pair()]
 
     @classmethod
-    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[_T]):
         assert len(flatten_xy_pairs) == 4
         x0, y0, x1, y1 = flatten_xy_pairs
         return cls(

@@ -36,6 +36,8 @@ warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 @attrs.define(frozen=True)
 class Box(Shapable):
+    # By design, smooth positioning is not supported in Box.
+
     up: int
     down: int
     left: int
@@ -95,8 +97,11 @@ class Box(Shapable):
     # Conversion #
     ##############
     def to_polygon(self, step: Optional[int] = None):
+        if self.up == self.down or self.left == self.right:
+            raise RuntimeError(f'Cannot convert box={self} to polygon.')
+
         # NOTE: Up left -> up right -> down right -> down left
-        # This order is important for char-level labeling.
+        # Char-level labelings are generated based on this ordering.
         if step is None:
             points = PointTuple.from_xy_pairs((
                 (self.left, self.up),

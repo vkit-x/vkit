@@ -25,7 +25,7 @@ from .opt import (
     generate_shape_and_resized_shape,
 )
 
-T_VAL = Union[float, str]
+_T = Union[float, str]
 
 
 @attrs.define(frozen=True)
@@ -50,14 +50,14 @@ class Point:
     # Constructor #
     ###############
     @classmethod
-    def create(cls, y: T_VAL, x: T_VAL):
+    def create(cls, y: _T, x: _T):
         return cls(smooth_y=float(y), smooth_x=float(x))
 
     ##############
     # Conversion #
     ##############
     @classmethod
-    def from_xy_pair(cls, xy_pair: Tuple[T_VAL, T_VAL]):
+    def from_xy_pair(cls, xy_pair: Tuple[_T, _T]):
         x, y = xy_pair
         return cls.create(y=y, x=x)
 
@@ -121,7 +121,7 @@ class PointList(List[Point]):
     # Conversion #
     ##############
     @classmethod
-    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[_T, _T]]):
         return cls(Point.from_xy_pair(xy_pair) for xy_pair in xy_pairs)
 
     def to_xy_pairs(self):
@@ -131,7 +131,7 @@ class PointList(List[Point]):
         return [point.to_smooth_xy_pair() for point in self]
 
     @classmethod
-    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[_T]):
         # [x0, y0, x1, y1, ...]
         flatten_xy_pairs = tuple(flatten_xy_pairs)
         assert flatten_xy_pairs and len(flatten_xy_pairs) % 2 == 0
@@ -222,7 +222,7 @@ class PointTuple(Tuple[Point, ...]):
     # Conversion #
     ##############
     @classmethod
-    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[T_VAL, T_VAL]]):
+    def from_xy_pairs(cls, xy_pairs: Iterable[Tuple[_T, _T]]):
         return PointTuple(Point.from_xy_pair(xy_pair) for xy_pair in xy_pairs)
 
     def to_xy_pairs(self):
@@ -232,7 +232,7 @@ class PointTuple(Tuple[Point, ...]):
         return tuple(point.to_smooth_xy_pair() for point in self)
 
     @classmethod
-    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[T_VAL]):
+    def from_flatten_xy_pairs(cls, flatten_xy_pairs: Sequence[_T]):
         return PointList.from_flatten_xy_pairs(flatten_xy_pairs).to_point_tuple()
 
     def to_flatten_xy_pairs(self):
