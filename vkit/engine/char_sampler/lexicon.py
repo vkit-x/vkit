@@ -88,9 +88,14 @@ class CharSamplerLexiconEngine(
         chars: List[str] = []
         for char_idx in range(num_chars):
             tag = rng_choice(rng, self.with_space_tags, probs=self.with_space_tag_probs)
-            if tag == self.KEY_SPACE and (char_idx == 0 or char_idx == num_chars - 1):
-                # Disallow leading or trailing space.
-                tag = rng_choice(rng, self.tags, probs=self.tag_probs)
+            if tag == self.KEY_SPACE:
+                if char_idx == 0 \
+                        or char_idx == num_chars - 1 \
+                        or chars[char_idx - 1].isspace():
+                    # Disallow:
+                    # 1. leading or trailing space.
+                    # 2. consecutive spaces.
+                    tag = rng_choice(rng, self.tags, probs=self.tag_probs)
 
             if tag == self.KEY_SPACE:
                 chars.append(' ')

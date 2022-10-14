@@ -394,9 +394,10 @@ def visualize_page_text_region_cropping_step_output(
 @pytest.mark.local
 def test_debug_adaptive_scaling_dataset_steps():
     post_processor_factory = PipelinePostProcessorFactory(DebugAdaptiveScalingPipelinePostProcessor)
+    pipeline_config_json = '$VKIT_DATA/pipeline/debug_adaptive_scaling_dataset_steps.json'
+    # pipeline_config_json = '$VKIT_ARTIFACT_PACK/pipeline/text_detection/dev_adaptive_scaling_dataset_steps.json'  # noqa
     pipeline = Pipeline(
-        steps=pipeline_step_collection_factory.
-        create('$VKIT_DATA/pipeline/debug_adaptive_scaling_dataset_steps.json'),
+        steps=pipeline_step_collection_factory.create(pipeline_config_json),
         post_processor=post_processor_factory.create(),
     )
     for seed in range(10):

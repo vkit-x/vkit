@@ -26,9 +26,9 @@ from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 @attrs.define
 class CharSamplerFakerEngineInitConfig:
     local_to_weight: Mapping[str, float] = {
-        'zh_CN': 3,
-        'zh_TW': 2,
-        'en_US': 1,
+        'zh_CN': 4,
+        'zh_TW': 1,
+        'en_US': 5,
     }
     method_to_weight: Mapping[str, float] = {
         'address': 1,
