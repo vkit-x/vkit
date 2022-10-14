@@ -132,7 +132,7 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
 def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutput):
     cur_write_image = functools.partial(write_image, frames_offset=1)
 
-    for idx, cropped_page in enumerate(output.cropped_pages):
+    for idx, cropped_page in enumerate(output.cropped_pages[:3]):
         cur_write_image(f'page_{seed}_cropped_{idx}_image.png', cropped_page.page_image)
         painter = Painter.create(cropped_page.page_image)
         painter.paint_mask(cropped_page.page_char_mask)

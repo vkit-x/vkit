@@ -35,7 +35,7 @@ class CharSamplerFakerEngineInitConfig:
         'ascii_email': 1,
         'dga': 1,
         'uri': 1,
-        'word': 1,
+        'word': 10,
         'name': 1,
         'country_calling_code': 1,
         'phone_number': 1,

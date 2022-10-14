@@ -99,8 +99,29 @@ def test_faker_sampler():
         init_resource={'lexicon_collection': lexicon_collection}
     )
     rng = default_rng(0)
-    chars = faker_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)
-    assert ''.join(chars) == '011 80198344 +1 246青'
+    texts = [''.join(faker_sampler.run(CharSamplerEngineRunConfig(20), rng=rng)) for _ in range(20)]
+    assert texts == [
+        'green 涂凯 248 太平五福巷5段',
+        '四川省大冶市长寿向街o座 895662w',
+        'draw water war 大家 帖子',
+        '朋友 66176 Mitchell Ju',
+        '首页 6711 Daniels Isla',
+        '到了 +243 说明 myself 13',
+        'miss 18892 Marissa G',
+        '+268 keep 个人 true ht',
+        '記者 这种 skill drive 论坛',
+        'https://www.griffith',
+        '+672 today 电子 150964',
+        '社區 into 如此 http://so',
+        '以及 +1-532-882-0750x5',
+        'alone 0922190163 htt',
+        '记者 ufuhekuqjxkuebrto',
+        '也是 yaoyan@luo.com ah',
+        '日期 Sydney Lee join 1',
+        '18632563629 +299 con',
+        '然后 uenmucwkdbysnasqn',
+        '广东省宁德市海港齐齐哈尔街A座 4305',
+    ]
 
 
 @pytest.mark.local
