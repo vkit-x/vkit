@@ -30,7 +30,8 @@ jobs:
     needs: check-code-update
     if: needs.check-code-update.outputs.abort != 1
     with:
-      github-page-repo: "vkit-x/vkit-api-reference-nightly-github-page"
-      domain: "vkit-api-reference-nightly.vkit-x.com"
+      github-page-repo: "vkit-x/vkit-api-reference-github-page"
+      nightly: true
+      domain: "vkit-api-reference.vkit-x.com"
     secrets:
-      github-page-repo-deploy-key: ${{ secrets.VKIT_API_REFERENCE_NIGHTLY_GITHUB_PAGE_DEPLOY_KEY }}
+      github-page-repo-deploy-key: ${{ secrets.VKIT_API_REFERENCE_GITHUB_PAGE_DEPLOY_KEY }}

@@ -5,6 +5,9 @@ on:
       github-page-repo:
         required: true
         type: string
+      nightly:
+        required: true
+        type: boolean
       domain:
         required: true
         type: string
@@ -23,19 +26,84 @@ jobs:
         with:
           ssh-private-key: |
             ${{ secrets.github-page-repo-deploy-key }}
-      - name: Install project (required by pdoc)
+      - name: Clone repo.
+        run: |
+          git clone git@github.com:${{ inputs.github-page-repo }}.git ../vkit-api-reference
+      - name: Get VERSION (nightly)
+        run: |
+          echo 'VERSION=nightly' >> $GITHUB_ENV
+        if: inputs.nightly
+      - name: Get VERSION
+        run: |
+          VERSION=$(cat setup.cfg | grep 'version =' | sed 's/version =//' | xargs)
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+        if: ${{ ! inputs.nightly }}
+      - name: Build doc.
         run: |
           pip install -e .
           pip install pdoc
-      - name: Build and publish
-        run: |
+
+          rm -rf ../vkit-api-reference/"${{ env.VERSION }}"
+
           pdoc \
             --favicon https://vkit-logo.vkit-x.com/img/favicon.ico \
             --logo https://vkit-logo.vkit-x.com/img/logo.svg \
-            -o ../api-reference-github-page \
+            -o ../vkit-api-reference/"${{ env.VERSION }}" \
             vkit
+      - name: Set as latest
+        run: |
+          cd ../vkit-api-reference
+          rm -rf latest
+          cp -r "${{ env.VERSION }}" latest
+        if: ${{ ! inputs.nightly }}
+      - name: Update index.html
+        run: |
+          PYTHON_SCRIPT=$(
+          cat << 'EOF'
 
-          cd ../api-reference-github-page
+          import sys
+          import pathlib
+
+          assert len(sys.argv) == 2
+          _, github_page_repo_folder = sys.argv
+
+          fd = pathlib.Path(github_page_repo_folder)
+          version_fds = [
+              version_fd
+              for version_fd in fd.glob('*')
+              if version_fd.is_dir() and version_fd.name != '.git'
+          ]
+          version_fds = sorted(version_fds, key=lambda fd: fd.name, reverse=True)
+
+          html_list = '\n'.join([
+              f"<li><a href=\"{version_fd.name}/vkit.html\">{version_fd.name}</a></li>"
+              for version_fd in version_fds
+          ])
+
+          html_template = f'''
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>vkit API reference</title>
+            </head>
+            <body>
+              <ul>
+                {html_list}
+              </ul>
+            </body>
+          </html>
+          '''
+
+          (fd / 'index.html').write_text(html_template)
+
+          EOF
+          )
+
+          python -c "$PYTHON_SCRIPT" ../vkit-api-reference
+      - name: Publish.
+        run: |
+          cd ../vkit-api-reference
 
           # Configure domain for github page.
           echo "${{ inputs.domain }}" > CNAME
@@ -43,9 +111,7 @@ jobs:
           git config --global user.email "huntzhan.dev@gmail.com"
           git config --global user.name "Hunt Zhan"
 
-          git init
           git add --all
           git commit -m "Published by GitHub Action."
 
-          git remote add origin git@github.com:${{ inputs.github-page-repo }}.git
-          git push -u origin master --force
+          git push

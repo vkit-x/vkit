@@ -33,7 +33,8 @@ jobs:
     needs: check-version-update
     if: needs.check-version-update.outputs.abort != 1 || github.event.inputs.confirm == 'yes'
     with:
-      github-page-repo: "vkit-x/vkit-api-reference-stable-github-page"
+      github-page-repo: "vkit-x/vkit-api-reference-github-page"
+      nightly: false
       domain: "vkit-api-reference.vkit-x.com"
     secrets:
-      github-page-repo-deploy-key: ${{ secrets.VKIT_API_REFERENCE_STABLE_GITHUB_PAGE_DEPLOY_KEY }}
+      github-page-repo-deploy-key: ${{ secrets.VKIT_API_REFERENCE_GITHUB_PAGE_DEPLOY_KEY }}
