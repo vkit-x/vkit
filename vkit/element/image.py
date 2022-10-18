@@ -26,7 +26,7 @@ import cv2 as cv
 import iolite as io
 
 from vkit.utility import PathType
-from .type import Shapable, FillByElementsMode
+from .type import Shapable, ElementSetOperationMode
 from .opt import generate_shape_and_resized_shape
 
 
@@ -472,7 +472,7 @@ class Image(Shapable):
                 ],
             ]
         ],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         skip_values_uniqueness_check: bool = False,
     ):  # yapf: disable
         boxes, values, alphas = self.unpack_element_value_tuples(box_value_tuples)
@@ -511,7 +511,7 @@ class Image(Shapable):
         boxes: Iterable['Box'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union[np.ndarray, float] = 1.0,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
     ):
         self.fill_by_box_value_tuples(
             box_value_tuples=((box, value, alpha) for box in boxes),
@@ -534,7 +534,7 @@ class Image(Shapable):
                 ],
             ]
         ],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         skip_values_uniqueness_check: bool = False,
     ):  # yapf: disable
         polygons, values, alphas = self.unpack_element_value_tuples(polygon_value_tuples)
@@ -575,7 +575,7 @@ class Image(Shapable):
         polygons: Iterable['Polygon'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union[np.ndarray, float] = 1.0,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
     ):
         self.fill_by_polygon_value_tuples(
             polygon_value_tuples=((polygon, value, alpha) for polygon in polygons),
@@ -598,7 +598,7 @@ class Image(Shapable):
                 ],
             ]
         ],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         skip_values_uniqueness_check: bool = False,
     ):  # yapf: disable
         masks, values, alphas = self.unpack_element_value_tuples(mask_value_tuples)
@@ -643,7 +643,7 @@ class Image(Shapable):
         masks: Iterable['Mask'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
         alpha: Union[np.ndarray, float] = 1.0,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
     ):
         self.fill_by_mask_value_tuples(
             mask_value_tuples=((mask, value, alpha) for mask in masks),
@@ -659,7 +659,7 @@ class Image(Shapable):
                 Union['Image', np.ndarray, Tuple[int, ...], int],
             ]
         ],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         skip_values_uniqueness_check: bool = False,
     ):  # yapf: disable
         # NOTE: score maps serve as masks & alphas, hence ignoring unpacked alphas.
@@ -704,7 +704,7 @@ class Image(Shapable):
         self,
         score_maps: Iterable['ScoreMap'],
         value: Union['Image', np.ndarray, Tuple[int, ...], int],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
     ):
         self.fill_by_score_map_value_tuples(
             score_map_value_tuples=((score_map, value) for score_map in score_maps),

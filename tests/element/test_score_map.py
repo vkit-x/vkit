@@ -16,7 +16,7 @@ from numpy.random import default_rng
 import pytest
 
 from vkit.element import (
-    FillByElementsMode,
+    ElementSetOperationMode,
     Point,
     Box,
     Polygon,
@@ -115,14 +115,14 @@ def test_score_map_setitem_box():
     write_image('union.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400))
-    score_map.fill_by_boxes((box0, box1), mode=FillByElementsMode.INTERSECT)
+    score_map.fill_by_boxes((box0, box1), mode=ElementSetOperationMode.INTERSECT)
 
     painter = Painter.create(score_map)
     painter.paint_score_map(score_map)
     write_image('intersect.jpg', painter.image)
 
     score_map = ScoreMap.from_shape((400, 400))
-    score_map.fill_by_boxes((box0, box1), mode=FillByElementsMode.DISTINCT)
+    score_map.fill_by_boxes((box0, box1), mode=ElementSetOperationMode.DISTINCT)
 
     painter = Painter.create(score_map)
     painter.paint_score_map(score_map)

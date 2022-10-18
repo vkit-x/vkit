@@ -35,7 +35,10 @@ class Shapable:
 
 
 @unique
-class FillByElementsMode(Enum):
+class ElementSetOperationMode(Enum):
+    # Active if overlapped with one or more elements.
     UNION = 'union'
+    # Active if overlapped with one element.
     DISTINCT = 'distinct'
+    # Active if overlapped with more than one elements.
     INTERSECT = 'intersect'

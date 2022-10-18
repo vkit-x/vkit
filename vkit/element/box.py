@@ -21,7 +21,7 @@ from shapely.errors import ShapelyDeprecationWarning
 from shapely.geometry import box as build_shapely_polygon_as_box
 from shapely.strtree import STRtree
 
-from .type import Shapable, FillByElementsMode
+from .type import Shapable, ElementSetOperationMode
 from .opt import (
     clip_val,
     resize_val,
@@ -434,6 +434,7 @@ class BoxOverlappingValidator:
         return False
 
 
+# TODO: Move to freetype.
 @attrs.define(frozen=True)
 class CharBox(Shapable):
     char: str
@@ -510,29 +511,12 @@ class CharBox(Shapable):
 def generate_fill_by_boxes_mask(
     shape: Tuple[int, int],
     boxes: Iterable[Box],
-    mode: FillByElementsMode,
+    mode: ElementSetOperationMode,
 ):
-    if mode == FillByElementsMode.UNION:
+    if mode == ElementSetOperationMode.UNION:
         return None
-
-    boxes_mask = Mask.from_shape(shape)
-
-    with boxes_mask.writable_context:
-        for box in boxes:
-            boxed_mat = box.extract_np_array(boxes_mask.mat)
-            np_non_oob_mask = (boxed_mat < 255)
-            boxed_mat[np_non_oob_mask] += 1
-
-        if mode == FillByElementsMode.DISTINCT:
-            boxes_mask.mat[boxes_mask.mat > 1] = 0
-
-        elif mode == FillByElementsMode.INTERSECT:
-            boxes_mask.mat[boxes_mask.mat == 1] = 0
-
-        else:
-            raise NotImplementedError()
-
-    return boxes_mask
+    else:
+        return Mask.from_boxes(shape, boxes, mode)
 
 
 # Cyclic dependency, by design.

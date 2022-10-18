@@ -28,7 +28,7 @@ from shapely.ops import unary_union
 import pyclipper
 
 from vkit.utility import attrs_lazy_field
-from .type import Shapable, FillByElementsMode
+from .type import Shapable, ElementSetOperationMode
 
 logger = logging.getLogger(__name__)
 
@@ -554,30 +554,12 @@ def unionize_polygons(polygons: Iterable[Polygon]):
 def generate_fill_by_polygons_mask(
     shape: Tuple[int, int],
     polygons: Iterable[Polygon],
-    mode: FillByElementsMode,
+    mode: ElementSetOperationMode,
 ):
-    if mode == FillByElementsMode.UNION:
+    if mode == ElementSetOperationMode.UNION:
         return None
-
-    polygons_mask = Mask.from_shape(shape)
-
-    with polygons_mask.writable_context:
-        for polygon in polygons:
-            boxed_mat = polygon.bounding_box.extract_np_array(polygons_mask.mat)
-            np_polygon_mask = polygon.internals.np_mask
-            np_non_oob_mask = (boxed_mat < 255)
-            boxed_mat[np_polygon_mask & np_non_oob_mask] += 1
-
-        if mode == FillByElementsMode.DISTINCT:
-            polygons_mask.mat[polygons_mask.mat > 1] = 0
-
-        elif mode == FillByElementsMode.INTERSECT:
-            polygons_mask.mat[polygons_mask.mat == 1] = 0
-
-        else:
-            raise NotImplementedError()
-
-    return polygons_mask
+    else:
+        return Mask.from_polygons(shape, polygons, mode)
 
 
 # Cyclic dependency, by design.
