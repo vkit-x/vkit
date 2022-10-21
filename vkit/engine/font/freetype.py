@@ -932,7 +932,7 @@ def render_text_line_meta(
             char_idx += 1
         assert non_space_count == len(char_boxes)
 
-        box = Box.from_shape(image.height, image.width)
+        box = Box.from_shapable(image)
         image = image.to_box_attached(box)
         mask = mask.to_box_attached(box)
         if score_map:

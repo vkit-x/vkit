@@ -26,7 +26,7 @@ from shapely.geometry import (
 from shapely.validation import make_valid as shapely_make_valid
 
 from vkit.utility import attrs_lazy_field
-from .type import Shapable, FillByElementsMode
+from .type import Shapable, ElementSetOperationMode
 from .opt import generate_resized_shape
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,137 @@ class Mask(Shapable):
     def from_shapable(cls, shapable: Shapable, value: int = 0):
         return cls.from_shape(shape=shapable.shape, value=value)
 
+    @classmethod
+    def _unpack_shape_or_box(cls, shape_or_box: Union[Tuple[int, int], 'Box']):
+        if isinstance(shape_or_box, Box):
+            attached_box = shape_or_box
+            shape = attached_box.shape
+        else:
+            attached_box = None
+            shape = shape_or_box
+        return shape, attached_box
+
+    @classmethod
+    def _from_np_active_count(
+        cls,
+        shape: Tuple[int, int],
+        mode: ElementSetOperationMode,
+        np_active_count: np.ndarray,
+        attached_box: Optional['Box'],
+    ):
+        mask = Mask.from_shape(shape)
+
+        with mask.writable_context:
+            if mode == ElementSetOperationMode.UNION:
+                mask.mat[np_active_count > 0] = 1
+
+            elif mode == ElementSetOperationMode.DISTINCT:
+                mask.mat[np_active_count == 1] = 1
+
+            elif mode == ElementSetOperationMode.INTERSECT:
+                mask.mat[np_active_count > 1] = 1
+
+            else:
+                raise NotImplementedError()
+
+        if attached_box:
+            mask = mask.to_box_attached(attached_box)
+
+        return mask
+
+    @classmethod
+    def from_boxes(
+        cls,
+        shape_or_box: Union[Tuple[int, int], 'Box'],
+        boxes: Iterable['Box'],
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
+    ):
+        shape, attached_box = cls._unpack_shape_or_box(shape_or_box)
+        np_active_count = np.zeros(shape, dtype=np.int32)
+
+        for box in boxes:
+            if attached_box:
+                box = box.to_relative_box(
+                    origin_y=attached_box.up,
+                    origin_x=attached_box.left,
+                )
+            np_boxed_active_count = box.extract_np_array(np_active_count)
+            np_boxed_active_count += 1
+
+        return cls._from_np_active_count(shape, mode, np_active_count, attached_box)
+
+    @classmethod
+    def from_polygons(
+        cls,
+        shape_or_box: Union[Tuple[int, int], 'Box'],
+        polygons: Iterable['Polygon'],
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
+    ):
+        shape, attached_box = cls._unpack_shape_or_box(shape_or_box)
+        np_active_count = np.zeros(shape, dtype=np.int32)
+
+        for polygon in polygons:
+            box = polygon.bounding_box
+            if attached_box:
+                box = box.to_relative_box(
+                    origin_y=attached_box.up,
+                    origin_x=attached_box.left,
+                )
+            np_boxed_active_count = box.extract_np_array(np_active_count)
+            np_boxed_active_count[polygon.internals.np_mask] += 1
+
+        return cls._from_np_active_count(shape, mode, np_active_count, attached_box)
+
+    @classmethod
+    def from_masks(
+        cls,
+        shape_or_box: Union[Tuple[int, int], 'Box'],
+        masks: Iterable['Mask'],
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
+    ):
+        shape, attached_box = cls._unpack_shape_or_box(shape_or_box)
+        np_active_count = np.zeros(shape, dtype=np.int32)
+
+        for mask in masks:
+            if mask.box:
+                box = mask.box
+                if attached_box:
+                    box = box.to_relative_box(
+                        origin_y=attached_box.up,
+                        origin_x=attached_box.left,
+                    )
+                np_boxed_active_count = box.extract_np_array(np_active_count)
+            else:
+                np_boxed_active_count = np_active_count
+            np_boxed_active_count[mask.np_mask] += 1
+
+        return cls._from_np_active_count(shape, mode, np_active_count, attached_box)
+
+    @classmethod
+    def from_score_maps(
+        cls,
+        shape_or_box: Union[Tuple[int, int], 'Box'],
+        score_maps: Iterable['ScoreMap'],
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
+    ):
+        shape, attached_box = cls._unpack_shape_or_box(shape_or_box)
+        np_active_count = np.zeros(shape, dtype=np.int32)
+
+        for score_map in score_maps:
+            if score_map.box:
+                box = score_map.box
+                if attached_box:
+                    box = box.to_relative_box(
+                        origin_y=attached_box.up,
+                        origin_x=attached_box.left,
+                    )
+                np_boxed_active_count = box.extract_np_array(np_active_count)
+            else:
+                np_boxed_active_count = np_active_count
+            np_boxed_active_count[score_map.to_mask().np_mask] += 1
+
+        return cls._from_np_active_count(shape, mode, np_active_count, attached_box)
+
     ############
     # Property #
     ############
@@ -163,7 +294,7 @@ class Mask(Shapable):
     def fill_by_box_value_pairs(
         self,
         box_value_pairs: Iterable[Tuple['Box', Union['Mask', np.ndarray, int]]],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
@@ -206,7 +337,7 @@ class Mask(Shapable):
         self,
         boxes: Iterable['Box'],
         value: Union['Mask', np.ndarray, int] = 1,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
@@ -221,7 +352,7 @@ class Mask(Shapable):
     def fill_by_polygon_value_pairs(
         self,
         polygon_value_pairs: Iterable[Tuple['Polygon', Union['Mask', np.ndarray, int]]],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
@@ -266,7 +397,7 @@ class Mask(Shapable):
         self,
         polygons: Iterable['Polygon'],
         value: Union['Mask', np.ndarray, int] = 1,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
@@ -502,6 +633,7 @@ class Mask(Shapable):
     def to_disconnected_polygons(
         self,
         cv_find_contours_method: int = cv.CHAIN_APPROX_SIMPLE,
+        keep_ratio_min: float = 0.8,
     ) -> Sequence['Polygon']:
         # [ (N, 1, 2), ... ]
         cv_contours, _ = cv.findContours(
@@ -559,7 +691,16 @@ class Mask(Shapable):
         # Reset logging level.
         shapely_geos_logger.setLevel(shapely_geos_logger_level)
 
-        return polygons
+        # NOTE: some polygons are correlated to the "holes" within the mask, and should be removed.
+        filtered_polygons: List[Polygon] = []
+        for polygon in polygons:
+            ratio = int(polygon.extract_mask(self).np_mask.sum()) / int(polygon.mask.np_mask.sum())
+            if ratio < keep_ratio_min:
+                logger.debug(f'ignore polygon={polygon} since ratio={ratio} is too small')
+                continue
+            filtered_polygons.append(polygon)
+
+        return filtered_polygons
 
     def to_disconnected_polygon_mask_pairs(
         self,
@@ -581,33 +722,12 @@ class Mask(Shapable):
 def generate_fill_by_masks_mask(
     shape: Tuple[int, int],
     masks: Iterable[Mask],
-    mode: FillByElementsMode,
+    mode: ElementSetOperationMode,
 ):
-    if mode == FillByElementsMode.UNION:
+    if mode == ElementSetOperationMode.UNION:
         return None
-
-    masks_mask = Mask.from_shape(shape)
-
-    with masks_mask.writable_context:
-        for mask in masks:
-            if mask.box:
-                boxed_mat = mask.box.extract_np_array(masks_mask.mat)
-            else:
-                boxed_mat = masks_mask.mat
-
-            np_non_oob_mask = (boxed_mat < 255)
-            boxed_mat[mask.np_mask & np_non_oob_mask] += 1
-
-        if mode == FillByElementsMode.DISTINCT:
-            masks_mask.mat[masks_mask.mat > 1] = 0
-
-        elif mode == FillByElementsMode.INTERSECT:
-            masks_mask.mat[masks_mask.mat == 1] = 0
-
-        else:
-            raise NotImplementedError()
-
-    return masks_mask
+    else:
+        return Mask.from_masks(shape, masks, mode)
 
 
 # Cyclic dependency, by design.

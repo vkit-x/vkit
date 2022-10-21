@@ -13,6 +13,7 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple, Set
 from collections import defaultdict
+import itertools
 import math
 import statistics
 import warnings
@@ -26,7 +27,7 @@ from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
 
 from vkit.utility import rng_choice, rng_choice_with_size
-from vkit.element import Box, Polygon, Mask, Image
+from vkit.element import Box, Polygon, Mask, Image, ElementSetOperationMode
 from vkit.engine.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
@@ -68,6 +69,8 @@ class PageTextRegionInfo:
 class FlattenedTextRegion:
     is_typical: bool
     text_region_polygon: Polygon
+    text_region_image: Image
+    extended_text_region_polygon: Polygon
     flattening_rotate_angle: int
     trim_up: int
     trim_left: int
@@ -163,6 +166,40 @@ class PageTextRegionStepOutput:
     debug: Optional[DebugPageTextRegionStep]
 
 
+def calculate_boxed_masks_intersection_area(anchor_mask: Mask, candidate_mask: Mask):
+    anchor_box = anchor_mask.box
+    assert anchor_box
+
+    candidate_box = candidate_mask.box
+    assert candidate_box
+
+    # Calculate intersection.
+    intersected_box = Box(
+        up=max(anchor_box.up, candidate_box.up),
+        down=min(anchor_box.down, candidate_box.down),
+        left=max(anchor_box.left, candidate_box.left),
+        right=min(anchor_box.right, candidate_box.right),
+    )
+    if not intersected_box.valid:
+        return 0
+
+    # For optimizing performance.
+    up = intersected_box.up - anchor_box.up
+    down = intersected_box.down - anchor_box.up
+    left = intersected_box.left - anchor_box.left
+    right = intersected_box.right - anchor_box.left
+    np_anchor_mask = anchor_mask.np_mask[up:down + 1, left:right + 1]
+
+    up = intersected_box.up - candidate_box.up
+    down = intersected_box.down - candidate_box.up
+    left = intersected_box.left - candidate_box.left
+    right = intersected_box.right - candidate_box.left
+    np_candidate_mask = candidate_mask.np_mask[up:down + 1, left:right + 1]
+
+    np_intersected_mask = (np_anchor_mask & np_candidate_mask)
+    return int(np_intersected_mask.sum())
+
+
 class TextRegionFlattener:
 
     @classmethod
@@ -192,14 +229,97 @@ class TextRegionFlattener:
         return patched_text_region_polygons
 
     @classmethod
-    def build_bounding_rectangular_polygons(
+    def process_text_region_polygons(
         cls,
+        text_region_polygon_dilate_ratio: float,
+        shape: Tuple[int, int],
         text_region_polygons: Sequence[Polygon],
+        force_no_dilation_flags: Optional[Sequence[bool]] = None,
     ):
-        return [
-            text_region_polygon.to_bounding_rectangular_polygon()
-            for text_region_polygon in text_region_polygons
-        ]
+        text_mask = Mask.from_polygons(shape, text_region_polygons)
+        non_text_mask = text_mask.to_inverted_mask()
+
+        box = Box.from_shape(shape)
+        text_mask = text_mask.to_box_attached(box)
+        non_text_mask = non_text_mask.to_box_attached(box)
+
+        extended_text_region_polygons: List[Polygon] = []
+        bounding_rectangular_polygons: List[Polygon] = []
+
+        if force_no_dilation_flags is None:
+            force_no_dilation_flags_iter = itertools.repeat(False)
+        else:
+            assert len(force_no_dilation_flags) == len(text_region_polygons)
+            force_no_dilation_flags_iter = force_no_dilation_flags
+
+        for text_region_polygon, force_no_dilation_flag in zip(
+            text_region_polygons, force_no_dilation_flags_iter
+        ):
+            original_text_region_polygon = text_region_polygon
+
+            if not force_no_dilation_flag:
+                # Dilate.
+                text_region_polygon = text_region_polygon.to_dilated_polygon(
+                    ratio=text_region_polygon_dilate_ratio,
+                )
+                text_region_polygon = text_region_polygon.to_clipped_polygon(shape)
+
+            # Get bounding rectangular box (polygon).
+            bounding_rectangular_polygon = \
+                text_region_polygon.to_bounding_rectangular_polygon(shape)
+            bounding_rectangular_polygons.append(bounding_rectangular_polygon)
+
+            bounding_box = bounding_rectangular_polygon.bounding_box
+
+            # Get other text region.
+            bounding_other_text_mask = bounding_rectangular_polygon.extract_mask(text_mask).copy()
+            original_text_region_polygon.fill_mask(bounding_other_text_mask, 0)
+
+            # Get protentially dilated text region.
+            bounding_text_mask = Mask.from_shapable(bounding_other_text_mask)
+            bounding_text_mask = bounding_text_mask.to_box_attached(bounding_box)
+            text_region_polygon.fill_mask(bounding_text_mask, value=1)
+
+            # Should not use anymore.
+            del text_region_polygon
+
+            # Trim protentially dilated text region polygon by eliminating other text region.
+            bounding_text_mask = Mask.from_masks(
+                bounding_box,
+                [
+                    # And including the protentially dilated text region,
+                    bounding_text_mask,
+                    # Not including other text,
+                    bounding_other_text_mask.to_inverted_mask(),
+                ],
+                ElementSetOperationMode.INTERSECT,
+            )
+
+            # Get non-text region.
+            bounding_non_text_mask = bounding_rectangular_polygon.extract_mask(non_text_mask)
+
+            # Combine trimmed text region and non-text region.
+            bounding_extended_text_region_mask = Mask.from_masks(
+                bounding_box,
+                [bounding_text_mask, bounding_non_text_mask],
+            )
+
+            best_extended_text_region_polygon = original_text_region_polygon
+            intersection_area_max = 0
+
+            for extended_text_region_polygon in \
+                    bounding_extended_text_region_mask.to_disconnected_polygons():
+                intersection_area = calculate_boxed_masks_intersection_area(
+                    extended_text_region_polygon.extract_mask(bounding_extended_text_region_mask),
+                    original_text_region_polygon.mask,
+                )
+                if intersection_area > intersection_area_max:
+                    intersection_area_max = intersection_area
+                    best_extended_text_region_polygon = extended_text_region_polygon
+
+            extended_text_region_polygons.append(best_extended_text_region_polygon)
+
+        return extended_text_region_polygons, bounding_rectangular_polygons
 
     @classmethod
     def analyze_bounding_rectangular_polygons(
@@ -316,29 +436,28 @@ class TextRegionFlattener:
     @classmethod
     def build_flattened_text_regions(
         cls,
-        text_region_polygon_dilate_ratio: float,
         image: Image,
         text_region_polygons: Sequence[Polygon],
+        extended_text_region_polygons: Sequence[Polygon],
         typical_indices: Set[int],
         flattening_rotate_angles: Sequence[int],
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
-        is_training: bool,
     ):
         flattened_text_regions: List[FlattenedTextRegion] = []
 
-        for idx, (text_region_polygon, flattening_rotate_angle) in enumerate(
-            zip(text_region_polygons, flattening_rotate_angles)
+        for idx, (
+            text_region_polygon,
+            extended_text_region_polygon,
+            flattening_rotate_angle,
+        ) in enumerate(
+            zip(
+                text_region_polygons,
+                extended_text_region_polygons,
+                flattening_rotate_angles,
+            )
         ):
-            # Dilate.
-            if not is_training or grouped_char_polygons:
-                # NOTE: Don't dilate nagative region when in training.
-                text_region_polygon = text_region_polygon.to_dilated_polygon(
-                    text_region_polygon_dilate_ratio
-                )
-                text_region_polygon = text_region_polygon.to_clipped_polygon(image)
-
             # Extract image.
-            text_region_image = text_region_polygon.extract_image(image)
+            text_region_image = extended_text_region_polygon.extract_image(image)
 
             # Shift char polygons.
             relative_char_polygons = None
@@ -346,8 +465,8 @@ class TextRegionFlattener:
                 char_polygons = grouped_char_polygons[idx]
                 relative_char_polygons = [
                     char_polygon.to_relative_polygon(
-                        origin_y=text_region_polygon.bounding_box.up,
-                        origin_x=text_region_polygon.bounding_box.left,
+                        origin_y=extended_text_region_polygon.bounding_box.up,
+                        origin_x=extended_text_region_polygon.bounding_box.left,
                     ) for char_polygon in char_polygons
                 ]
 
@@ -355,7 +474,7 @@ class TextRegionFlattener:
             rotated_result = rotate.distort(
                 {'angle': flattening_rotate_angle},
                 image=text_region_image,
-                polygon=text_region_polygon.self_relative_polygon,
+                polygon=extended_text_region_polygon.self_relative_polygon,
                 polygons=relative_char_polygons,
             )
             rotated_text_region_image = rotated_result.image
@@ -389,6 +508,8 @@ class TextRegionFlattener:
                 FlattenedTextRegion(
                     is_typical=(idx in typical_indices),
                     text_region_polygon=text_region_polygon,
+                    text_region_image=text_region_polygon.extract_image(image),
+                    extended_text_region_polygon=extended_text_region_polygon,
                     flattening_rotate_angle=flattening_rotate_angle,
                     trim_up=trim_up,
                     trim_left=trim_left,
@@ -417,8 +538,20 @@ class TextRegionFlattener:
             grouped_char_polygons=grouped_char_polygons,
         )
 
-        self.bounding_rectangular_polygons = \
-            self.build_bounding_rectangular_polygons(self.text_region_polygons)
+        force_no_dilation_flags = None
+        if is_training:
+            assert grouped_char_polygons and len(text_region_polygons) == len(grouped_char_polygons)
+            force_no_dilation_flags = []
+            for char_polygons in grouped_char_polygons:
+                force_no_dilation_flags.append(not char_polygons)
+
+        self.extended_text_region_polygons, self.bounding_rectangular_polygons = \
+            self.process_text_region_polygons(
+                text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
+                shape=image.shape,
+                text_region_polygons=self.text_region_polygons,
+                force_no_dilation_flags=force_no_dilation_flags,
+            )
 
         self.long_side_ratios, self.long_side_angles = \
             self.analyze_bounding_rectangular_polygons(self.bounding_rectangular_polygons)
@@ -436,13 +569,12 @@ class TextRegionFlattener:
         )
 
         self.flattened_text_regions = self.build_flattened_text_regions(
-            text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
             image=image,
-            text_region_polygons=self.text_region_polygons,
+            text_region_polygons=self.origional_text_region_polygons,
+            extended_text_region_polygons=self.extended_text_region_polygons,
             typical_indices=self.typical_indices,
             flattening_rotate_angles=self.flattening_rotate_angles,
             grouped_char_polygons=grouped_char_polygons,
-            is_training=is_training,
         )
 
 
@@ -573,56 +705,20 @@ class PageTextRegionStep(
         cls,
         strtree: STRtree,
         id_to_anchor_polygon: Dict[int, Polygon],
-        id_to_anchor_mask: Dict[int, Mask],
-        id_to_anchor_np_mask: Dict[int, np.ndarray],
         candidate_polygon: Polygon,
     ):
         candidate_shapely_polygon = candidate_polygon.to_shapely_polygon()
         candidate_mask = candidate_polygon.mask
-        candidate_box = candidate_mask.box
-        assert candidate_box
 
         for anchor_shapely_polygon in strtree.query(candidate_shapely_polygon):
             anchor_id = id(anchor_shapely_polygon)
             anchor_polygon = id_to_anchor_polygon[anchor_id]
+            anchor_mask = anchor_polygon.mask
 
-            # Build mask if not exists.
-            if anchor_id not in id_to_anchor_mask:
-                id_to_anchor_mask[anchor_id] = anchor_polygon.mask
-                id_to_anchor_np_mask[anchor_id] = id_to_anchor_mask[anchor_id].np_mask
-            anchor_mask = id_to_anchor_mask[anchor_id]
-            anchor_np_mask = id_to_anchor_np_mask[anchor_id]
-            anchor_box = anchor_mask.box
-            assert anchor_box
-
-            # Calculate intersection.
-            intersected_box = Box(
-                up=max(anchor_box.up, candidate_box.up),
-                down=min(anchor_box.down, candidate_box.down),
-                left=max(anchor_box.left, candidate_box.left),
-                right=min(anchor_box.right, candidate_box.right),
+            intersected_area = calculate_boxed_masks_intersection_area(
+                anchor_mask=anchor_mask,
+                candidate_mask=candidate_mask,
             )
-            # strtree.query is based on envelope overlapping, enhance should be a valid box.
-            assert intersected_box.up <= intersected_box.down
-            assert intersected_box.left <= intersected_box.right
-
-            # For optimizing performance.
-            up = intersected_box.up - anchor_box.up
-            down = intersected_box.down - anchor_box.up
-            left = intersected_box.left - anchor_box.left
-            right = intersected_box.right - anchor_box.left
-            np_anchor_mask = anchor_np_mask[up:down + 1, left:right + 1]
-
-            up = intersected_box.up - candidate_box.up
-            down = intersected_box.down - candidate_box.up
-            left = intersected_box.left - candidate_box.left
-            right = intersected_box.right - candidate_box.left
-            np_candidate_mask = candidate_mask.np_mask[up:down + 1, left:right + 1]
-
-            np_intersected_mask = (np_anchor_mask & np_candidate_mask)
-            intersected_area = int(np_intersected_mask.sum())
-            if intersected_area == 0:
-                continue
 
             yield (
                 anchor_id,
@@ -815,8 +911,6 @@ class PageTextRegionStep(
             text_region_shapely_polygons.append(shapely_polygon)
 
         text_region_tree = STRtree(text_region_shapely_polygons)
-        id_to_text_region_mask: Dict[int, Mask] = {}
-        id_to_text_region_np_mask: Dict[int, np.ndarray] = {}
 
         # Get the precise text regions.
         precise_text_region_candidate_polygons: List[Polygon] = []
@@ -832,8 +926,6 @@ class PageTextRegionStep(
             for _, _, text_region_mask, precise_mask, _ in self.strtree_query_intersected_polygons(
                 strtree=text_region_tree,
                 id_to_anchor_polygon=id_to_text_region_polygon,
-                id_to_anchor_mask=id_to_text_region_mask,
-                id_to_anchor_np_mask=id_to_text_region_np_mask,
                 candidate_polygon=precise_polygon,
             ):
                 precise_text_region_candidate_polygons.extend(
@@ -851,8 +943,6 @@ class PageTextRegionStep(
         del id_to_text_region_polygon
         del text_region_shapely_polygons
         del text_region_tree
-        del id_to_text_region_mask
-        del id_to_text_region_np_mask
 
         # Bind char-level polygon to precise text region.
         id_to_precise_text_region_polygon: Dict[int, Polygon] = {}
@@ -864,8 +954,6 @@ class PageTextRegionStep(
             precise_text_region_shapely_polygons.append(shapely_polygon)
 
         precise_text_region_tree = STRtree(precise_text_region_shapely_polygons)
-        id_to_precise_text_region_mask: Dict[int, Mask] = {}
-        id_to_precise_text_region_np_mask: Dict[int, np.ndarray] = {}
 
         id_to_char_polygons: DefaultDict[int, List[Polygon]] = defaultdict(list)
         for char_polygon in page_char_polygon_collection.polygons:
@@ -881,8 +969,6 @@ class PageTextRegionStep(
             ) in self.strtree_query_intersected_polygons(
                 strtree=precise_text_region_tree,
                 id_to_anchor_polygon=id_to_precise_text_region_polygon,
-                id_to_anchor_mask=id_to_precise_text_region_mask,
-                id_to_anchor_np_mask=id_to_precise_text_region_np_mask,
                 candidate_polygon=char_polygon,
             ):
                 if intersected_area > max_intersected_area:
@@ -909,8 +995,6 @@ class PageTextRegionStep(
         del id_to_precise_text_region_polygon
         del precise_text_region_shapely_polygons
         del precise_text_region_tree
-        del id_to_precise_text_region_mask
-        del id_to_precise_text_region_np_mask
 
         if debug:
             debug.page_text_region_infos = page_text_region_infos

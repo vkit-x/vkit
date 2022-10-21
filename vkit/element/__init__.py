@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from .type import Shapable, FillByElementsMode
+from .type import Shapable, ElementSetOperationMode
 
 from .point import Point, PointList, PointTuple
 from .line import Line

@@ -18,7 +18,7 @@ import attrs
 import numpy as np
 import cv2 as cv
 
-from .type import Shapable, FillByElementsMode
+from .type import Shapable, ElementSetOperationMode
 from .opt import generate_shape_and_resized_shape
 
 
@@ -339,7 +339,7 @@ class ScoreMap(Shapable):
     def fill_by_box_value_pairs(
         self,
         box_value_pairs: Iterable[Tuple['Box', Union['ScoreMap', np.ndarray, float]]],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
@@ -382,7 +382,7 @@ class ScoreMap(Shapable):
         self,
         boxes: Iterable['Box'],
         value: Union['ScoreMap', np.ndarray, float] = 1.0,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
@@ -397,7 +397,7 @@ class ScoreMap(Shapable):
     def fill_by_polygon_value_pairs(
         self,
         polygon_value_pairs: Iterable[Tuple['Polygon', Union['ScoreMap', np.ndarray, float]]],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
@@ -442,7 +442,7 @@ class ScoreMap(Shapable):
         self,
         polygons: Iterable['Polygon'],
         value: Union['ScoreMap', np.ndarray, float] = 1.0,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
@@ -457,7 +457,7 @@ class ScoreMap(Shapable):
     def fill_by_mask_value_pairs(
         self,
         mask_value_pairs: Iterable[Tuple['Mask', Union['ScoreMap', np.ndarray, float]]],
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
         skip_values_uniqueness_check: bool = False,
@@ -506,7 +506,7 @@ class ScoreMap(Shapable):
         self,
         masks: Iterable['Mask'],
         value: Union['ScoreMap', np.ndarray, float] = 1.0,
-        mode: FillByElementsMode = FillByElementsMode.UNION,
+        mode: ElementSetOperationMode = ElementSetOperationMode.UNION,
         keep_max_value: bool = False,
         keep_min_value: bool = False,
     ):
@@ -694,34 +694,12 @@ class ScoreMap(Shapable):
 def generate_fill_by_score_maps_mask(
     shape: Tuple[int, int],
     score_maps: Iterable[ScoreMap],
-    mode: FillByElementsMode,
+    mode: ElementSetOperationMode,
 ):
-    if mode == FillByElementsMode.UNION:
+    if mode == ElementSetOperationMode.UNION:
         return None
-
-    score_maps_mask = Mask.from_shape(shape)
-
-    with score_maps_mask.writable_context:
-        for score_map in score_maps:
-            if score_map.box:
-                boxed_mat = score_map.box.extract_np_array(score_maps_mask.mat)
-            else:
-                boxed_mat = score_maps_mask.mat
-
-            np_non_oob_mask = (boxed_mat < 255)
-            # NOTE: ScoreMap.np_mask requires is_prob=True.
-            boxed_mat[score_map.to_mask().np_mask & np_non_oob_mask] += 1
-
-        if mode == FillByElementsMode.DISTINCT:
-            score_maps_mask.mat[score_maps_mask.mat > 1] = 0
-
-        elif mode == FillByElementsMode.INTERSECT:
-            score_maps_mask.mat[score_maps_mask.mat == 1] = 0
-
-        else:
-            raise NotImplementedError()
-
-    return score_maps_mask
+    else:
+        return Mask.from_score_maps(shape, score_maps, mode)
 
 
 # Cyclic dependency, by design.
