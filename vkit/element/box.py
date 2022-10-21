@@ -47,7 +47,8 @@ class Box(Shapable):
     # Constructor #
     ###############
     @classmethod
-    def from_shape(cls, height: int, width: int):
+    def from_shape(cls, shape: Tuple[int, int]):
+        height, width = shape
         return cls(
             up=0,
             down=height - 1,
@@ -57,7 +58,7 @@ class Box(Shapable):
 
     @classmethod
     def from_shapable(cls, shapable: Shapable):
-        return cls.from_shape(height=shapable.height, width=shapable.width)
+        return cls.from_shape(shapable.shape)
 
     @classmethod
     def from_boxes(cls, boxes: Iterable['Box']):

@@ -239,7 +239,7 @@ class TextRegionFlattener:
         text_mask = Mask.from_polygons(shape, text_region_polygons)
         non_text_mask = text_mask.to_inverted_mask()
 
-        box = Box.from_shape(*shape)
+        box = Box.from_shape(shape)
         text_mask = text_mask.to_box_attached(box)
         non_text_mask = non_text_mask.to_box_attached(box)
 
