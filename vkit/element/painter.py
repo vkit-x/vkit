@@ -151,6 +151,9 @@ class Painter:
     def __init__(self, image: Image):
         self.image = image.copy()
 
+    def copy(self):
+        return Painter(image=self.image.copy())
+
     def generate_layer_image(self):
         # RGBA.
         return Image.from_shapable(

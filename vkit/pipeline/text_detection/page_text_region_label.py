@@ -25,6 +25,10 @@ from sklearn.neighbors import KDTree
 from vkit.utility import attrs_lazy_field, normalize_to_probs
 from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
 from vkit.engine.distortion.geometric.affine import affine_points
+from vkit.engine.char_heatmap import (
+    char_heatmap_default_engine_executor_factory,
+    CharHeatmapDefaultEngineInitConfig,
+)
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_text_region import PageTextRegionStepOutput
 
@@ -33,7 +37,9 @@ logger = logging.getLogger(__name__)
 
 @attrs.define
 class PageTextRegionLabelStepConfig:
-    gaussian_map_length: int = 45
+    char_heatmap_default_engine_init_config: CharHeatmapDefaultEngineInitConfig = \
+        attrs.field(factory=CharHeatmapDefaultEngineInitConfig)
+
     # 1 centrod + n deviate points.
     num_deviate_char_regression_labels: int = 3
     num_deviate_char_regression_labels_candiates_factor: int = 5
@@ -294,6 +300,14 @@ class PageTextRegionLabelStep(
     ]
 ):  # yapf: disable
 
+    def __init__(self, config: PageTextRegionLabelStepConfig):
+        super().__init__(config)
+
+        self.char_heatmap_default_engine_executor = \
+            char_heatmap_default_engine_executor_factory.create(
+                self.config.char_heatmap_default_engine_init_config
+            )
+
     @classmethod
     def generate_page_char_mask(
         cls,
@@ -319,78 +333,22 @@ class PageTextRegionLabelStep(
             )
         return page_char_height_score_map
 
-    @classmethod
-    def generate_np_gaussian_map(
-        cls,
-        length: int,
-        rescale_radius_to_value: float = 3.0,
-    ):
-        # https://colab.research.google.com/drive/1TQ1-BTisMYZHIRVVNpVwDFPviXYMhT7A
-        # Build distances to the center point.
-        if length % 2 == 0:
-            radius = length / 2 - 0.5
-        else:
-            radius = length // 2
-
-        np_offset = np.abs(np.arange(length, dtype=np.float32) - radius)
-        np_vert_offset = np.repeat(np_offset[:, None], length, axis=1)
-        np_hori_offset = np.repeat(np_offset[None, :], length, axis=0)
-        np_distance = np.sqrt(np.square(np_vert_offset) + np.square(np_hori_offset))
-
-        # Rescale the radius. If default value 3.0 is used, the value lying on the circle of
-        # gaussian map is approximately 0.01, and the value in corner is
-        # approximately 1E-6.
-        np_distance = rescale_radius_to_value * np_distance / radius
-        np_gaussian_map = np.exp(-0.5 * np.square(np_distance))
-
-        # For perspective transformation.
-        np_points = np.asarray(
-            [
-                (0, 0),
-                (length - 1, 0),
-                (length - 1, length - 1),
-                (0, length - 1),
-            ],
-            dtype=np.float32,
-        )
-
-        return np_gaussian_map, np_points
-
     def generate_page_char_gaussian_score_map(
         self,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
+        rng: RandomGenerator,
     ):
-        score_map = ScoreMap.from_shape(shape)
-
-        # Will be transform to fit each char polygon.
-        np_src_gaussian_map, np_src_points = self.generate_np_gaussian_map(
-            self.config.gaussian_map_length,
+        height, width = shape
+        char_heatmap = self.char_heatmap_default_engine_executor.run(
+            {
+                'height': height,
+                'width': width,
+                'char_polygons': page_char_polygons,
+            },
+            rng,
         )
-
-        for polygon in page_char_polygons:
-            # Transform.
-            bounding_box = polygon.bounding_box
-            np_dst_points = polygon.internals.np_self_relative_points
-
-            np_dst_gaussian_map = cv.warpPerspective(
-                np_src_gaussian_map,
-                cv.getPerspectiveTransform(
-                    np_src_points,
-                    np_dst_points,
-                    cv.DECOMP_SVD,
-                ),
-                (bounding_box.width, bounding_box.height),
-            )
-
-            # Fill.
-            polygon.fill_score_map(
-                score_map,
-                np_dst_gaussian_map,
-                keep_max_value=True,
-            )
-
-        return score_map
+        return char_heatmap.score_map
 
     def generate_page_char_regression_labels(
         self,
@@ -527,6 +485,7 @@ class PageTextRegionLabelStep(
         page_char_gaussian_score_map = self.generate_page_char_gaussian_score_map(
             page_image.shape,
             page_char_polygons,
+            rng,
         )
         page_char_regression_labels = self.generate_page_char_regression_labels(
             page_image.shape,

@@ -40,7 +40,7 @@ class PolygonInternals:
     bounding_box: 'Box'
     np_self_relative_points: np.ndarray
 
-    _area: Optional[int] = attrs_lazy_field()
+    _area: Optional[float] = attrs_lazy_field()
     _self_relative_polygon: Optional['Polygon'] = attrs_lazy_field()
     _np_mask: Optional[np.ndarray] = attrs_lazy_field()
     _mask: Optional['Mask'] = attrs_lazy_field()
@@ -49,7 +49,7 @@ class PolygonInternals:
         if self._area is not None:
             return self._area
 
-        self._area = ShapelyPolygon(self.np_self_relative_points).area
+        self._area = float(ShapelyPolygon(self.np_self_relative_points).area)
         return self._area
 
     @property
@@ -302,12 +302,15 @@ class Polygon:
             resized_width=resized_width,
         )
 
-    def to_bounding_rectangular_polygon(self):
+    def to_bounding_rectangular_polygon(self, shape: Tuple[int, int]):
         shapely_polygon = self.to_smooth_shapely_polygon()
 
         assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
         polygon = self.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
         assert polygon.num_points == 4
+
+        # NOTE: Could be out-of-bound.
+        polygon = polygon.to_clipped_polygon(shape)
 
         return polygon
 
