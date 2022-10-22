@@ -28,6 +28,11 @@ class LineStreakConfigGeneratorConfig:
     gap_min: int = 5
     gap_ratio_min: float = 0.01
     gap_ratio_max: float = 0.5
+    prob_dash: float = 0.25
+    dash_thickness_ratio_min: float = 0.005
+    dash_thickness_ratio_max: float = 0.05
+    dash_to_thickness_gap_ratio_min: float = 0.5
+    dash_to_thickness_gap_ratio_max: float = 1.0
     alpha_min: float = 0.2
     alpha_max: float = 1.0
 
@@ -52,6 +57,26 @@ class LineStreakConfigGenerator(
         gap = max(self.config.gap_min, round(gap_ratio * long_side_length))
 
         thickness = rng.integers(self.config.thickness_min, self.config.thickness_max + 1)
+
+        dash_thickness = 0
+        dash_gap = 0
+        if rng.random() < self.config.prob_dash:
+            dash_thickness_ratio = float(
+                rng.uniform(
+                    self.config.dash_thickness_ratio_min,
+                    self.config.dash_thickness_ratio_max,
+                )
+            )
+            dash_thickness = round(dash_thickness_ratio * long_side_length)
+
+            dash_to_thickness_gap_ratio = float(
+                rng.uniform(
+                    self.config.dash_to_thickness_gap_ratio_min,
+                    self.config.dash_to_thickness_gap_ratio_max,
+                )
+            )
+            dash_gap = round(dash_to_thickness_gap_ratio * dash_thickness)
+
         alpha = rng.uniform(self.config.alpha_min, self.config.alpha_max)
 
         mode = rng.integers(0, 3)
@@ -70,6 +95,8 @@ class LineStreakConfigGenerator(
         return distortion.LineStreakConfig(
             thickness=thickness,
             gap=gap,
+            dash_thickness=dash_thickness,
+            dash_gap=dash_gap,
             alpha=alpha,
             enable_vert=enable_vert,
             enable_hori=enable_hori,
