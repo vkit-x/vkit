@@ -29,7 +29,7 @@ class LineStreakConfigGeneratorConfig:
     gap_ratio_min: float = 0.01
     gap_ratio_max: float = 0.5
     prob_dash: float = 0.25
-    dash_thickness_ratio_min: float = 0.005
+    dash_thickness_ratio_min: float = 0.0
     dash_thickness_ratio_max: float = 0.05
     dash_to_thickness_gap_ratio_min: float = 0.5
     dash_to_thickness_gap_ratio_max: float = 1.0
@@ -165,7 +165,7 @@ class RectangleStreakConfigGeneratorConfig:
     aspect_ratio_min: float = 0.5
     aspect_ratio_max: float = 1.5
     prob_dash: float = 0.25
-    dash_thickness_ratio_min: float = 0.005
+    dash_thickness_ratio_min: float = 0.0
     dash_thickness_ratio_max: float = 0.05
     dash_to_thickness_gap_ratio_min: float = 0.5
     dash_to_thickness_gap_ratio_max: float = 1.0
