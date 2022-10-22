@@ -399,6 +399,17 @@ def test_line_streak():
     dst_image = line_streak.distort_image({'thickness': 10, 'gap': 10}, image)
     write_image('thickness-10-gap-10.jpg', dst_image)
 
+    dst_image = line_streak.distort_image(
+        {
+            'thickness': 2,
+            'gap': 50,
+            'dash_thickness': 10,
+            'dash_gap': 5,
+        },
+        image,
+    )
+    write_image('dash.jpg', dst_image)
+
     dst_image = line_streak.distort_image({'enable_hori': False}, image)
     write_image('no-hori.jpg', dst_image)
 
@@ -414,6 +425,9 @@ def test_rectangle_streak():
 
     dst_image = rectangle_streak.distort_image({'thickness': 3}, image)
     write_image('thickness-3.jpg', dst_image)
+
+    dst_image = rectangle_streak.distort_image({'dash_thickness': 10, 'dash_gap': 5}, image)
+    write_image('dash.jpg', dst_image)
 
     dst_image = rectangle_streak.distort_image({'short_side_min': 5}, image)
     write_image('short_side_min-5.jpg', dst_image)
