@@ -164,6 +164,11 @@ class RectangleStreakConfigGeneratorConfig:
     thickness_max: int = 4
     aspect_ratio_min: float = 0.5
     aspect_ratio_max: float = 1.5
+    prob_dash: float = 0.25
+    dash_thickness_ratio_min: float = 0.005
+    dash_thickness_ratio_max: float = 0.05
+    dash_to_thickness_gap_ratio_min: float = 0.5
+    dash_to_thickness_gap_ratio_max: float = 1.0
     short_side_min: int = 5
     short_side_min_ratio_min: float = 0.01
     short_side_min_ratio_max: float = 0.25
@@ -204,9 +209,32 @@ class RectangleStreakConfigGenerator(
             rng=rng,
         )
 
+        # Dash line.
+        long_side_length = max(shape)
+        dash_thickness = 0
+        dash_gap = 0
+        if rng.random() < self.config.prob_dash:
+            dash_thickness_ratio = float(
+                rng.uniform(
+                    self.config.dash_thickness_ratio_min,
+                    self.config.dash_thickness_ratio_max,
+                )
+            )
+            dash_thickness = round(dash_thickness_ratio * long_side_length)
+
+            dash_to_thickness_gap_ratio = float(
+                rng.uniform(
+                    self.config.dash_to_thickness_gap_ratio_min,
+                    self.config.dash_to_thickness_gap_ratio_max,
+                )
+            )
+            dash_gap = round(dash_to_thickness_gap_ratio * dash_thickness)
+
         return distortion.RectangleStreakConfig(
             thickness=thickness,
             aspect_ratio=aspect_ratio,
+            dash_thickness=dash_thickness,
+            dash_gap=dash_gap,
             short_side_min=short_side_min,
             short_side_step=short_side_step,
             alpha=alpha,
