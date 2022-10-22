@@ -21,10 +21,32 @@ from vkit.element import Image, Mask, Box
 from ..interface import DistortionConfig, DistortionNopState, Distortion
 
 
+def fill_vert_dash_gap(dash_thickness: int, dash_gap: int, mask: Mask):
+    if dash_thickness <= 0 or dash_gap <= 0:
+        return
+
+    with mask.writable_context:
+        step = dash_thickness + dash_gap
+        for offset_y in range(dash_gap):
+            mask.mat[offset_y::step] = 0
+
+
+def fill_hori_dash_gap(dash_thickness: int, dash_gap: int, mask: Mask):
+    if dash_thickness <= 0 or dash_gap <= 0:
+        return
+
+    with mask.writable_context:
+        step = dash_thickness + dash_gap
+        for offset_x in range(dash_gap):
+            mask.mat[:, offset_x::step] = 0
+
+
 @attrs.define
 class LineStreakConfig(DistortionConfig):
     thickness: int = 1
     gap: int = 4
+    dash_thickness: int = 0
+    dash_gap: int = 0
     color: Tuple[int, int, int] = (0, 0, 0)
     alpha: float = 1.0
     enable_vert: bool = True
@@ -37,19 +59,43 @@ def line_streak_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    mask = Mask.from_shapable(image)
+    masks: List[Mask] = []
 
-    with mask.writable_context:
-        step = config.thickness + config.gap
-        if config.enable_vert:
+    step = config.thickness + config.gap
+
+    if config.enable_vert:
+        mask = Mask.from_shapable(image)
+
+        with mask.writable_context:
             for offset_x in range(config.thickness):
                 mask.mat[:, offset_x::step] = 1
-        if config.enable_hori:
+
+        fill_vert_dash_gap(
+            dash_thickness=config.dash_thickness,
+            dash_gap=config.dash_gap,
+            mask=mask,
+        )
+
+        masks.append(mask)
+
+    if config.enable_hori:
+        mask = Mask.from_shapable(image)
+
+        with mask.writable_context:
             for offset_y in range(config.thickness):
                 mask.mat[offset_y::step] = 1
 
+        fill_hori_dash_gap(
+            dash_thickness=config.dash_thickness,
+            dash_gap=config.dash_gap,
+            mask=mask,
+        )
+
+        masks.append(mask)
+
     image = image.copy()
-    mask.fill_image(image, config.color, alpha=config.alpha)
+    for mask in masks:
+        mask.fill_image(image, config.color, alpha=config.alpha)
     return image
 
 
@@ -103,6 +149,8 @@ def generate_centered_boxes(
 class RectangleStreakConfig(DistortionConfig):
     thickness: int = 1
     aspect_ratio: Optional[float] = None
+    dash_thickness: int = 0
+    dash_gap: int = 0
     short_side_min: int = 10
     short_side_step: int = 10
     color: Tuple[int, int, int] = (0, 0, 0)
@@ -115,8 +163,6 @@ def rectangle_streak_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    mask = Mask.from_shapable(image)
-
     aspect_ratio = config.aspect_ratio
     if aspect_ratio is None:
         aspect_ratio = image.width / image.height
@@ -128,29 +174,16 @@ def rectangle_streak_image(
         short_side_min=config.short_side_min,
         short_side_step=config.short_side_step,
     )
+
+    # Generate bars.
+    vert_bars: List[Box] = []
+    hori_bars: List[Box] = []
+
     for box in boxes:
         inner_up = box.down - config.thickness + 1
         inner_down = box.up + config.thickness - 1
         inner_left = box.right - config.thickness + 1
         inner_right = box.left + config.thickness - 1
-
-        # Shared by top/bottom bars.
-        bar_left = max(0, inner_right + 1)
-        bar_right = min(image.width - 1, inner_left - 1)
-
-        # Top bar.
-        bar_up = max(0, box.up)
-        bar_down = inner_down
-        if 0 <= inner_down < image.height and bar_left <= bar_right:
-            with mask.writable_context:
-                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
-
-        # Bottom bar.
-        bar_up = inner_up
-        bar_down = min(image.height - 1, box.down)
-        if 0 <= bar_up < image.height and bar_left <= bar_right:
-            with mask.writable_context:
-                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
 
         # Shared by left/right bars.
         bar_up = max(0, box.up)
@@ -159,19 +192,83 @@ def rectangle_streak_image(
         # Left bar.
         bar_left = max(0, box.left)
         bar_right = inner_right
+
         if 0 <= bar_right < image.width and bar_up <= bar_down:
-            with mask.writable_context:
-                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
+            vert_bars.append(Box(
+                up=bar_up,
+                down=bar_down,
+                left=bar_left,
+                right=bar_right,
+            ))
 
         # Right bar.
         bar_left = inner_left
         bar_right = min(image.width - 1, box.right)
+
         if 0 <= bar_left < image.width and bar_up <= bar_down:
-            with mask.writable_context:
-                mask.mat[bar_up:bar_down + 1, bar_left:bar_right + 1] = 1
+            vert_bars.append(Box(
+                up=bar_up,
+                down=bar_down,
+                left=bar_left,
+                right=bar_right,
+            ))
+
+        # Shared by top/bottom bars.
+        bar_left = max(0, inner_right + 1)
+        bar_right = min(image.width - 1, inner_left - 1)
+
+        # Top bar.
+        bar_up = max(0, box.up)
+        bar_down = inner_down
+
+        if 0 <= inner_down < image.height and bar_left <= bar_right:
+            hori_bars.append(Box(
+                up=bar_up,
+                down=bar_down,
+                left=bar_left,
+                right=bar_right,
+            ))
+
+        # Bottom bar.
+        bar_up = inner_up
+        bar_down = min(image.height - 1, box.down)
+
+        if 0 <= bar_up < image.height and bar_left <= bar_right:
+            hori_bars.append(Box(
+                up=bar_up,
+                down=bar_down,
+                left=bar_left,
+                right=bar_right,
+            ))
+
+    # Render.
+    mask_vert = Mask.from_shapable(image)
+
+    with mask_vert.writable_context:
+        for bar in vert_bars:
+            mask_vert.mat[bar.up:bar.down + 1, bar.left:bar.right + 1] = 1
+
+    fill_vert_dash_gap(
+        dash_thickness=config.dash_thickness,
+        dash_gap=config.dash_gap,
+        mask=mask_vert,
+    )
+
+    mask_hori = Mask.from_shapable(image)
+
+    with mask_hori.writable_context:
+        for bar in hori_bars:
+            mask_hori.mat[bar.up:bar.down + 1, bar.left:bar.right + 1] = 1
+
+    fill_hori_dash_gap(
+        dash_thickness=config.dash_thickness,
+        dash_gap=config.dash_gap,
+        mask=mask_hori,
+    )
 
     image = image.copy()
-    mask.fill_image(image, config.color, alpha=config.alpha)
+    mask_vert.fill_image(image, config.color, alpha=config.alpha)
+    mask_hori.fill_image(image, config.color, alpha=config.alpha)
     return image
 
 
