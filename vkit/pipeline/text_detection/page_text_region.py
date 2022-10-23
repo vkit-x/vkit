@@ -964,12 +964,14 @@ class PageTextRegionStep(
             )
 
             # Find and extract intersected text region.
-            # NOTE: One precise_polygon could be overlapped with more than one disconnected_text_region_polygon!
-            for _, _, disconnected_text_region_mask, precise_mask, _ in self.strtree_query_intersected_polygons(
-                strtree=disconnected_text_region_tree,
-                id_to_anchor_polygon=id_to_disconnected_text_region_polygon,
-                candidate_polygon=precise_polygon,
-            ):
+            # NOTE: One precise_polygon could be overlapped with
+            # more than one disconnected_text_region_polygon!
+            for _, _, disconnected_text_region_mask, precise_mask, _ in \
+                    self.strtree_query_intersected_polygons(
+                        strtree=disconnected_text_region_tree,
+                        id_to_anchor_polygon=id_to_disconnected_text_region_polygon,
+                        candidate_polygon=precise_polygon,
+                    ):
                 precise_text_region_candidate_polygons.extend(
                     self.generate_precise_text_region_candidate_polygons(
                         precise_mask=precise_mask,

@@ -16,7 +16,6 @@ import functools
 
 import attrs
 from numpy.random import Generator as RandomGenerator, default_rng
-import pytest
 
 from vkit.element import Point, Line, Polygon, Image, Painter
 from vkit.pipeline import (
