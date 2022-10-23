@@ -611,36 +611,67 @@ class Mask(Shapable):
             alpha=alpha,
         )
 
+    def to_external_box(self):
+        np_mask = self.np_mask
+
+        np_vert_max: np.ndarray = np.amax(np_mask, axis=1)
+        np_vert_nonzero = np.nonzero(np_vert_max)[0]
+        if len(np_vert_nonzero) == 0:
+            raise RuntimeError('to_external_box: empty np_mask.')
+
+        up = int(np_vert_nonzero[0])
+        down = int(np_vert_nonzero[-1])
+
+        np_hori_max: np.ndarray = np.amax(np_mask, axis=0)
+        np_hori_nonzero = np.nonzero(np_hori_max)[0]
+        if len(np_hori_nonzero) == 0:
+            raise RuntimeError('to_external_box: empty np_mask.')
+
+        left = int(np_hori_nonzero[0])
+        right = int(np_hori_nonzero[-1])
+
+        return Box(up=up, down=down, left=left, right=right)
+
     def to_external_polygon(
         self,
         cv_find_contours_method: int = cv.CHAIN_APPROX_SIMPLE,
     ):
-        # [(N, 1, 2),]
-        cv_contours, _ = cv.findContours(
-            (self.np_mask.astype(np.uint8) * 255),
-            cv.RETR_EXTERNAL,
-            cv_find_contours_method,
-        )
-        assert len(cv_contours) == 1
-        np_points = np.squeeze(cv_contours[0], axis=1)
-
-        if self.box:
-            np_points[:, 0] += self.box.left
-            np_points[:, 1] += self.box.up
-
-        return Polygon.from_np_array(np_points)
+        polygons = self.to_disconnected_polygons(cv_find_contours_method=cv_find_contours_method)
+        if not polygons:
+            raise RuntimeError('Cannot find any contour.')
+        elif len(polygons) > 1:
+            logger.warning(
+                'More than one polygons is detected, keep the largest one as the external polygon.'
+            )
+            area_max = 0
+            best_polygon = None
+            for polygon in polygons:
+                if polygon.area > area_max:
+                    area_max = polygon.area
+                    best_polygon = polygon
+            assert best_polygon
+            return best_polygon
+        else:
+            return polygons[0]
 
     def to_disconnected_polygons(
         self,
         cv_find_contours_method: int = cv.CHAIN_APPROX_SIMPLE,
-        keep_ratio_min: float = 0.8,
     ) -> Sequence['Polygon']:
         # [ (N, 1, 2), ... ]
-        cv_contours, _ = cv.findContours(
+        # https://stackoverflow.com/a/8830981
+        # https://docs.opencv.org/4.x/d9/d8b/tutorial_py_contours_hierarchy.html
+        cv_contours, cv_hierarchy = cv.findContours(
             (self.np_mask.astype(np.uint8) * 255),
-            cv.RETR_LIST,
+            cv.RETR_TREE,
             cv_find_contours_method,
         )
+        if not cv_contours:
+            return []
+
+        assert len(cv_hierarchy) == 1
+        assert len(cv_contours) == len(cv_hierarchy[0])
+        cv_hierarchy = cv_hierarchy[0]
 
         polygons: List[Polygon] = []
 
@@ -649,7 +680,12 @@ class Mask(Shapable):
         shapely_geos_logger_level = shapely_geos_logger.level
         shapely_geos_logger.setLevel(logging.WARNING)
 
-        for cv_contour in cv_contours:
+        for cv_contour, cv_contour_hierarchy in zip(cv_contours, cv_hierarchy):
+            assert len(cv_contour_hierarchy) == 4
+            cv_contour_parent = cv_contour_hierarchy[-1]
+            if cv_contour_parent >= 0:
+                continue
+
             assert cv_contour.shape[1] == 1
             np_points = np.squeeze(cv_contour, axis=1)
 
@@ -691,16 +727,7 @@ class Mask(Shapable):
         # Reset logging level.
         shapely_geos_logger.setLevel(shapely_geos_logger_level)
 
-        # NOTE: some polygons are correlated to the "holes" within the mask, and should be removed.
-        filtered_polygons: List[Polygon] = []
-        for polygon in polygons:
-            ratio = int(polygon.extract_mask(self).np_mask.sum()) / int(polygon.mask.np_mask.sum())
-            if ratio < keep_ratio_min:
-                logger.debug(f'ignore polygon={polygon} since ratio={ratio} is too small')
-                continue
-            filtered_polygons.append(polygon)
-
-        return filtered_polygons
+        return polygons
 
     def to_disconnected_polygon_mask_pairs(
         self,
