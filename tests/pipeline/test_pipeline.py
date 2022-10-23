@@ -33,6 +33,7 @@ from vkit.pipeline import (
     PipelinePostProcessorFactory,
     Pipeline,
 )
+from vkit.pipeline.text_detection.page_text_region import build_background_image_for_stacking
 from tests.opt import write_image
 
 
@@ -222,6 +223,17 @@ def visualize_page_text_region_step_output(
             )
             cur_write_image(f'page_{seed}_flat_text_region_{idx}_char_polygons.jpg', painter.image)
 
+        if False:
+            for idx, flattened_text_region in enumerate(output.debug.flattened_text_regions):
+                cur_write_image(
+                    f'page_{seed}_flat_text_region_debug_{idx}_original.jpg',
+                    flattened_text_region.text_region_image,
+                )
+                cur_write_image(
+                    f'page_{seed}_flat_text_region_debug_{idx}_flattened.jpg',
+                    flattened_text_region.flattened_image,
+                )
+
     cur_write_image(f'page_{seed}_stacked_image.jpg', output.page_image)
 
     painter = Painter.create(output.page_image)
@@ -391,8 +403,7 @@ def visualize_page_text_region_cropping_step_output(
         cur_write_image(f'page_{seed}_cropped_text_region_{idx}_ds_score_map.png', painter.image)
 
 
-@pytest.mark.local
-def test_debug_adaptive_scaling_dataset_steps():
+def debug_adaptive_scaling_dataset_steps():
     post_processor_factory = PipelinePostProcessorFactory(DebugAdaptiveScalingPipelinePostProcessor)
     pipeline_config_json = '$VKIT_DATA/pipeline/debug_adaptive_scaling_dataset_steps.json'
     # pipeline_config_json = '$VKIT_ARTIFACT_PACK/pipeline/text_detection/dev_adaptive_scaling_dataset_steps.json'  # noqa
@@ -437,3 +448,8 @@ def profile_adaptive_scaling_dataset_steps():
     for seed in (0, 1):
         rng = default_rng(seed)
         pipeline.run(rng)
+
+
+def test_build_background_image_for_stacking():
+    image = build_background_image_for_stacking(300, 300)
+    write_image('image.png', image)
