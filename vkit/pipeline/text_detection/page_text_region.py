@@ -829,6 +829,7 @@ class PageTextRegionStep(
         positive_flattened_text_regions: List[FlattenedTextRegion] = []
         # For negative sampling.
         positive_reference_heights: List[float] = []
+        positive_reference_widths: List[float] = []
         num_negative_flattened_text_regions = 0
 
         for flattened_text_region in text_region_flattener.flattened_text_regions:
@@ -856,6 +857,7 @@ class PageTextRegionStep(
             )
 
             positive_reference_heights.append(resized_height)
+            positive_reference_widths.append(resized_width)
 
             # Post rotate.
             post_rotate_angle = 0
@@ -884,6 +886,9 @@ class PageTextRegionStep(
             )
         )
 
+        negative_height_max = max(positive_reference_heights)
+        negative_width_max = max(positive_reference_widths)
+
         negative_flattened_text_regions: List[FlattenedTextRegion] = []
 
         for flattened_text_region in text_region_flattener.flattened_text_regions:
@@ -896,6 +901,10 @@ class PageTextRegionStep(
             height, width = flattened_text_region.shape
             resized_height = round(height * scale)
             resized_width = round(width * scale)
+
+            # Remove negative region that is too large.
+            if resized_height > negative_height_max or resized_width > negative_width_max:
+                continue
 
             flattened_text_region = flattened_text_region.to_resized_flattened_text_region(
                 resized_height=resized_height,
