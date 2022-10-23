@@ -1022,6 +1022,11 @@ class PageTextRegionStep(
             if best_precise_text_region_id is not None:
                 id_to_char_polygons[best_precise_text_region_id].append(char_polygon)
             else:
+                # NOTE: Text line with only a small char (i.e. delimiter) could enter this branch.
+                # In such case, the text line bounding box is smaller than the char polygon, since
+                # the leading/trailing char paddings are ignored during text line rendering.
+                # It's acceptable for now since: 1) this case happens rarely, 2) and it won't
+                # introduce labeling noise.
                 logger.warning(f'Cannot assign a text region for char_polygon={char_polygon}')
 
         page_text_region_infos: List[PageTextRegionInfo] = []
