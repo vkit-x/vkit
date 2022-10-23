@@ -201,22 +201,23 @@ def calculate_boxed_masks_intersected_ratio(
     if up > down or left > right:
         return 0.0
 
-    union_box = Box.from_boxes([anchor_box, candidate_box])
-    intersected_mask = Mask.from_masks(
-        union_box,
-        [anchor_mask, candidate_mask],
-        ElementSetOperationMode.INTERSECT,
-    )
-    intersected_area = int(intersected_mask.np_mask.sum())
+    np_intersected_anchor_mask = anchor_mask.mat[
+        up - anchor_box.up:down - anchor_box.up + 1,
+        left - anchor_box.left:right - anchor_box.left + 1,
+    ]  # yapf: disable
+    np_intersected_candidate_mask = candidate_mask.mat[
+        up - candidate_box.up:down - candidate_box.up + 1,
+        left - candidate_box.left:right - candidate_box.left + 1,
+    ]  # yapf: disable
+    np_intersected_mask = np_intersected_anchor_mask & np_intersected_candidate_mask
+    intersected_area = int(np_intersected_mask.sum())
 
     if use_candidate_as_base:
         base_area = int(candidate_mask.np_mask.sum())
     else:
-        union_mask = Mask.from_masks(
-            union_box,
-            [anchor_mask, candidate_mask],
+        base_area = (
+            int(anchor_mask.np_mask.sum()) + int(candidate_mask.np_mask.sum()) - intersected_area
         )
-        base_area = int(union_mask.np_mask.sum())
 
     return intersected_area / base_area
 
