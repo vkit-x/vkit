@@ -437,6 +437,20 @@ class Polygon:
     ):
         try:
             shrank_polygon, _ = self.to_vatti_clipped_polygon(ratio, shrink=True)
+
+            shrank_bounding_box = shrank_polygon.bounding_box
+            vert_contains = (
+                self.bounding_box.up <= shrank_bounding_box.up
+                and shrank_bounding_box.down <= self.bounding_box.down
+            )
+            hori_contains = (
+                self.bounding_box.left <= shrank_bounding_box.left
+                and shrank_bounding_box.right <= self.bounding_box.right
+            )
+            if not (shrank_bounding_box.valid and vert_contains and hori_contains):
+                logger.warning('Invalid shrank_polygon bounding box. Fallback to NOP.')
+                return self
+
             if 0 < shrank_polygon.area <= self.area:
                 return shrank_polygon
             else:
@@ -457,6 +471,20 @@ class Polygon:
     ):
         try:
             dilated_polygon, _ = self.to_vatti_clipped_polygon(ratio, shrink=False)
+
+            dilated_bounding_box = dilated_polygon.bounding_box
+            vert_contains = (
+                dilated_bounding_box.up <= self.bounding_box.up
+                and self.bounding_box.down <= dilated_bounding_box.down
+            )
+            hori_contains = (
+                dilated_bounding_box.left <= self.bounding_box.left
+                and self.bounding_box.right <= dilated_bounding_box.right
+            )
+            if not (dilated_bounding_box.valid and vert_contains and hori_contains):
+                logger.warning('Invalid dilated_polygon bounding box. Fallback to NOP.')
+                return self
+
             if dilated_polygon.area >= self.area:
                 return dilated_polygon
             else:
