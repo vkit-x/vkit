@@ -409,7 +409,7 @@ class RandomDistortionFactoryConfig:
     )
     # Geometric.
     prob_geometric: float = 0.75
-    force_post_uniform_rotate: bool = False
+    force_post_rotate: bool = False
     # Shared.
     level_min: int = LEVEL_MIN
     level_max: int = LEVEL_MAX
@@ -626,7 +626,7 @@ class RandomDistortionFactory:
         )
 
         post_rotate_policy = None
-        if config.force_post_uniform_rotate:
+        if config.force_post_rotate:
             rotate_policy_idx = -1
             for geometric_policy_idx, geometric_policy in enumerate(geometric_policies):
                 if geometric_policy.name == 'rotate':
@@ -643,7 +643,7 @@ class RandomDistortionFactory:
                 prob_enable=config.prob_geometric,
                 num_distortions_min=1,
                 num_distortions_max=1,
-                inject_corner_points=config.force_post_uniform_rotate,
+                inject_corner_points=config.force_post_rotate,
             )
         )
         if post_rotate_policy:

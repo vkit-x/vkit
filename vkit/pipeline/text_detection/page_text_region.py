@@ -46,13 +46,15 @@ class PageTextRegionStepConfig:
     text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.85
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
     text_region_resize_char_height_median_min: int = 30
-    text_region_resize_char_height_median_max: int = 40
+    text_region_resize_char_height_median_max: int = 45
     text_region_typical_post_rotate_prob: float = 0.2
     text_region_untypical_post_rotate_prob: float = 0.2
     negative_text_region_ratio: float = 0.1
     negative_text_region_post_rotate_prob: float = 0.2
     stack_flattened_text_regions_pad: int = 2
-    enable_post_uniform_rotate: bool = False
+    enable_post_rotate: bool = False
+    post_rotate_angle_min: int = -10
+    post_rotate_angle_max: int = 10
     debug: bool = False
 
 
@@ -1088,8 +1090,13 @@ class PageTextRegionStep(
         shape_before_rotate = image.shape
         rotate_angle = 0
 
-        if self.config.enable_post_uniform_rotate:
-            rotate_angle = int(rng.integers(0, 360))
+        if self.config.enable_post_rotate:
+            rotate_angle = int(
+                rng.integers(
+                    self.config.post_rotate_angle_min,
+                    self.config.post_rotate_angle_max + 1,
+                )
+            )
             rotated_result = rotate.distort(
                 {'angle': rotate_angle},
                 image=image,
