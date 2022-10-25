@@ -191,12 +191,12 @@ def _image_mode_to_non_gcn_mode(image_mode: ImageMode):
     return _IMAGE_MODE_GCN_TO_NON_GCN[image_mode]
 
 
-_IMAGE_SRC_KIND_TO_PRE_SLICE: Mapping[ImageMode, Sequence[int]] = {
+_IMAGE_SRC_MODE_TO_PRE_SLICE: Mapping[ImageMode, Sequence[int]] = {
     # HSL -> HLS.
     ImageMode.HSL: [0, 2, 1],
 }
 
-_IMAGE_SRC_KIND_TO_RGB_CV_CODE = {
+_IMAGE_SRC_MODE_TO_RGB_CV_CODE = {
     ImageMode.GRAYSCALE: cv.COLOR_GRAY2RGB,
     ImageMode.RGBA: cv.COLOR_RGBA2RGB,
     ImageMode.HSV: cv.COLOR_HSV2RGB_FULL,
@@ -204,7 +204,7 @@ _IMAGE_SRC_KIND_TO_RGB_CV_CODE = {
     ImageMode.HSL: cv.COLOR_HLS2RGB_FULL,
 }
 
-_IMAGE_INV_DST_KIND_TO_RGB_CV_CODE = {
+_IMAGE_INV_DST_MODE_TO_RGB_CV_CODE = {
     ImageMode.GRAYSCALE: cv.COLOR_RGB2GRAY,
     ImageMode.RGBA: cv.COLOR_RGB2RGBA,
     ImageMode.HSV: cv.COLOR_RGB2HSV_FULL,
@@ -212,12 +212,12 @@ _IMAGE_INV_DST_KIND_TO_RGB_CV_CODE = {
     ImageMode.HSL: cv.COLOR_RGB2HLS_FULL,
 }
 
-_IMAGE_DST_KIND_TO_POST_SLICE: Mapping[ImageMode, Sequence[int]] = {
+_IMAGE_DST_MODE_TO_POST_SLICE: Mapping[ImageMode, Sequence[int]] = {
     # HLS -> HSL.
     ImageMode.HSL: [0, 2, 1],
 }
 
-_IMAGE_SRC_DST_KIND_TO_CV_CODE: Mapping[Tuple[ImageMode, ImageMode], int] = {
+_IMAGE_SRC_DST_MODE_TO_CV_CODE: Mapping[Tuple[ImageMode, ImageMode], int] = {
     (ImageMode.GRAYSCALE, ImageMode.RGBA): cv.COLOR_GRAY2RGBA,
     (ImageMode.RGBA, ImageMode.GRAYSCALE): cv.COLOR_RGBA2GRAY,
 }
@@ -833,31 +833,31 @@ class Image(Shapable):
         mat = self.mat
 
         # Pre-slicing.
-        if self.mode in _IMAGE_SRC_KIND_TO_PRE_SLICE:
-            mat: np.ndarray = mat[:, :, _IMAGE_SRC_KIND_TO_PRE_SLICE[self.mode]]
+        if self.mode in _IMAGE_SRC_MODE_TO_PRE_SLICE:
+            mat: np.ndarray = mat[:, :, _IMAGE_SRC_MODE_TO_PRE_SLICE[self.mode]]
 
-        if (self.mode, target_mode) in _IMAGE_SRC_DST_KIND_TO_CV_CODE:
+        if (self.mode, target_mode) in _IMAGE_SRC_DST_MODE_TO_CV_CODE:
             # Shortcut.
-            cv_code = _IMAGE_SRC_DST_KIND_TO_CV_CODE[(self.mode, target_mode)]
+            cv_code = _IMAGE_SRC_DST_MODE_TO_CV_CODE[(self.mode, target_mode)]
             dst_mat: np.ndarray = cv.cvtColor(mat, cv_code)
             return Image(mat=dst_mat, mode=target_mode)
 
         dst_mat = mat
         if self.mode != ImageMode.RGB:
             # Convert to RGB.
-            dst_mat: np.ndarray = cv.cvtColor(mat, _IMAGE_SRC_KIND_TO_RGB_CV_CODE[self.mode])
+            dst_mat: np.ndarray = cv.cvtColor(mat, _IMAGE_SRC_MODE_TO_RGB_CV_CODE[self.mode])
 
         if target_mode == ImageMode.RGB:
             # No need to continue.
             return Image(mat=dst_mat, mode=ImageMode.RGB)
 
         # Convert RGB to target mode.
-        assert target_mode in _IMAGE_INV_DST_KIND_TO_RGB_CV_CODE
-        dst_mat: np.ndarray = cv.cvtColor(dst_mat, _IMAGE_INV_DST_KIND_TO_RGB_CV_CODE[target_mode])
+        assert target_mode in _IMAGE_INV_DST_MODE_TO_RGB_CV_CODE
+        dst_mat: np.ndarray = cv.cvtColor(dst_mat, _IMAGE_INV_DST_MODE_TO_RGB_CV_CODE[target_mode])
 
         # Post-slicing.
-        if target_mode in _IMAGE_DST_KIND_TO_POST_SLICE:
-            dst_mat: np.ndarray = dst_mat[:, :, _IMAGE_DST_KIND_TO_POST_SLICE[target_mode]]
+        if target_mode in _IMAGE_DST_MODE_TO_POST_SLICE:
+            dst_mat: np.ndarray = dst_mat[:, :, _IMAGE_DST_MODE_TO_POST_SLICE[target_mode]]
 
         return Image(mat=dst_mat, mode=target_mode)
 
