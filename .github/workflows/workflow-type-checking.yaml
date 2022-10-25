@@ -21,7 +21,7 @@ jobs:
           fi
 
           sudo pip install -e .
-          sudo pip install pytest
+          sudo pip install 'pytest<7.2.0'
       - name: Type checking
         run: |
           EXTRA_PATH=$(python -c 'import sys, json; print(json.dumps([path for path in sys.path if path]).replace("[", "\[").replace("]", "\]"))')
