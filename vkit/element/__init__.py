@@ -19,7 +19,7 @@ from .box import Box, BoxOverlappingValidator, CharBox
 from .polygon import Polygon
 from .mask import Mask, MaskSetItemConfig
 from .score_map import ScoreMap, ScoreMapSetItemConfig
-from .image import Image, ImageKind, ImageSetItemConfig
+from .image import Image, ImageMode, ImageSetItemConfig
 
 from .painter import Painter
 from .cropper import Cropper

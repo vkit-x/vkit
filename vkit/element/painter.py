@@ -25,7 +25,7 @@ from .box import Box, CharBox
 from .polygon import Polygon
 from .mask import Mask
 from .score_map import ScoreMap
-from .image import Image, ImageKind
+from .image import Image, ImageMode
 
 
 class Painter:
@@ -165,8 +165,8 @@ class Painter:
     def overlay_layer_image(self, layer_image: Image):
         alpha = layer_image.mat[:, :, 3].astype(np.float32) / 255.0
 
-        layer_image = Image(mat=layer_image.mat[:, :, :3], kind=ImageKind.RGB)
-        layer_image = layer_image.to_target_kind_image(self.image.kind)
+        layer_image = Image(mat=layer_image.mat[:, :, :3], mode=ImageMode.RGB)
+        layer_image = layer_image.to_target_mode_image(self.image.mode)
 
         Box.from_shapable(layer_image).fill_image(
             self.image,

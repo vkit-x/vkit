@@ -23,7 +23,7 @@ import cv2 as cv
 import iolite as io
 
 from vkit.utility import rng_choice, read_json_file
-from vkit.element import Image, ImageKind, Mask
+from vkit.element import Image, ImageMode, Mask
 from vkit.engine.interface import (
     Engine,
     EngineExecutorFactory,
@@ -73,7 +73,7 @@ def load_image_metas_from_folder(folder: str):
 @attrs.define
 class ImageCombinerEngineInitConfig:
     image_meta_folder: str
-    target_kind_image: ImageKind = ImageKind.RGB
+    target_image_mode: ImageMode = ImageMode.RGB
     enable_cache: bool = False
     sigma: float = 3.0
     init_segment_width_min_ratio: float = 0.25
@@ -255,8 +255,8 @@ class ImageCombinerEngine(
             if self.enable_cache and image_meta.image_file in self.image_file_to_cache_image:
                 segment_image = self.image_file_to_cache_image[image_meta.image_file]
             else:
-                segment_image = Image.from_file(image_meta.image_file).to_target_kind_image(
-                    self.init_config.target_kind_image
+                segment_image = Image.from_file(image_meta.image_file).to_target_mode_image(
+                    self.init_config.target_image_mode
                 )
                 if self.enable_cache:
                     self.image_file_to_cache_image[image_meta.image_file] = segment_image

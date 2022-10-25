@@ -18,7 +18,7 @@ import numpy as np
 from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
-from vkit.element import Image, ImageKind
+from vkit.element import Image, ImageMode
 from ..interface import DistortionConfig, DistortionNopState, Distortion
 from .opt import to_rgb_image, to_original_image, clip_mat_back_to_uint8
 
@@ -34,15 +34,15 @@ def jpeg_quality_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     assert 0 <= config.quality <= 100
     _, buffer = cv.imencode('.jpeg', image.mat, [cv.IMWRITE_JPEG_QUALITY, config.quality])
     mat: np.ndarray = cv.imdecode(buffer, cv.IMREAD_UNCHANGED)
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 
@@ -173,8 +173,8 @@ def fog_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     assert rng is not None
     mask = generate_diamond_square_mask(
@@ -191,13 +191,13 @@ def fog_image(
 
     mat = image.mat.astype(np.float32)
 
-    if image.kind == ImageKind.GRAYSCALE:
+    if image.mode == ImageMode.GRAYSCALE:
         val = 0.2126 * config.fog_rgb[0] + 0.7152 * config.fog_rgb[1] + 0.0722 * config.fog_rgb[2]
         fog = np.full(image.shape, val, dtype=np.float32)
         mat = (1 - mask) * mat + mask * fog
 
     else:
-        assert image.kind == ImageKind.RGB
+        assert image.mode == ImageMode.RGB
         fog = np.full((*image.shape, 3), config.fog_rgb, dtype=np.float32)
         mask = np.expand_dims(mask, axis=-1)
         mat = (1 - mask) * mat + mask * fog
@@ -205,7 +205,7 @@ def fog_image(
     mat = clip_mat_back_to_uint8(mat)
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 

@@ -19,7 +19,7 @@ from numpy.random import Generator as RandomGenerator
 import numpy as np
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
-from vkit.element import Box, Image, ImageKind
+from vkit.element import Box, Image, ImageMode
 from vkit.engine.image import image_selector_engine_executor_factory
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_layout import PageLayoutStepOutput
@@ -73,7 +73,7 @@ class PageNonTextSymbolStep(
         self.symbol_image_selector_engine_executor = \
             image_selector_engine_executor_factory.create({
                 'image_folders': self.config.symbol_image_folders,
-                'target_kind_image': None,
+                'target_image_mode': None,
                 'force_resize': True,
             })
 
@@ -116,7 +116,7 @@ class PageNonTextSymbolStep(
             )
             alpha: Union[np.ndarray, float] = layout_non_text_symbol.alpha
 
-            if image.kind == ImageKind.RGBA:
+            if image.mode == ImageMode.RGBA:
                 # Extract and rescale alpha.
                 np_alpha = (image.mat[:, :, 3]).astype(np.float32) / 255
                 np_alpha_max = np_alpha.max()
@@ -127,7 +127,7 @@ class PageNonTextSymbolStep(
                 # Force to rgb (ignoring alpha channel).
                 image = Image(mat=image.mat[:, :, :3])
 
-            elif image.kind == ImageKind.GRAYSCALE:
+            elif image.mode == ImageMode.GRAYSCALE:
                 # As mask.
                 alpha = (image.mat > 0).astype(np.float32)
                 alpha *= layout_non_text_symbol.alpha

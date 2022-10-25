@@ -18,7 +18,7 @@ import numpy as np
 from numpy.random import Generator as RandomGenerator
 import cv2 as cv
 
-from vkit.element import Image, ImageKind
+from vkit.element import Image, ImageMode
 from ..interface import DistortionConfig, DistortionNopState, Distortion
 from .opt import (
     extract_mat_from_image,
@@ -96,8 +96,8 @@ def color_shift_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    if kind not in (ImageKind.HSV, ImageKind.HSL):
+    mode = image.mode
+    if mode not in (ImageMode.HSV, ImageMode.HSL):
         # To HSV.
         image = image.to_hsv_image()
 
@@ -110,8 +110,8 @@ def color_shift_image(
         oob_behavior=OutOfBoundBehavior.CYCLE,
     )
 
-    if kind not in (ImageKind.HSV, ImageKind.HSL):
-        image = image.to_target_kind_image(kind)
+    if mode not in (ImageMode.HSV, ImageMode.HSL):
+        image = image.to_target_mode_image(mode)
 
     return image
 
@@ -126,7 +126,7 @@ color_shift = Distortion(
 @attrs.define
 class BrightnessShiftConfig(DistortionConfig):
     delta: int
-    intermediate_kind: ImageKind = ImageKind.HSL
+    intermediate_image_mode: ImageMode = ImageMode.HSL
 
 
 def brightness_shift_image(
@@ -135,10 +135,10 @@ def brightness_shift_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    if kind not in (ImageKind.HSV, ImageKind.HSL):
-        assert config.intermediate_kind in (ImageKind.HSV, ImageKind.HSL)
-        image = image.to_target_kind_image(config.intermediate_kind)
+    mode = image.mode
+    if mode not in (ImageMode.HSV, ImageMode.HSL):
+        assert config.intermediate_image_mode in (ImageMode.HSV, ImageMode.HSL)
+        image = image.to_target_mode_image(config.intermediate_image_mode)
 
     image = _mean_shift(
         image=image,
@@ -149,8 +149,8 @@ def brightness_shift_image(
         oob_behavior=OutOfBoundBehavior.CLIP,
     )
 
-    if kind not in (ImageKind.HSV, ImageKind.HSL):
-        image = image.to_target_kind_image(kind)
+    if mode not in (ImageMode.HSV, ImageMode.HSL):
+        image = image.to_target_mode_image(mode)
 
     return image
 
@@ -374,14 +374,14 @@ def color_balance_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    if image.kind == ImageKind.GRAYSCALE:
+    if image.mode == ImageMode.GRAYSCALE:
         return image
 
-    grayscale_like_image = image.to_grayscale_image().to_target_kind_image(image.kind)
+    grayscale_like_image = image.to_grayscale_image().to_target_mode_image(image.mode)
     grayscale_like_mat = grayscale_like_image.mat.astype(np.float32)
     mat = image.mat.astype(np.float32)
 
-    if image.kind in (ImageKind.HSV, ImageKind.HSL):
+    if image.mode in (ImageMode.HSV, ImageMode.HSL):
         channels = cast(Sequence[int], [1, 2])
         grayscale_like_mat = grayscale_like_mat[:, :, channels]
         mat = mat[:, :, channels]
@@ -390,7 +390,7 @@ def color_balance_image(
     mat = (1 - config.ratio) * grayscale_like_mat + config.ratio * mat
     mat = clip_mat_back_to_uint8(mat)
 
-    if image.kind in (ImageKind.HSV, ImageKind.HSL):
+    if image.mode in (ImageMode.HSV, ImageMode.HSL):
         return generate_new_image(image, mat, [1, 2])
     else:
         return attrs.evolve(image, mat=mat)
