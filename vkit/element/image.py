@@ -30,7 +30,6 @@ from .type import Shapable, ElementSetOperationMode
 from .opt import generate_shape_and_resized_shape
 
 
-# TODO: Refactor.
 @unique
 class ImageMode(Enum):
     RGB = 'rgb'
@@ -44,33 +43,47 @@ class ImageMode(Enum):
     GRAYSCALE_GCN = 'grayscale_gcn'
     NONE = 'none'
 
-    @classmethod
-    def to_ndim(cls, image_mode: 'ImageMode'):
-        return _image_mode_to_ndim(image_mode)
+    def to_ndim(self):
+        if self in _IMAGE_MODE_NDIM_3:
+            return 3
+        elif self in _IMAGE_MODE_NDIM_2:
+            return 2
+        else:
+            raise NotImplementedError()
 
-    @classmethod
-    def to_dtype(cls, image_mode: 'ImageMode'):
-        return _image_mode_to_dtype(image_mode)
+    def to_dtype(self):
+        if self in _IMAGE_MODE_DTYPE_UINT8:
+            return np.uint8
+        elif self in _IMAGE_MODE_DTYPE_FLOAT32:
+            return np.float32
+        else:
+            raise NotImplementedError()
 
-    @classmethod
-    def to_num_channels(cls, image_mode: 'ImageMode'):
-        return _image_mode_to_num_channels(image_mode)
+    def to_num_channels(self):
+        if self in _IMAGE_MODE_NUM_CHANNELS_4:
+            return 4
+        elif self in _IMAGE_MODE_NUM_CHANNELS_3:
+            return 3
+        elif self in _IMAGE_MODE_NUM_CHANNELS_2:
+            return None
+        else:
+            raise NotImplementedError
 
-    @classmethod
-    def supports_gcn_mode(cls, image_mode: 'ImageMode'):
-        _image_mode_supports_gcn_mode(image_mode)
+    def supports_gcn_mode(self):
+        return self not in _IMAGE_MODE_NON_GCN_TO_GCN
 
-    @classmethod
-    def to_gcn_mode(cls, image_mode: 'ImageMode'):
-        return _image_mode_to_gcn_mode(image_mode)
+    def to_gcn_mode(self):
+        if not self.supports_gcn_mode():
+            raise RuntimeError(f'image_mode={self} not supported.')
+        return _IMAGE_MODE_NON_GCN_TO_GCN[self]
 
-    @classmethod
-    def in_gcn_mode(cls, image_mode: 'ImageMode'):
-        return _image_mode_in_gcn_mode(image_mode)
+    def in_gcn_mode(self):
+        return self in _IMAGE_MODE_GCN_TO_NON_GCN
 
-    @classmethod
-    def to_non_gcn_mode(cls, image_mode: 'ImageMode'):
-        return _image_mode_to_non_gcn_mode(image_mode)
+    def to_non_gcn_mode(self):
+        if not self.in_gcn_mode():
+            raise RuntimeError(f'image_mode={self} not in gcn mode.')
+        return _IMAGE_MODE_GCN_TO_NON_GCN[self]
 
 
 _IMAGE_MODE_NDIM_3 = {
@@ -88,18 +101,6 @@ _IMAGE_MODE_NDIM_2 = {
     ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_mode_to_ndim(image_mode: ImageMode):
-    if image_mode in _IMAGE_MODE_NDIM_3:
-        return 3
-
-    elif image_mode in _IMAGE_MODE_NDIM_2:
-        return 2
-
-    else:
-        raise NotImplementedError()
-
-
 _IMAGE_MODE_DTYPE_UINT8 = {
     ImageMode.RGB,
     ImageMode.RGBA,
@@ -114,18 +115,6 @@ _IMAGE_MODE_DTYPE_FLOAT32 = {
     ImageMode.HSL_GCN,
     ImageMode.GRAYSCALE_GCN,
 }
-
-
-def _image_mode_to_dtype(image_mode: ImageMode):
-    if image_mode in _IMAGE_MODE_DTYPE_UINT8:
-        return np.uint8
-
-    elif image_mode in _IMAGE_MODE_DTYPE_FLOAT32:
-        return np.float32
-
-    else:
-        raise NotImplementedError()
-
 
 _IMAGE_MODE_NUM_CHANNELS_4 = {
     ImageMode.RGBA,
@@ -145,21 +134,6 @@ _IMAGE_MODE_NUM_CHANNELS_2 = {
     ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_mode_to_num_channels(image_mode: ImageMode):
-    if image_mode in _IMAGE_MODE_NUM_CHANNELS_4:
-        return 4
-
-    elif image_mode in _IMAGE_MODE_NUM_CHANNELS_3:
-        return 3
-
-    elif image_mode in _IMAGE_MODE_NUM_CHANNELS_2:
-        return None
-
-    else:
-        raise NotImplementedError
-
-
 _IMAGE_MODE_NON_GCN_TO_GCN = {
     ImageMode.RGB: ImageMode.RGB_GCN,
     ImageMode.HSV: ImageMode.HSV_GCN,
@@ -167,60 +141,7 @@ _IMAGE_MODE_NON_GCN_TO_GCN = {
     ImageMode.GRAYSCALE: ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_mode_supports_gcn_mode(image_mode: ImageMode):
-    return image_mode not in _IMAGE_MODE_NON_GCN_TO_GCN
-
-
-def _image_mode_to_gcn_mode(image_mode: ImageMode):
-    if _image_mode_supports_gcn_mode(image_mode):
-        raise RuntimeError(f'image_mode={image_mode} not supported.')
-    return _IMAGE_MODE_NON_GCN_TO_GCN[image_mode]
-
-
 _IMAGE_MODE_GCN_TO_NON_GCN = {val: key for key, val in _IMAGE_MODE_NON_GCN_TO_GCN.items()}
-
-
-def _image_mode_in_gcn_mode(image_mode: ImageMode):
-    return image_mode in _IMAGE_MODE_GCN_TO_NON_GCN
-
-
-def _image_mode_to_non_gcn_mode(image_mode: ImageMode):
-    if not _image_mode_in_gcn_mode(image_mode):
-        raise RuntimeError(f'image_mode={image_mode} not supported.')
-    return _IMAGE_MODE_GCN_TO_NON_GCN[image_mode]
-
-
-_IMAGE_SRC_MODE_TO_PRE_SLICE: Mapping[ImageMode, Sequence[int]] = {
-    # HSL -> HLS.
-    ImageMode.HSL: [0, 2, 1],
-}
-
-_IMAGE_SRC_MODE_TO_RGB_CV_CODE = {
-    ImageMode.GRAYSCALE: cv.COLOR_GRAY2RGB,
-    ImageMode.RGBA: cv.COLOR_RGBA2RGB,
-    ImageMode.HSV: cv.COLOR_HSV2RGB_FULL,
-    # NOTE: HSL need pre-slicing.
-    ImageMode.HSL: cv.COLOR_HLS2RGB_FULL,
-}
-
-_IMAGE_INV_DST_MODE_TO_RGB_CV_CODE = {
-    ImageMode.GRAYSCALE: cv.COLOR_RGB2GRAY,
-    ImageMode.RGBA: cv.COLOR_RGB2RGBA,
-    ImageMode.HSV: cv.COLOR_RGB2HSV_FULL,
-    # NOTE: HSL need post-slicing.
-    ImageMode.HSL: cv.COLOR_RGB2HLS_FULL,
-}
-
-_IMAGE_DST_MODE_TO_POST_SLICE: Mapping[ImageMode, Sequence[int]] = {
-    # HLS -> HSL.
-    ImageMode.HSL: [0, 2, 1],
-}
-
-_IMAGE_SRC_DST_MODE_TO_CV_CODE: Mapping[Tuple[ImageMode, ImageMode], int] = {
-    (ImageMode.GRAYSCALE, ImageMode.RGBA): cv.COLOR_GRAY2RGBA,
-    (ImageMode.RGBA, ImageMode.GRAYSCALE): cv.COLOR_RGBA2GRAY,
-}
 
 
 @attrs.define
@@ -259,6 +180,37 @@ class WritableImageContextDecorator(ContextDecorator):
         self.image.mat.flags.writeable = False
 
 
+_IMAGE_SRC_MODE_TO_PRE_SLICE: Mapping[ImageMode, Sequence[int]] = {
+    # HSL -> HLS.
+    ImageMode.HSL: [0, 2, 1],
+}
+
+_IMAGE_SRC_MODE_TO_RGB_CV_CODE = {
+    ImageMode.GRAYSCALE: cv.COLOR_GRAY2RGB,
+    ImageMode.RGBA: cv.COLOR_RGBA2RGB,
+    ImageMode.HSV: cv.COLOR_HSV2RGB_FULL,
+    # NOTE: HSL need pre-slicing.
+    ImageMode.HSL: cv.COLOR_HLS2RGB_FULL,
+}
+
+_IMAGE_INV_DST_MODE_TO_RGB_CV_CODE = {
+    ImageMode.GRAYSCALE: cv.COLOR_RGB2GRAY,
+    ImageMode.RGBA: cv.COLOR_RGB2RGBA,
+    ImageMode.HSV: cv.COLOR_RGB2HSV_FULL,
+    # NOTE: HSL need post-slicing.
+    ImageMode.HSL: cv.COLOR_RGB2HLS_FULL,
+}
+
+_IMAGE_DST_MODE_TO_POST_SLICE: Mapping[ImageMode, Sequence[int]] = {
+    # HLS -> HSL.
+    ImageMode.HSL: [0, 2, 1],
+}
+
+_IMAGE_SRC_DST_MODE_TO_CV_CODE: Mapping[Tuple[ImageMode, ImageMode], int] = {
+    (ImageMode.GRAYSCALE, ImageMode.RGBA): cv.COLOR_GRAY2RGBA,
+    (ImageMode.RGBA, ImageMode.GRAYSCALE): cv.COLOR_RGBA2GRAY,
+}
+
 _E = TypeVar('_E', 'Box', 'Polygon', 'Mask', 'ScoreMap')
 
 
@@ -271,8 +223,8 @@ class Image(Shapable):
     def __attrs_post_init__(self):
         if self.mode != ImageMode.NONE:
             # Validate mat.dtype and mode.
-            assert ImageMode.to_dtype(self.mode) == self.mat.dtype
-            assert ImageMode.to_ndim(self.mode) == self.mat.ndim
+            assert self.mode.to_dtype() == self.mat.dtype
+            assert self.mode.to_ndim() == self.mat.ndim
 
         else:
             # Infer image mode based on mat.
@@ -787,7 +739,7 @@ class Image(Shapable):
         # Global contrast normalization.
         # https://cedar.buffalo.edu/~srihari/CSE676/12.2%20Computer%20Vision.pdf
         # (H, W) or (H, W, 3)
-        mode = ImageMode.to_gcn_mode(self.mode)
+        mode = self.mode.to_gcn_mode()
 
         mat = self.mat.astype(np.float32)
 
@@ -804,7 +756,7 @@ class Image(Shapable):
         return Image(mat=mat, mode=mode)
 
     def to_non_gcn_image(self):
-        mode = ImageMode.to_non_gcn_mode(self.mode)
+        mode = self.mode.to_non_gcn_mode()
 
         assert self.mat.dtype == np.float32
         val_min = np.min(self.mat)
@@ -822,7 +774,7 @@ class Image(Shapable):
             return self
 
         skip_copy = False
-        if ImageMode.in_gcn_mode(self.mode):
+        if self.mode.in_gcn_mode():
             self = self.to_non_gcn_image()
             skip_copy = True
 
