@@ -92,7 +92,7 @@ class FontVariant:
 
 
 @unique
-class FontKind(Enum):
+class FontMode(Enum):
     # ttc file.
     TTC = 'ttc'
     # Grouped ttf file(s).
@@ -104,7 +104,7 @@ class FontKind(Enum):
 @attrs.define
 class FontMeta:
     name: str
-    kind: FontKind
+    mode: FontMode
     char_to_tags: Mapping[str, Sequence[str]]
     font_files: Sequence[str]
     font_glyph_info_collection: FontGlyphInfoCollection
@@ -128,7 +128,7 @@ class FontMeta:
         return (
             'FontMeta('
             f'name="{self.name}", '
-            f'kind={self.kind}, '
+            f'mode={self.mode}, '
             f'num_chars={len(self.char_to_tags)}), '
             f'font_files={self.font_files}, '
             f'ttc_font_index_max={self.ttc_font_index_max})'
@@ -171,10 +171,10 @@ class FontMeta:
 
     @property
     def num_font_variants(self):
-        if self.kind in (FontKind.VOTC, FontKind.VTTC):
+        if self.mode in (FontMode.VOTC, FontMode.VTTC):
             return len(self.font_files)
 
-        elif self.kind == FontKind.TTC:
+        elif self.mode == FontMode.TTC:
             assert self.ttc_font_index_max is not None
             return self.ttc_font_index_max + 1
 
@@ -182,7 +182,7 @@ class FontMeta:
             raise NotImplementedError()
 
     def get_font_variant(self, variant_idx: int):
-        if self.kind in (FontKind.VOTC, FontKind.VTTC):
+        if self.mode in (FontMode.VOTC, FontMode.VTTC):
             assert variant_idx < len(self.font_files)
             return FontVariant(
                 char_to_tags=self.char_to_tags,
@@ -190,7 +190,7 @@ class FontMeta:
                 font_glyph_info_collection=self.font_glyph_info_collection,
             )
 
-        elif self.kind == FontKind.TTC:
+        elif self.mode == FontMode.TTC:
             assert self.ttc_font_index_max is not None
             assert variant_idx <= self.ttc_font_index_max
             return FontVariant(
