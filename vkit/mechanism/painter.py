@@ -17,15 +17,19 @@ import cv2 as cv
 import numpy as np
 from PIL import ImageColor as PilImageColor
 
-from vkit.utility.type import PathType
-from .type import Shapable
-from .point import Point, PointList
-from .line import Line
-from .box import Box, CharBox
-from .polygon import Polygon
-from .mask import Mask
-from .score_map import ScoreMap
-from .image import Image, ImageMode
+from vkit.utility import PathType
+from vkit.element import (
+    Shapable,
+    Point,
+    PointList,
+    Line,
+    Box,
+    Polygon,
+    Mask,
+    ScoreMap,
+    Image,
+    ImageMode,
+)
 
 
 class Painter:
@@ -362,25 +366,6 @@ class Painter:
                 )
 
         self.overlay_layer_image(layer_image)
-
-    def paint_char_boxes(
-        self,
-        char_boxes: Iterable[CharBox],
-        enable_index: bool = False,
-        color: Optional[Union[str, Iterable[str], Iterable[int]]] = None,
-        border_thickness: Optional[int] = None,
-        alpha: float = 0.5,
-        palette: Sequence[str] = PALETTE,
-    ):
-        # TODO: render char.
-        self.paint_boxes(
-            boxes=[char_box.box for char_box in char_boxes],
-            enable_index=enable_index,
-            color=color,
-            border_thickness=border_thickness,
-            alpha=alpha,
-            palette=palette,
-        )
 
     def paint_polygons(
         self,

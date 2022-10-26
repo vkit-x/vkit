@@ -29,7 +29,7 @@ from rectpack import newPacker as RectPacker
 
 from vkit.utility import rng_choice, rng_choice_with_size
 from vkit.element import Box, Polygon, Mask, Image, ElementSetOperationMode
-from vkit.engine.distortion import rotate
+from vkit.mechanism.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
 from .page_resizing import PageResizingStepOutput
@@ -55,7 +55,7 @@ class PageTextRegionStepConfig:
     enable_post_rotate: bool = False
     post_rotate_angle_min: int = -10
     post_rotate_angle_max: int = 10
-    debug: bool = False
+    enable_debug: bool = False
 
 
 @attrs.define
@@ -167,7 +167,7 @@ class FlattenedTextRegion:
 
 
 @attrs.define
-class DebugPageTextRegionStep:
+class PageTextRegionStepDebug:
     page_image: Image = attrs.field(default=None)
     precise_text_region_candidate_polygons: Sequence[Polygon] = attrs.field(default=None)
     page_text_region_infos: Sequence[PageTextRegionInfo] = attrs.field(default=None)
@@ -180,7 +180,7 @@ class PageTextRegionStepOutput:
     page_char_polygons: Sequence[Polygon]
     shape_before_rotate: Tuple[int, int]
     rotate_angle: int
-    debug: Optional[DebugPageTextRegionStep]
+    debug: Optional[PageTextRegionStepDebug]
 
 
 def calculate_boxed_masks_intersected_ratio(
@@ -950,8 +950,8 @@ class PageTextRegionStep(
         page_resized_text_line_mask = page_resizing_step_output.page_text_line_mask
 
         debug = None
-        if self.config.debug:
-            debug = DebugPageTextRegionStep()
+        if self.config.enable_debug:
+            debug = PageTextRegionStepDebug()
 
         # Build R-tree to track text regions.
         # https://github.com/shapely/shapely/issues/640

@@ -16,7 +16,7 @@ from typing import Tuple
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.engine import distortion
+from vkit.mechanism import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
 from ..opt import sample_int, sample_float
 

@@ -26,12 +26,12 @@ from vkit.element import (
     Mask,
     ScoreMap,
     Image,
-    Painter,
 )
-from vkit.engine.distortion_policy.random_distortion import (
+from vkit.mechanism.distortion_policy import (
     random_distortion_factory,
     RandomDistortionDebug,
 )
+from vkit.mechanism.painter import Painter
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_layout import DisconnectedTextRegion, NonTextRegion
 from .page_text_line_label import (
@@ -57,13 +57,13 @@ class PageDistortionStepConfig:
             ],
         }
     )
-    debug_random_distortion: bool = False
+    enable_debug_random_distortion: bool = False
     enable_distorted_char_mask: bool = True
     enable_distorted_char_height_score_map: bool = True
-    enable_distorted_char_heights_debug: bool = False
+    enable_debug_distorted_char_heights: bool = False
     enable_distorted_text_line_mask: bool = True
     enable_distorted_text_line_height_score_map: bool = True
-    enable_distorted_text_line_heights_debug: bool = False
+    enable_debug_distorted_text_line_heights: bool = False
 
 
 @attrs.define
@@ -187,7 +187,7 @@ class PageDistortionStep(
                 )
                 begin = end + 1
 
-            if self.config.enable_distorted_text_line_heights_debug:
+            if self.config.enable_debug_distorted_text_line_heights:
                 painter = Painter.create(distorted_image)
                 painter.paint_polygons(text_line_polygons)
 
@@ -250,7 +250,7 @@ class PageDistortionStep(
                     value=char_height,
                 )
 
-            if self.config.enable_distorted_char_heights_debug:
+            if self.config.enable_debug_distorted_char_heights:
                 painter = Painter.create(distorted_image)
                 painter.paint_polygons(char_polygons)
 
@@ -301,7 +301,7 @@ class PageDistortionStep(
 
         # Distort.
         page_random_distortion_debug = None
-        if self.config.debug_random_distortion:
+        if self.config.enable_debug_random_distortion:
             page_random_distortion_debug = RandomDistortionDebug()
 
         page_active_mask = Mask.from_shapable(page.image, value=1)

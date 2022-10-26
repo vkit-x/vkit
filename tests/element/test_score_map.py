@@ -23,8 +23,8 @@ from vkit.element import (
     Mask,
     ScoreMap,
     Image,
-    Painter,
 )
+from vkit.mechanism.painter import Painter
 from tests.opt import write_image
 
 

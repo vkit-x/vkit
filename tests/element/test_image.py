@@ -17,8 +17,8 @@ from vkit.element import (
     Box,
     Polygon,
     Mask,
-    Painter,
 )
+from vkit.mechanism.painter import Painter
 from tests.opt import read_image, write_image
 
 

@@ -13,7 +13,8 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from numpy.random import default_rng
 
-from vkit.element import ElementSetOperationMode, Box, Polygon, Mask, Painter
+from vkit.element import ElementSetOperationMode, Box, Polygon, Mask
+from vkit.mechanism.painter import Painter
 from tests.opt import write_image
 
 

@@ -12,15 +12,15 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from numpy.random import default_rng
-from vkit.engine.distortion_policy.photometric.color import *
-from vkit.engine.distortion_policy.photometric.blur import *
-from vkit.engine.distortion_policy.photometric.noise import *
-from vkit.engine.distortion_policy.photometric.effect import *
-from vkit.engine.distortion_policy.photometric.streak import *
-from vkit.engine.distortion_policy.geometric.affine import *
-from vkit.engine.distortion_policy.geometric.mls import *
-from vkit.engine.distortion_policy.geometric.camera import *
-from vkit.engine.distortion_policy.random_distortion import *
+from vkit.mechanism.distortion_policy.photometric.color import *
+from vkit.mechanism.distortion_policy.photometric.blur import *
+from vkit.mechanism.distortion_policy.photometric.noise import *
+from vkit.mechanism.distortion_policy.photometric.effect import *
+from vkit.mechanism.distortion_policy.photometric.streak import *
+from vkit.mechanism.distortion_policy.geometric.affine import *
+from vkit.mechanism.distortion_policy.geometric.mls import *
+from vkit.mechanism.distortion_policy.geometric.camera import *
+from vkit.mechanism.distortion_policy.random_distortion import *
 from tests.opt import read_image, write_image
 
 

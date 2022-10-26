@@ -14,7 +14,7 @@
 import numpy as np
 from numpy.random import default_rng
 
-from vkit.engine.distortion import *
+from vkit.mechanism.distortion import *
 from tests.opt import read_image, write_image
 
 
@@ -364,7 +364,7 @@ def test_pixelation():
 
 def test_generate_diamond_square_mask():
     from vkit.element import Image
-    from vkit.engine.distortion.photometric.effect import generate_diamond_square_mask
+    from vkit.mechanism.distortion.photometric.effect import generate_diamond_square_mask
 
     for roughness in [1.0, 0.9, 0.8, 0.5, 0.2, 0.0]:
         rng = default_rng(3)

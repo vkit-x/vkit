@@ -12,7 +12,6 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Sequence, List, Dict, Optional
-from enum import Enum, unique
 import bisect
 import heapq
 
@@ -39,8 +38,7 @@ class ImageMeta:
     grayscale_std: float
 
 
-@unique
-class FolderTree(Enum):
+class FolderTree:
     IMAGE = 'image'
     METAS_JSON = 'metas.json'
 
@@ -48,11 +46,11 @@ class FolderTree(Enum):
 def load_image_metas_from_folder(folder: str):
     in_fd = io.folder(folder, expandvars=True, exists=True)
     image_fd = io.folder(
-        in_fd / FolderTree.IMAGE.value,
+        in_fd / FolderTree.IMAGE,
         exists=True,
     )
     metas_json = io.file(
-        in_fd / FolderTree.METAS_JSON.value,
+        in_fd / FolderTree.METAS_JSON,
         exists=True,
     )
 

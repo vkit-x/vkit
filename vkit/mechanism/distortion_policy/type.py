@@ -91,7 +91,7 @@ class DistortionPolicy(Generic[_T_GENERATOR_CONFIG, _T_CONFIG, _T_STATE]):
         polygon: Optional[Polygon] = None,
         polygons: Optional[Iterable[Polygon]] = None,
         rng: Optional[RandomGenerator] = None,
-        debug: bool = False,
+        enable_debug: bool = False,
     ):
         config_generator = self.config_generator_cls(
             self.config_for_config_generator,
@@ -109,8 +109,8 @@ class DistortionPolicy(Generic[_T_GENERATOR_CONFIG, _T_CONFIG, _T_STATE]):
             polygon=polygon,
             polygons=polygons,
             rng=rng,
-            get_config=debug,
-            get_state=debug,
+            get_config=enable_debug,
+            get_state=enable_debug,
         )
 
     @property

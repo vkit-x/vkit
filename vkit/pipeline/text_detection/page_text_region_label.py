@@ -24,7 +24,7 @@ from sklearn.neighbors import KDTree
 
 from vkit.utility import attrs_lazy_field, normalize_to_probs
 from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
-from vkit.engine.distortion.geometric.affine import affine_points
+from vkit.mechanism.distortion.geometric.affine import affine_points
 from vkit.engine.char_heatmap import (
     char_heatmap_default_engine_executor_factory,
     CharHeatmapDefaultEngineInitConfig,

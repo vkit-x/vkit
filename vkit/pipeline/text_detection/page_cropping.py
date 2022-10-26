@@ -18,7 +18,8 @@ from numpy.random import Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
 
-from vkit.element import Box, Mask, ScoreMap, Image, Cropper
+from vkit.element import Box, Mask, ScoreMap, Image
+from vkit.mechanism.cropper import Cropper
 from .page_resizing import PageResizingStepOutput
 from ..interface import PipelineStep, PipelineStepFactory
 

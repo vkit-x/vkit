@@ -19,7 +19,7 @@ from numpy.random import Generator as RandomGenerator
 from vkit.utility import PathType, rng_choice
 from vkit.element import Image, Box
 from vkit.engine.image import image_engine_executor_aggregator_factory
-from vkit.engine.distortion import rotate
+from vkit.mechanism.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_layout import PageLayoutStepOutput
 
