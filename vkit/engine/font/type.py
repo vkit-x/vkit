@@ -22,6 +22,7 @@ from typing import (
     Iterable,
     Set,
     Tuple,
+    Union,
 )
 from enum import Enum, unique
 from collections import defaultdict
@@ -38,14 +39,14 @@ from vkit.utility import (
     PathType,
 )
 from vkit.element import (
-    Image,
-    Box,
-    CharBox,
-    Mask,
-    ScoreMap,
+    Shapable,
     Point,
     PointList,
+    Box,
     Polygon,
+    Mask,
+    ScoreMap,
+    Image,
 )
 
 
@@ -92,7 +93,7 @@ class FontVariant:
 
 
 @unique
-class FontKind(Enum):
+class FontMode(Enum):
     # ttc file.
     TTC = 'ttc'
     # Grouped ttf file(s).
@@ -104,7 +105,7 @@ class FontKind(Enum):
 @attrs.define
 class FontMeta:
     name: str
-    kind: FontKind
+    mode: FontMode
     char_to_tags: Mapping[str, Sequence[str]]
     font_files: Sequence[str]
     font_glyph_info_collection: FontGlyphInfoCollection
@@ -128,7 +129,7 @@ class FontMeta:
         return (
             'FontMeta('
             f'name="{self.name}", '
-            f'kind={self.kind}, '
+            f'mode={self.mode}, '
             f'num_chars={len(self.char_to_tags)}), '
             f'font_files={self.font_files}, '
             f'ttc_font_index_max={self.ttc_font_index_max})'
@@ -171,10 +172,10 @@ class FontMeta:
 
     @property
     def num_font_variants(self):
-        if self.kind in (FontKind.VOTC, FontKind.VTTC):
+        if self.mode in (FontMode.VOTC, FontMode.VTTC):
             return len(self.font_files)
 
-        elif self.kind == FontKind.TTC:
+        elif self.mode == FontMode.TTC:
             assert self.ttc_font_index_max is not None
             return self.ttc_font_index_max + 1
 
@@ -182,7 +183,7 @@ class FontMeta:
             raise NotImplementedError()
 
     def get_font_variant(self, variant_idx: int):
-        if self.kind in (FontKind.VOTC, FontKind.VTTC):
+        if self.mode in (FontMode.VOTC, FontMode.VTTC):
             assert variant_idx < len(self.font_files)
             return FontVariant(
                 char_to_tags=self.char_to_tags,
@@ -190,7 +191,7 @@ class FontMeta:
                 font_glyph_info_collection=self.font_glyph_info_collection,
             )
 
-        elif self.kind == FontKind.TTC:
+        elif self.mode == FontMode.TTC:
             assert self.ttc_font_index_max is not None
             assert variant_idx <= self.ttc_font_index_max
             return FontVariant(
@@ -205,8 +206,7 @@ class FontMeta:
             raise NotImplementedError()
 
 
-@unique
-class FontCollectionFolderTree(Enum):
+class FontCollectionFolderTree:
     FONT = 'font'
     FONT_META = 'font_meta'
 
@@ -255,8 +255,8 @@ class FontCollection:
     @classmethod
     def from_folder(cls, folder: PathType):
         in_fd = io.folder(folder, expandvars=True, exists=True)
-        font_fd = io.folder(in_fd / FontCollectionFolderTree.FONT.value, exists=True)
-        font_meta_fd = io.folder(in_fd / FontCollectionFolderTree.FONT_META.value, exists=True)
+        font_fd = io.folder(in_fd / FontCollectionFolderTree.FONT, exists=True)
+        font_meta_fd = io.folder(in_fd / FontCollectionFolderTree.FONT_META, exists=True)
 
         font_metas: List[FontMeta] = []
         for font_meta_json in font_meta_fd.glob('*.json'):
@@ -314,6 +314,79 @@ class FontEngineRunConfig:
 
     # For debugging.
     return_font_variant: bool = False
+
+
+@attrs.define(frozen=True)
+class CharBox(Shapable):
+    char: str
+    box: Box
+
+    def __attrs_post_init__(self):
+        assert len(self.char) == 1 and not self.char.isspace()
+
+    ############
+    # Property #
+    ############
+    @property
+    def up(self):
+        return self.box.up
+
+    @property
+    def down(self):
+        return self.box.down
+
+    @property
+    def left(self):
+        return self.box.left
+
+    @property
+    def right(self):
+        return self.box.right
+
+    @property
+    def height(self):
+        return self.box.height
+
+    @property
+    def width(self):
+        return self.box.width
+
+    ############
+    # Operator #
+    ############
+    def to_conducted_resized_char_box(
+        self,
+        shapable_or_shape: Union[Shapable, Tuple[int, int]],
+        resized_height: Optional[int] = None,
+        resized_width: Optional[int] = None,
+    ):
+        return attrs.evolve(
+            self,
+            box=self.box.to_conducted_resized_box(
+                shapable_or_shape=shapable_or_shape,
+                resized_height=resized_height,
+                resized_width=resized_width,
+            ),
+        )
+
+    def to_resized_char_box(
+        self,
+        resized_height: Optional[int] = None,
+        resized_width: Optional[int] = None,
+    ):
+        return attrs.evolve(
+            self,
+            box=self.box.to_resized_box(
+                resized_height=resized_height,
+                resized_width=resized_width,
+            ),
+        )
+
+    def to_shifted_char_box(self, offset_y: int = 0, offset_x: int = 0):
+        return attrs.evolve(
+            self,
+            box=self.box.to_shifted_box(offset_y=offset_y, offset_x=offset_x),
+        )
 
 
 @attrs.define

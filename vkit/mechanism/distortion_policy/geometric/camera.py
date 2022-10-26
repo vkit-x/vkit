@@ -17,7 +17,7 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
 
-from vkit.engine import distortion
+from vkit.mechanism import distortion
 from ..type import DistortionConfigGenerator, DistortionPolicyFactory
 from ..opt import sample_int, sample_float, generate_grid_size
 

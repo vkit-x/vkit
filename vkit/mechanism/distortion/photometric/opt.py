@@ -18,7 +18,7 @@ import numpy as np
 import numpy.typing as npt
 import attrs
 
-from vkit.element import Image, ImageKind
+from vkit.element import Image, ImageMode
 
 
 def extract_mat_from_image(
@@ -73,13 +73,13 @@ def generate_new_image(
     return new_image
 
 
-def to_rgb_image(image: Image, kind: ImageKind):
-    if kind not in (ImageKind.GRAYSCALE, ImageKind.RGB):
+def to_rgb_image(image: Image, mode: ImageMode):
+    if mode not in (ImageMode.GRAYSCALE, ImageMode.RGB):
         image = image.to_rgb_image()
     return image
 
 
-def to_original_image(image: Image, kind: ImageKind):
-    if kind not in (ImageKind.GRAYSCALE, ImageKind.RGB):
-        image = image.to_target_kind_image(kind)
+def to_original_image(image: Image, mode: ImageMode):
+    if mode not in (ImageMode.GRAYSCALE, ImageMode.RGB):
+        image = image.to_target_mode_image(mode)
     return image

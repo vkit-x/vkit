@@ -195,7 +195,7 @@ class RandomDistortionStage:
                 polygon=distortion_result.polygon,
                 polygons=distortion_result.polygons,
                 rng=rng,
-                debug=bool(debug),
+                enable_debug=bool(debug),
             )
 
             if debug:

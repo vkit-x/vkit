@@ -17,7 +17,8 @@ import functools
 import attrs
 from numpy.random import Generator as RandomGenerator, default_rng
 
-from vkit.element import Point, Line, Polygon, Image, Painter
+from vkit.element import Point, Line, Polygon, Image
+from vkit.mechanism.painter import Painter
 from vkit.pipeline import (
     pipeline_step_collection_factory,
     PageDistortionStepOutput,

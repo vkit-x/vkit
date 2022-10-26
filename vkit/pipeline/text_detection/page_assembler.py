@@ -18,7 +18,7 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.element import Shapable, Box, Image
 from vkit.engine.seal_impression import fill_text_line_to_seal_impression
-from vkit.engine.distortion import rotate
+from vkit.mechanism.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_layout import (
     PageLayoutStepOutput,

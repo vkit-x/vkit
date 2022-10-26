@@ -23,8 +23,9 @@ from shapely.strtree import STRtree
 from shapely.geometry import Point as ShapelyPoint
 import cv2 as cv
 
-from vkit.element import Box, Mask, ScoreMap, Image, Cropper
-from vkit.engine.distortion import rotate
+from vkit.element import Box, Mask, ScoreMap, Image
+from vkit.mechanism.distortion import rotate
+from vkit.mechanism.cropper import Cropper
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_cropping import PageCroppingStepOutput
 from .page_text_region import PageTextRegionStepOutput

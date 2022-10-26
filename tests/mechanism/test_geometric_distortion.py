@@ -11,13 +11,12 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from .type import Shapable, ElementSetOperationMode
+from vkit.mechanism.distortion import *
+from tests.opt import read_image, write_image
 
-from .point import Point, PointList, PointTuple
-from .line import Line
-from .box import Box, BoxOverlappingValidator
-from .polygon import Polygon
-from .mask import Mask, MaskSetItemConfig
-from .score_map import ScoreMap, ScoreMapSetItemConfig
-from .image import Image, ImageMode, ImageSetItemConfig
-from .lexicon import Lexicon, LexiconCollection
+
+def test_rotate():
+    image = read_image('Lenna.png').to_rgb_image().to_resized_image(567, 440)
+    write_image('567-440.jpg', image)
+    dst_image = rotate.distort_image({'angle': 132}, image)
+    write_image('angle-132.jpg', dst_image)

@@ -21,7 +21,7 @@ import cv2 as cv
 import freetype
 
 from vkit.utility import sample_cv_resize_interpolation
-from vkit.element import Image, CharBox, Box, Mask, ScoreMap
+from vkit.element import Image, Box, Mask, ScoreMap
 from vkit.engine.interface import (
     NoneTypeEngineInitConfig,
     NoneTypeEngineInitResource,
@@ -29,6 +29,7 @@ from vkit.engine.interface import (
     EngineExecutorFactory,
 )
 from .type import (
+    CharBox,
     FontEngineRunConfigGlyphSequence,
     FontEngineRunConfigStyle,
     FontEngineRunConfig,

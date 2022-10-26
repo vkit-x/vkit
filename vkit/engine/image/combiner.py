@@ -12,7 +12,6 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Sequence, List, Dict, Optional
-from enum import Enum, unique
 import bisect
 import heapq
 
@@ -23,7 +22,7 @@ import cv2 as cv
 import iolite as io
 
 from vkit.utility import rng_choice, read_json_file
-from vkit.element import Image, ImageKind, Mask
+from vkit.element import Image, ImageMode, Mask
 from vkit.engine.interface import (
     Engine,
     EngineExecutorFactory,
@@ -39,8 +38,7 @@ class ImageMeta:
     grayscale_std: float
 
 
-@unique
-class FolderTree(Enum):
+class FolderTree:
     IMAGE = 'image'
     METAS_JSON = 'metas.json'
 
@@ -48,11 +46,11 @@ class FolderTree(Enum):
 def load_image_metas_from_folder(folder: str):
     in_fd = io.folder(folder, expandvars=True, exists=True)
     image_fd = io.folder(
-        in_fd / FolderTree.IMAGE.value,
+        in_fd / FolderTree.IMAGE,
         exists=True,
     )
     metas_json = io.file(
-        in_fd / FolderTree.METAS_JSON.value,
+        in_fd / FolderTree.METAS_JSON,
         exists=True,
     )
 
@@ -73,7 +71,7 @@ def load_image_metas_from_folder(folder: str):
 @attrs.define
 class ImageCombinerEngineInitConfig:
     image_meta_folder: str
-    target_kind_image: ImageKind = ImageKind.RGB
+    target_image_mode: ImageMode = ImageMode.RGB
     enable_cache: bool = False
     sigma: float = 3.0
     init_segment_width_min_ratio: float = 0.25
@@ -255,8 +253,8 @@ class ImageCombinerEngine(
             if self.enable_cache and image_meta.image_file in self.image_file_to_cache_image:
                 segment_image = self.image_file_to_cache_image[image_meta.image_file]
             else:
-                segment_image = Image.from_file(image_meta.image_file).to_target_kind_image(
-                    self.init_config.target_kind_image
+                segment_image = Image.from_file(image_meta.image_file).to_target_mode_image(
+                    self.init_config.target_image_mode
                 )
                 if self.enable_cache:
                     self.image_file_to_cache_image[image_meta.image_file] = segment_image

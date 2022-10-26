@@ -13,9 +13,10 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from numpy.random import default_rng
 
-from vkit.element import Polygon, Painter
+from vkit.element import Polygon
+from vkit.mechanism.painter import Painter
 from vkit.engine.char_heatmap import char_heatmap_default_engine_executor_factory
-from vkit.engine.char_heatmap.default import DebugCharHeatmapDefault
+from vkit.engine.char_heatmap.default import CharHeatmapDefaultDebug
 
 from tests.opt import write_image
 
@@ -70,7 +71,7 @@ def test_default():
     write_image('char_polygons.png', painter1.image)
 
     debug = char_heatmap.debug
-    assert isinstance(debug, DebugCharHeatmapDefault)
+    assert isinstance(debug, CharHeatmapDefaultDebug)
 
     painter1 = painter0.copy()
     painter1.paint_mask(debug.char_overlapped_mask)

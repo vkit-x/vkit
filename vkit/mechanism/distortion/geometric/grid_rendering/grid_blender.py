@@ -16,27 +16,27 @@ import cv2 as cv
 
 from vkit.element import (
     Image,
-    ImageKind,
+    ImageMode,
     ScoreMap,
     Mask,
 )
 from .type import ImageGrid
 
 
-def create_image_from_image_grid(image_grid: ImageGrid, image_kind: ImageKind):
-    ndim = ImageKind.to_ndim(image_kind)
+def create_image_from_image_grid(image_grid: ImageGrid, image_mode: ImageMode):
+    ndim = image_mode.to_ndim()
     if ndim == 2:
         shape = (image_grid.image_height, image_grid.image_width)
     elif ndim == 3:
-        num_channels = ImageKind.to_num_channels(image_kind)
+        num_channels = image_mode.to_num_channels()
         assert num_channels
         shape = (image_grid.image_height, image_grid.image_width, num_channels)
     else:
         raise NotImplementedError()
 
-    dtype = ImageKind.to_dtype(image_kind)
+    dtype = image_mode.to_dtype()
     mat = np.zeros(shape, dtype=dtype)
-    return Image(mat=mat, kind=image_kind)
+    return Image(mat=mat, mode=image_mode)
 
 
 def create_score_map_from_image_grid(image_grid: ImageGrid):
@@ -58,7 +58,7 @@ def blend_src_to_dst_image(
 ):
     map_y, map_x = src_image_grid.generate_remap_params(dst_image_grid)
     dst_image_mat = cv.remap(src_image.mat, map_x, map_y, cv.INTER_LINEAR)
-    return Image(mat=dst_image_mat, kind=src_image.kind)
+    return Image(mat=dst_image_mat, mode=src_image.mode)
 
 
 def blend_src_to_dst_score_map(

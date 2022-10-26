@@ -20,7 +20,7 @@ import numpy as np
 import cv2 as cv
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
-from vkit.element import Point, PointList, Box, Mask, ImageKind
+from vkit.element import Point, PointList, Box, Mask, ImageMode
 from vkit.engine.interface import (
     NoneTypeEngineInitResource,
     Engine,
@@ -183,7 +183,7 @@ class SealImpressionEllipseEngine(
         if self.init_config.icon_image_folders:
             self.icon_image_selector = image_selector_engine_executor_factory.create({
                 'image_folders': self.init_config.icon_image_folders,
-                'target_kind_image': ImageKind.GRAYSCALE,
+                'target_image_mode': ImageMode.GRAYSCALE,
                 'force_resize': True,
             })
 

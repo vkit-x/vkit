@@ -16,8 +16,8 @@ from typing import List
 from numpy.random import default_rng
 import pytest
 
-from vkit.element import Painter, Image
-from vkit.element import LexiconCollection
+from vkit.element import Image, LexiconCollection
+from vkit.mechanism.painter import Painter
 from vkit.engine.font import font_engine_executor_aggregator_factory, FontCollection, TextLine
 from vkit.engine.char_sampler import char_sampler_engine_executor_aggregator_factory
 from vkit.engine.char_and_font_sampler import char_and_font_sampler_engine_executor_factory

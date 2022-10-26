@@ -19,7 +19,7 @@ from numpy.random import Generator as RandomGenerator
 import iolite as io
 
 from vkit.utility import rng_choice
-from vkit.element import Image, ImageKind, Box
+from vkit.element import Image, ImageMode, Box
 from vkit.engine.interface import (
     Engine,
     EngineExecutorFactory,
@@ -31,7 +31,7 @@ from .type import ImageEngineRunConfig
 @attrs.define
 class ImageSelectorEngineInitConfig:
     image_folders: Sequence[str]
-    target_kind_image: Optional[ImageKind] = ImageKind.RGB
+    target_image_mode: Optional[ImageMode] = ImageMode.RGB
     force_resize: bool = False
 
 
@@ -66,8 +66,8 @@ class ImageSelectorEngine(
         image_file = rng_choice(rng, self.image_files)
         image = Image.from_file(image_file)
 
-        if self.init_config.target_kind_image:
-            image = image.to_target_kind_image(self.init_config.target_kind_image)
+        if self.init_config.target_image_mode:
+            image = image.to_target_mode_image(self.init_config.target_image_mode)
 
         if run_config.disable_resizing:
             assert run_config.height == 0 and run_config.width == 0

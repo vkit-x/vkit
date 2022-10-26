@@ -16,11 +16,13 @@ from typing import Tuple
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from .point import Point
-from .box import Box
-from .mask import Mask
-from .score_map import ScoreMap
-from .image import Image
+from vkit.element import (
+    Point,
+    Box,
+    Mask,
+    ScoreMap,
+    Image,
+)
 
 
 @attrs.define

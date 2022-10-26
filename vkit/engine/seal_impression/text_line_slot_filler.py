@@ -18,7 +18,7 @@ import numpy as np
 
 from vkit.element import Point, Box, ScoreMap
 from vkit.engine.font import TextLine
-from vkit.engine.distortion import rotate
+from vkit.mechanism.distortion import rotate
 from .type import SealImpression
 
 logger = logging.getLogger(__name__)

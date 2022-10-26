@@ -39,7 +39,7 @@ class CharHeatmapDefaultEngineInitConfig:
 
 
 @attrs.define
-class DebugCharHeatmapDefault:
+class CharHeatmapDefaultDebug:
     score_map_max: ScoreMap
     score_map_min: ScoreMap
     char_overlapped_mask: Mask
@@ -167,7 +167,7 @@ class CharHeatmapDefaultEngine(
 
         debug = None
         if run_config.enable_debug:
-            debug = DebugCharHeatmapDefault(
+            debug = CharHeatmapDefaultDebug(
                 score_map_max=score_map_max,
                 score_map_min=score_map_min,
                 char_overlapped_mask=char_overlapped_mask,

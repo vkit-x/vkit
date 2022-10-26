@@ -12,6 +12,7 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from vkit.element import *
+from vkit.mechanism.painter import Painter
 from tests.opt import read_image, write_image
 
 

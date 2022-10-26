@@ -14,7 +14,7 @@
 from typing import Optional
 from PIL import ImageDraw as PilImageDraw
 
-from vkit.element import Image, ImageKind
+from vkit.element import Image, ImageMode
 from .type import ImageGrid
 from .grid_blender import create_image_from_image_grid
 
@@ -27,7 +27,7 @@ def visualize_image_grid(
     index_color: str = 'red',
 ):
     if not image:
-        image = create_image_from_image_grid(image_grid, ImageKind.RGB)
+        image = create_image_from_image_grid(image_grid, ImageMode.RGB)
         with image.writable_context:
             image.mat.fill(255)
 

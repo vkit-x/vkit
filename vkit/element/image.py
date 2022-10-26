@@ -30,9 +30,8 @@ from .type import Shapable, ElementSetOperationMode
 from .opt import generate_shape_and_resized_shape
 
 
-# TODO: Refactor.
 @unique
-class ImageKind(Enum):
+class ImageMode(Enum):
     RGB = 'rgb'
     RGB_GCN = 'rgb_gcn'
     RGBA = 'rgba'
@@ -44,183 +43,105 @@ class ImageKind(Enum):
     GRAYSCALE_GCN = 'grayscale_gcn'
     NONE = 'none'
 
-    @classmethod
-    def to_ndim(cls, image_kind: 'ImageKind'):
-        return _image_kind_to_ndim(image_kind)
+    def to_ndim(self):
+        if self in _IMAGE_MODE_NDIM_3:
+            return 3
+        elif self in _IMAGE_MODE_NDIM_2:
+            return 2
+        else:
+            raise NotImplementedError()
 
-    @classmethod
-    def to_dtype(cls, image_kind: 'ImageKind'):
-        return _image_kind_to_dtype(image_kind)
+    def to_dtype(self):
+        if self in _IMAGE_MODE_DTYPE_UINT8:
+            return np.uint8
+        elif self in _IMAGE_MODE_DTYPE_FLOAT32:
+            return np.float32
+        else:
+            raise NotImplementedError()
 
-    @classmethod
-    def to_num_channels(cls, image_kind: 'ImageKind'):
-        return _image_kind_to_num_channels(image_kind)
+    def to_num_channels(self):
+        if self in _IMAGE_MODE_NUM_CHANNELS_4:
+            return 4
+        elif self in _IMAGE_MODE_NUM_CHANNELS_3:
+            return 3
+        elif self in _IMAGE_MODE_NUM_CHANNELS_2:
+            return None
+        else:
+            raise NotImplementedError
 
-    @classmethod
-    def supports_gcn_mode(cls, image_kind: 'ImageKind'):
-        _image_kind_supports_gcn_mode(image_kind)
+    def supports_gcn_mode(self):
+        return self not in _IMAGE_MODE_NON_GCN_TO_GCN
 
-    @classmethod
-    def to_gcn_mode(cls, image_kind: 'ImageKind'):
-        return _image_kind_to_gcn_mode(image_kind)
+    def to_gcn_mode(self):
+        if not self.supports_gcn_mode():
+            raise RuntimeError(f'image_mode={self} not supported.')
+        return _IMAGE_MODE_NON_GCN_TO_GCN[self]
 
-    @classmethod
-    def in_gcn_mode(cls, image_kind: 'ImageKind'):
-        return _image_kind_in_gcn_mode(image_kind)
+    def in_gcn_mode(self):
+        return self in _IMAGE_MODE_GCN_TO_NON_GCN
 
-    @classmethod
-    def to_non_gcn_mode(cls, image_kind: 'ImageKind'):
-        return _image_kind_to_non_gcn_mode(image_kind)
+    def to_non_gcn_mode(self):
+        if not self.in_gcn_mode():
+            raise RuntimeError(f'image_mode={self} not in gcn mode.')
+        return _IMAGE_MODE_GCN_TO_NON_GCN[self]
 
 
-_IMAGE_KIND_NDIM_3 = {
-    ImageKind.RGB,
-    ImageKind.RGB_GCN,
-    ImageKind.RGBA,
-    ImageKind.HSV,
-    ImageKind.HSV_GCN,
-    ImageKind.HSL,
-    ImageKind.HSL_GCN,
+_IMAGE_MODE_NDIM_3 = {
+    ImageMode.RGB,
+    ImageMode.RGB_GCN,
+    ImageMode.RGBA,
+    ImageMode.HSV,
+    ImageMode.HSV_GCN,
+    ImageMode.HSL,
+    ImageMode.HSL_GCN,
 }
 
-_IMAGE_KIND_NDIM_2 = {
-    ImageKind.GRAYSCALE,
-    ImageKind.GRAYSCALE_GCN,
+_IMAGE_MODE_NDIM_2 = {
+    ImageMode.GRAYSCALE,
+    ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_kind_to_ndim(image_kind: ImageKind):
-    if image_kind in _IMAGE_KIND_NDIM_3:
-        return 3
-
-    elif image_kind in _IMAGE_KIND_NDIM_2:
-        return 2
-
-    else:
-        raise NotImplementedError()
-
-
-_IMAGE_KIND_DTYPE_UINT8 = {
-    ImageKind.RGB,
-    ImageKind.RGBA,
-    ImageKind.HSV,
-    ImageKind.HSL,
-    ImageKind.GRAYSCALE,
+_IMAGE_MODE_DTYPE_UINT8 = {
+    ImageMode.RGB,
+    ImageMode.RGBA,
+    ImageMode.HSV,
+    ImageMode.HSL,
+    ImageMode.GRAYSCALE,
 }
 
-_IMAGE_KIND_DTYPE_FLOAT32 = {
-    ImageKind.RGB_GCN,
-    ImageKind.HSV_GCN,
-    ImageKind.HSL_GCN,
-    ImageKind.GRAYSCALE_GCN,
+_IMAGE_MODE_DTYPE_FLOAT32 = {
+    ImageMode.RGB_GCN,
+    ImageMode.HSV_GCN,
+    ImageMode.HSL_GCN,
+    ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_kind_to_dtype(image_kind: ImageKind):
-    if image_kind in _IMAGE_KIND_DTYPE_UINT8:
-        return np.uint8
-
-    elif image_kind in _IMAGE_KIND_DTYPE_FLOAT32:
-        return np.float32
-
-    else:
-        raise NotImplementedError()
-
-
-_IMAGE_KIND_NUM_CHANNELS_4 = {
-    ImageKind.RGBA,
+_IMAGE_MODE_NUM_CHANNELS_4 = {
+    ImageMode.RGBA,
 }
 
-_IMAGE_KIND_NUM_CHANNELS_3 = {
-    ImageKind.RGB,
-    ImageKind.RGB_GCN,
-    ImageKind.HSV,
-    ImageKind.HSV_GCN,
-    ImageKind.HSL,
-    ImageKind.HSL_GCN,
+_IMAGE_MODE_NUM_CHANNELS_3 = {
+    ImageMode.RGB,
+    ImageMode.RGB_GCN,
+    ImageMode.HSV,
+    ImageMode.HSV_GCN,
+    ImageMode.HSL,
+    ImageMode.HSL_GCN,
 }
 
-_IMAGE_KIND_NUM_CHANNELS_2 = {
-    ImageKind.GRAYSCALE,
-    ImageKind.GRAYSCALE_GCN,
+_IMAGE_MODE_NUM_CHANNELS_2 = {
+    ImageMode.GRAYSCALE,
+    ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_kind_to_num_channels(image_kind: ImageKind):
-    if image_kind in _IMAGE_KIND_NUM_CHANNELS_4:
-        return 4
-
-    elif image_kind in _IMAGE_KIND_NUM_CHANNELS_3:
-        return 3
-
-    elif image_kind in _IMAGE_KIND_NUM_CHANNELS_2:
-        return None
-
-    else:
-        raise NotImplementedError
-
-
-_IMAGE_KIND_NON_GCN_TO_GCN = {
-    ImageKind.RGB: ImageKind.RGB_GCN,
-    ImageKind.HSV: ImageKind.HSV_GCN,
-    ImageKind.HSL: ImageKind.HSL_GCN,
-    ImageKind.GRAYSCALE: ImageKind.GRAYSCALE_GCN,
+_IMAGE_MODE_NON_GCN_TO_GCN = {
+    ImageMode.RGB: ImageMode.RGB_GCN,
+    ImageMode.HSV: ImageMode.HSV_GCN,
+    ImageMode.HSL: ImageMode.HSL_GCN,
+    ImageMode.GRAYSCALE: ImageMode.GRAYSCALE_GCN,
 }
 
-
-def _image_kind_supports_gcn_mode(image_kind: ImageKind):
-    return image_kind not in _IMAGE_KIND_NON_GCN_TO_GCN
-
-
-def _image_kind_to_gcn_mode(image_kind: ImageKind):
-    if _image_kind_supports_gcn_mode(image_kind):
-        raise RuntimeError(f'image_kind={image_kind} not supported.')
-    return _IMAGE_KIND_NON_GCN_TO_GCN[image_kind]
-
-
-_IMAGE_KIND_GCN_TO_NON_GCN = {val: key for key, val in _IMAGE_KIND_NON_GCN_TO_GCN.items()}
-
-
-def _image_kind_in_gcn_mode(image_kind: ImageKind):
-    return image_kind in _IMAGE_KIND_GCN_TO_NON_GCN
-
-
-def _image_kind_to_non_gcn_mode(image_kind: ImageKind):
-    if not _image_kind_in_gcn_mode(image_kind):
-        raise RuntimeError(f'image_kind={image_kind} not supported.')
-    return _IMAGE_KIND_GCN_TO_NON_GCN[image_kind]
-
-
-_IMAGE_SRC_KIND_TO_PRE_SLICE: Mapping[ImageKind, Sequence[int]] = {
-    # HSL -> HLS.
-    ImageKind.HSL: [0, 2, 1],
-}
-
-_IMAGE_SRC_KIND_TO_RGB_CV_CODE = {
-    ImageKind.GRAYSCALE: cv.COLOR_GRAY2RGB,
-    ImageKind.RGBA: cv.COLOR_RGBA2RGB,
-    ImageKind.HSV: cv.COLOR_HSV2RGB_FULL,
-    # NOTE: HSL need pre-slicing.
-    ImageKind.HSL: cv.COLOR_HLS2RGB_FULL,
-}
-
-_IMAGE_INV_DST_KIND_TO_RGB_CV_CODE = {
-    ImageKind.GRAYSCALE: cv.COLOR_RGB2GRAY,
-    ImageKind.RGBA: cv.COLOR_RGB2RGBA,
-    ImageKind.HSV: cv.COLOR_RGB2HSV_FULL,
-    # NOTE: HSL need post-slicing.
-    ImageKind.HSL: cv.COLOR_RGB2HLS_FULL,
-}
-
-_IMAGE_DST_KIND_TO_POST_SLICE: Mapping[ImageKind, Sequence[int]] = {
-    # HLS -> HSL.
-    ImageKind.HSL: [0, 2, 1],
-}
-
-_IMAGE_SRC_DST_KIND_TO_CV_CODE: Mapping[Tuple[ImageKind, ImageKind], int] = {
-    (ImageKind.GRAYSCALE, ImageKind.RGBA): cv.COLOR_GRAY2RGBA,
-    (ImageKind.RGBA, ImageKind.GRAYSCALE): cv.COLOR_RGBA2GRAY,
-}
+_IMAGE_MODE_GCN_TO_NON_GCN = {val: key for key, val in _IMAGE_MODE_NON_GCN_TO_GCN.items()}
 
 
 @attrs.define
@@ -259,42 +180,73 @@ class WritableImageContextDecorator(ContextDecorator):
         self.image.mat.flags.writeable = False
 
 
+_IMAGE_SRC_MODE_TO_PRE_SLICE: Mapping[ImageMode, Sequence[int]] = {
+    # HSL -> HLS.
+    ImageMode.HSL: [0, 2, 1],
+}
+
+_IMAGE_SRC_MODE_TO_RGB_CV_CODE = {
+    ImageMode.GRAYSCALE: cv.COLOR_GRAY2RGB,
+    ImageMode.RGBA: cv.COLOR_RGBA2RGB,
+    ImageMode.HSV: cv.COLOR_HSV2RGB_FULL,
+    # NOTE: HSL need pre-slicing.
+    ImageMode.HSL: cv.COLOR_HLS2RGB_FULL,
+}
+
+_IMAGE_INV_DST_MODE_TO_RGB_CV_CODE = {
+    ImageMode.GRAYSCALE: cv.COLOR_RGB2GRAY,
+    ImageMode.RGBA: cv.COLOR_RGB2RGBA,
+    ImageMode.HSV: cv.COLOR_RGB2HSV_FULL,
+    # NOTE: HSL need post-slicing.
+    ImageMode.HSL: cv.COLOR_RGB2HLS_FULL,
+}
+
+_IMAGE_DST_MODE_TO_POST_SLICE: Mapping[ImageMode, Sequence[int]] = {
+    # HLS -> HSL.
+    ImageMode.HSL: [0, 2, 1],
+}
+
+_IMAGE_SRC_DST_MODE_TO_CV_CODE: Mapping[Tuple[ImageMode, ImageMode], int] = {
+    (ImageMode.GRAYSCALE, ImageMode.RGBA): cv.COLOR_GRAY2RGBA,
+    (ImageMode.RGBA, ImageMode.GRAYSCALE): cv.COLOR_RGBA2GRAY,
+}
+
 _E = TypeVar('_E', 'Box', 'Polygon', 'Mask', 'ScoreMap')
 
 
 @attrs.define(frozen=True, eq=False)
 class Image(Shapable):
     mat: np.ndarray
-    kind: ImageKind = ImageKind.NONE
+    mode: ImageMode = ImageMode.NONE
     box: Optional['Box'] = None
 
     def __attrs_post_init__(self):
-        if self.kind != ImageKind.NONE:
-            # Validate mat.dtype and kind.
-            assert ImageKind.to_dtype(self.kind) == self.mat.dtype
-            assert ImageKind.to_ndim(self.kind) == self.mat.ndim
+        if self.mode != ImageMode.NONE:
+            # Validate mat.dtype and mode.
+            assert self.mode.to_dtype() == self.mat.dtype
+            assert self.mode.to_ndim() == self.mat.ndim
 
         else:
-            # Infer image kind based on mat.
+            # Infer image mode based on mat.
             if self.mat.dtype == np.float32:
-                raise NotImplementedError('kind is None and mat.dtype == np.float32.')
+                raise NotImplementedError('mode is None and mat.dtype == np.float32.')
 
             elif self.mat.dtype == np.uint8:
                 if self.mat.ndim == 2:
                     # Defaults to GRAYSCALE.
-                    kind = ImageKind.GRAYSCALE
+                    mode = ImageMode.GRAYSCALE
                 elif self.mat.ndim == 3:
                     if self.mat.shape[2] == 4:
-                        kind = ImageKind.RGBA
+                        mode = ImageMode.RGBA
                     elif self.mat.shape[2] == 3:
                         # Defaults to RGB.
-                        kind = ImageKind.RGB
+                        mode = ImageMode.RGB
                     else:
                         raise NotImplementedError(f'Invalid num_channels={self.mat.shape[2]}.')
                 else:
                     raise NotImplementedError(f'mat.ndim={self.mat.ndim} not supported.')
 
-                object.__setattr__(self, 'kind', kind)
+                object.__setattr__(self, 'mode', mode)
 
             else:
                 raise NotImplementedError(f'Invalid mat.dtype={self.mat.dtype}.')
@@ -787,7 +739,7 @@ class Image(Shapable):
         # Global contrast normalization.
         # https://cedar.buffalo.edu/~srihari/CSE676/12.2%20Computer%20Vision.pdf
         # (H, W) or (H, W, 3)
-        kind = ImageKind.to_gcn_mode(self.kind)
+        mode = self.mode.to_gcn_mode()
 
         mat = self.mat.astype(np.float32)
 
@@ -801,10 +753,10 @@ class Image(Shapable):
         if scale != 1.0:
             mat *= scale
 
-        return Image(mat=mat, kind=kind)
+        return Image(mat=mat, mode=mode)
 
     def to_non_gcn_image(self):
-        kind = ImageKind.to_non_gcn_mode(self.kind)
+        mode = self.mode.to_non_gcn_mode()
 
         assert self.mat.dtype == np.float32
         val_min = np.min(self.mat)
@@ -814,67 +766,67 @@ class Image(Shapable):
         mat = np.round(mat)
         mat = np.clip(mat, 0, 255).astype(np.uint8)
 
-        return Image(mat=mat, kind=kind)  # type: ignore
+        return Image(mat=mat, mode=mode)  # type: ignore
 
-    def to_target_kind_image(self, target_kind: ImageKind):
-        if target_kind == self.kind:
+    def to_target_mode_image(self, target_mode: ImageMode):
+        if target_mode == self.mode:
             # Identity.
             return self
 
         skip_copy = False
-        if ImageKind.in_gcn_mode(self.kind):
+        if self.mode.in_gcn_mode():
             self = self.to_non_gcn_image()
             skip_copy = True
 
-        if self.kind == target_kind:
+        if self.mode == target_mode:
             # GCN to non-GCN conversion.
             return self if skip_copy else self.copy()
 
         mat = self.mat
 
         # Pre-slicing.
-        if self.kind in _IMAGE_SRC_KIND_TO_PRE_SLICE:
-            mat: np.ndarray = mat[:, :, _IMAGE_SRC_KIND_TO_PRE_SLICE[self.kind]]
+        if self.mode in _IMAGE_SRC_MODE_TO_PRE_SLICE:
+            mat: np.ndarray = mat[:, :, _IMAGE_SRC_MODE_TO_PRE_SLICE[self.mode]]
 
-        if (self.kind, target_kind) in _IMAGE_SRC_DST_KIND_TO_CV_CODE:
+        if (self.mode, target_mode) in _IMAGE_SRC_DST_MODE_TO_CV_CODE:
             # Shortcut.
-            cv_code = _IMAGE_SRC_DST_KIND_TO_CV_CODE[(self.kind, target_kind)]
+            cv_code = _IMAGE_SRC_DST_MODE_TO_CV_CODE[(self.mode, target_mode)]
             dst_mat: np.ndarray = cv.cvtColor(mat, cv_code)
-            return Image(mat=dst_mat, kind=target_kind)
+            return Image(mat=dst_mat, mode=target_mode)
 
         dst_mat = mat
-        if self.kind != ImageKind.RGB:
+        if self.mode != ImageMode.RGB:
             # Convert to RGB.
-            dst_mat: np.ndarray = cv.cvtColor(mat, _IMAGE_SRC_KIND_TO_RGB_CV_CODE[self.kind])
+            dst_mat: np.ndarray = cv.cvtColor(mat, _IMAGE_SRC_MODE_TO_RGB_CV_CODE[self.mode])
 
-        if target_kind == ImageKind.RGB:
+        if target_mode == ImageMode.RGB:
             # No need to continue.
-            return Image(mat=dst_mat, kind=ImageKind.RGB)
+            return Image(mat=dst_mat, mode=ImageMode.RGB)
 
-        # Convert RGB to target kind.
-        assert target_kind in _IMAGE_INV_DST_KIND_TO_RGB_CV_CODE
-        dst_mat: np.ndarray = cv.cvtColor(dst_mat, _IMAGE_INV_DST_KIND_TO_RGB_CV_CODE[target_kind])
+        # Convert RGB to target mode.
+        assert target_mode in _IMAGE_INV_DST_MODE_TO_RGB_CV_CODE
+        dst_mat: np.ndarray = cv.cvtColor(dst_mat, _IMAGE_INV_DST_MODE_TO_RGB_CV_CODE[target_mode])
 
         # Post-slicing.
-        if target_kind in _IMAGE_DST_KIND_TO_POST_SLICE:
-            dst_mat: np.ndarray = dst_mat[:, :, _IMAGE_DST_KIND_TO_POST_SLICE[target_kind]]
+        if target_mode in _IMAGE_DST_MODE_TO_POST_SLICE:
+            dst_mat: np.ndarray = dst_mat[:, :, _IMAGE_DST_MODE_TO_POST_SLICE[target_mode]]
 
-        return Image(mat=dst_mat, kind=target_kind)
+        return Image(mat=dst_mat, mode=target_mode)
 
     def to_grayscale_image(self):
-        return self.to_target_kind_image(ImageKind.GRAYSCALE)
+        return self.to_target_mode_image(ImageMode.GRAYSCALE)
 
     def to_rgb_image(self):
-        return self.to_target_kind_image(ImageKind.RGB)
+        return self.to_target_mode_image(ImageMode.RGB)
 
     def to_rgba_image(self):
-        return self.to_target_kind_image(ImageKind.RGBA)
+        return self.to_target_mode_image(ImageMode.RGBA)
 
     def to_hsv_image(self):
-        return self.to_target_kind_image(ImageKind.HSV)
+        return self.to_target_mode_image(ImageMode.HSV)
 
     def to_hsl_image(self):
-        return self.to_target_kind_image(ImageKind.HSL)
+        return self.to_target_mode_image(ImageMode.HSL)
 
     def to_shifted_image(self, offset_y: int = 0, offset_x: int = 0):
         assert self.box

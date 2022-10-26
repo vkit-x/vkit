@@ -216,7 +216,7 @@ class PrioritizedSegment:
 
 
 @unique
-class SealImpressionEllipseShapeType(Enum):
+class SealImpressionEllipseShapeMode(Enum):
     CIRCLE = 'circle'
     GENERAL_ELLIPSE = 'general_ellipse'
 
@@ -233,15 +233,15 @@ class PageLayoutStep(
         super().__init__(config)
 
         (
-            self.seal_impression_ellipse_shape_types,
-            self.seal_impression_ellipse_shape_types_probs,
+            self.seal_impression_ellipse_shape_modes,
+            self.seal_impression_ellipse_shape_modes_probs,
         ) = normalize_to_keys_and_probs([
             (
-                SealImpressionEllipseShapeType.CIRCLE,
+                SealImpressionEllipseShapeMode.CIRCLE,
                 self.config.seal_impression_weight_circle,
             ),
             (
-                SealImpressionEllipseShapeType.GENERAL_ELLIPSE,
+                SealImpressionEllipseShapeMode.GENERAL_ELLIPSE,
                 self.config.seal_impression_weight_general_ellipse,
             ),
         ])
@@ -1120,15 +1120,15 @@ class PageLayoutStep(
                 seal_impression_height -= 1
 
             # Sample width.
-            shape_type = rng_choice(
+            shape_mode = rng_choice(
                 rng,
-                self.seal_impression_ellipse_shape_types,
-                probs=self.seal_impression_ellipse_shape_types_probs,
+                self.seal_impression_ellipse_shape_modes,
+                probs=self.seal_impression_ellipse_shape_modes_probs,
             )
-            if shape_type == SealImpressionEllipseShapeType.CIRCLE:
+            if shape_mode == SealImpressionEllipseShapeMode.CIRCLE:
                 seal_impression_width = seal_impression_height
 
-            elif shape_type == SealImpressionEllipseShapeType.GENERAL_ELLIPSE:
+            elif shape_mode == SealImpressionEllipseShapeMode.GENERAL_ELLIPSE:
                 aspect_ratio = float(
                     rng.uniform(
                         self.config.seal_impression_general_ellipse_aspect_ratio_min,

@@ -57,15 +57,15 @@ def gaussian_blur_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     kernel_size = _estimate_gaussian_kernel_size(config.sigma)
     ksize = (kernel_size, kernel_size)
     mat = cv.GaussianBlur(image.mat, ksize, config.sigma)
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 
@@ -112,13 +112,13 @@ def defocus_blur_image(
     )
 
     # Convolution.
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     mat = cv.filter2D(image.mat, -1, kernel)
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 
@@ -175,13 +175,13 @@ def motion_blur_image(
     )
 
     # Convolution.
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     mat = cv.filter2D(image.mat, -1, kernel)
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 
@@ -219,8 +219,8 @@ def glass_blur_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     # Gaussian blur.
     kernel_size = _estimate_gaussian_kernel_size(config.sigma)
@@ -264,7 +264,7 @@ def glass_blur_image(
     mat = mat[pos_y, pos_x]
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 
@@ -288,8 +288,8 @@ def zoom_in_blur_image(
     image: Image,
     rng: Optional[RandomGenerator],
 ):
-    kind = image.kind
-    image = to_rgb_image(image, kind)
+    mode = image.mode
+    image = to_rgb_image(image, mode)
 
     mat = image.mat.astype(np.uint16)
     count = 1
@@ -319,7 +319,7 @@ def zoom_in_blur_image(
 
     image = attrs.evolve(image, mat=mat)
 
-    image = to_original_image(image, kind)
+    image = to_original_image(image, mode)
     return image
 
 
