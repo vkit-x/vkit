@@ -85,5 +85,10 @@ jobs:
           git clone https://github.com/vkit-x/vkit-dataset.git dataset
           export VKIT_DATASET=./dataset
 
-          # Test (non-local).
+          # Configure paths.
+          export VKIT_ROOT=$(pwd)
+          export VKIT_DATA=$(pwd)/tmp-vkit-data
+          mkdir "$VKIT_DATA"
+
+          # Test.
           pytest

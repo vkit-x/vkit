@@ -66,7 +66,7 @@ def read_json_file(path: PathType):
 
 def get_data_folder(file: PathType):
     proc = subprocess.run(
-        f'pyproject-data-folder "$VKIT_ROOT" "$VKIT_DATA" "{file}"',
+        f'$VKIT_ROOT/.direnv/bin/pyproject-data-folder "$VKIT_ROOT" "$VKIT_DATA" "{file}"',
         shell=True,
         capture_output=True,
         text=True,
