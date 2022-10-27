@@ -670,20 +670,24 @@ def stack_flattened_text_regions(
         inverse_ftr_indices[ftr_idx] = inverse_ftr_idx
     for inverse_ftr_idx in inverse_ftr_indices:
         assert inverse_ftr_idx >= 0
-    boxes = [unordered_boxes[inverse_ftr_idx] for inverse_ftr_idx in inverse_ftr_indices]
+    padded_boxes = [unordered_boxes[inverse_ftr_idx] for inverse_ftr_idx in inverse_ftr_indices]
 
-    page_height = max(box.down for box in boxes) + 1 + page_double_pad
-    page_width = max(box.right for box in boxes) + 1 + page_double_pad
+    page_height = max(box.down for box in padded_boxes) + 1 + page_double_pad
+    page_width = max(box.right for box in padded_boxes) + 1 + page_double_pad
 
     image = build_background_image_for_stacking(page_height, page_width)
+    boxes: List[Box] = []
     char_polygons: List[Polygon] = []
 
-    for box, flattened_text_region in zip(boxes, flattened_text_regions):
-        assert flattened_text_region.height + flattened_text_regions_double_pad == box.height
-        assert flattened_text_region.width + flattened_text_regions_double_pad == box.width
+    for padded_box, flattened_text_region in zip(padded_boxes, flattened_text_regions):
+        assert flattened_text_region.height + flattened_text_regions_double_pad \
+            == padded_box.height
+        assert flattened_text_region.width + flattened_text_regions_double_pad \
+            == padded_box.width
 
-        up = box.up + flattened_text_regions_pad + page_pad
-        left = box.left + flattened_text_regions_pad + page_pad
+        # Remove box padding.
+        up = padded_box.up + flattened_text_regions_pad + page_pad
+        left = padded_box.left + flattened_text_regions_pad + page_pad
 
         box = Box(
             up=up,
@@ -691,7 +695,9 @@ def stack_flattened_text_regions(
             left=left,
             right=left + flattened_text_region.width - 1,
         )
+        boxes.append(box)
 
+        # Render.
         box.fill_image(
             image,
             flattened_text_region.flattened_image,
