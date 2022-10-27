@@ -77,6 +77,7 @@ class FlattenedTextRegion:
     text_region_image: Image
     bounding_extended_text_region_mask: Mask
     flattening_rotate_angle: int
+    shape_before_trim: Tuple[int, int]
     rotated_trimmed_box: Box
     shape_before_resize: Tuple[int, int]
     post_rotate_angle: int
@@ -535,6 +536,7 @@ class TextRegionFlattener:
                     text_region_image=bounding_extended_text_region_mask.extract_image(image),
                     bounding_extended_text_region_mask=bounding_extended_text_region_mask,
                     flattening_rotate_angle=flattening_rotate_angle,
+                    shape_before_trim=rotated_text_region_image.shape,
                     rotated_trimmed_box=rotated_trimmed_box,
                     shape_before_resize=trimmed_text_region_image.shape,
                     post_rotate_angle=0,
