@@ -95,12 +95,16 @@ def check_or_update_approval_hash(test_output_path: Path, test_approval_hash_fil
     if not test_approval_hash_file.exists():
         test_approval_hash_file.write_text(test_output_hash)
     else:
-        approval_hash = test_approval_hash_file.read_text()
+        approval_hash = test_approval_hash_file.read_text().strip()
         if approval_hash != test_output_hash:
             if os.getenv('VKIT_UPDATE_APPROVAL_HASH'):
                 test_approval_hash_file.write_text(test_output_hash)
             else:
-                raise RuntimeError('approval hash conflict.')
+                raise RuntimeError(
+                    f'approval_hash = {approval_hash}, '
+                    f'test_output_hash = {test_output_hash}, '
+                    'conflict!'
+                )
 
 
 def write_image(rel_path: str, image: Image, frames_offset: int = 0):
