@@ -24,7 +24,6 @@ from typing import (
     Mapping,
     List,
 )
-import subprocess
 from os import PathLike
 from collections import abc
 import re
@@ -62,23 +61,6 @@ def is_path_type(path: Any):
 
 def read_json_file(path: PathType):
     return io.read_json(path, expandvars=True)
-
-
-def get_data_folder(file: PathType):
-    proc = subprocess.run(
-        f'$VKIT_ROOT/.direnv/bin/pyproject-data-folder "$VKIT_ROOT" "$VKIT_DATA" "{file}"',
-        shell=True,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
-
-    data_folder = proc.stdout.strip()
-    assert data_folder
-
-    io.folder(data_folder, touch=True)
-
-    return data_folder
 
 
 _T_ITEM = TypeVar('_T_ITEM')

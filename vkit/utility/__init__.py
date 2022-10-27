@@ -17,7 +17,6 @@ from .opt import (
     get_cattrs_converter_ignoring_init_equals_false,
     is_path_type,
     read_json_file,
-    get_data_folder,
     rng_choice,
     rng_choice_with_size,
     rng_shuffle,
