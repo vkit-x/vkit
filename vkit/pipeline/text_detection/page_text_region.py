@@ -366,15 +366,14 @@ class TextRegionFlattener:
                 # Reference line (p0 -> p3).
                 point_b = point3
 
-            # Get angle of reference line in [0, 180)
+            # Get the angle of reference line, in [0, 180) degree.
             np_theta = np.arctan2(
                 point_a.smooth_y - point_b.smooth_y,
                 point_a.smooth_x - point_b.smooth_x,
             )
             np_theta = np_theta % np.pi
-            angle = round(np_theta / np.pi * 180)
-
-            long_side_angles.append(angle)
+            long_side_angle = round(np_theta / np.pi * 180) % 180
+            long_side_angles.append(long_side_angle)
 
         return long_side_ratios, long_side_angles
 
@@ -399,13 +398,17 @@ class TextRegionFlattener:
         if not typical_long_side_angles:
             return None, typical_indices
 
-        np_angles = np.asarray(typical_long_side_angles) / 180 * np.pi
+        # NOTE: Due to the sudden change between 179 and 0 degree,
+        # we need to normalize the range to [0, 360) before calculate the mean of angles.
+        two_pi = 2 * np.pi
+        np_angles = np.asarray(typical_long_side_angles) / 180 * two_pi
         np_sin_mean = np.sin(np_angles).mean()
         np_cos_mean = np.cos(np_angles).mean()
 
         np_theta = np.arctan2(np_sin_mean, np_cos_mean)
-        np_theta = np_theta % np.pi
-        typical_angle = round(np_theta / np.pi * 180)
+        np_theta = np_theta % two_pi
+        # Rescale the range back to [0, 180).
+        typical_angle = round(np_theta / two_pi * 180)
 
         return typical_angle, typical_indices
 
@@ -439,8 +442,10 @@ class TextRegionFlattener:
 
             # Angle for flattening.
             if main_angle <= 90:
-                flattening_rotate_angle = 360 - main_angle
+                # [270, 360).
+                flattening_rotate_angle = (360 - main_angle) % 360
             else:
+                # [1, 90).
                 flattening_rotate_angle = 180 - main_angle
             flattening_rotate_angles.append(flattening_rotate_angle)
 
