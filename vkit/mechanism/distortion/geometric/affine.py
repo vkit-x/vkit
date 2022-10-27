@@ -222,14 +222,14 @@ class RotateState(DistortionState[RotateConfig]):
         shift_y = 0
 
         if rad <= math.pi / 2:
-            # 3-4 quadrant.
+            # In 3-4 quadrant.
             shift_x = height * math.sin(rad)
 
             dst_width = height * math.sin(rad) + width * math.cos(rad)
             dst_height = height * math.cos(rad) + width * math.sin(rad)
 
         elif rad <= math.pi:
-            # 2-3 quadrant.
+            # In 2-3 quadrant.
             shift_rad = rad - math.pi / 2
 
             shift_x = width * math.sin(shift_rad) + height * math.cos(shift_rad)
@@ -239,7 +239,7 @@ class RotateState(DistortionState[RotateConfig]):
             dst_height = shift_y + width * math.cos(shift_rad)
 
         elif rad < math.pi * 3 / 2:
-            # 1-2 quadrant.
+            # In 1-2 quadrant.
             shift_rad = rad - math.pi
 
             shift_x = width * math.cos(shift_rad)
@@ -249,7 +249,7 @@ class RotateState(DistortionState[RotateConfig]):
             dst_height = shift_y
 
         else:
-            # 1-4 quadrant.
+            # In 1-4 quadrant.
             shift_rad = rad - math.pi * 3 / 2
 
             shift_y = width * math.cos(shift_rad)
