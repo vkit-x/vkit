@@ -24,7 +24,7 @@ from ..opt import sample_int, sample_float
 @attrs.define
 class GaussianBlurConfigGeneratorConfig:
     sigma_min: float = 0.5
-    sigma_max: float = 2.5
+    sigma_max: float = 1.0
 
 
 class GaussianBlurConfigGenerator(
@@ -55,7 +55,7 @@ gaussian_blur_policy_factory = DistortionPolicyFactory(
 @attrs.define
 class DefocusBlurConfigGeneratorConfig:
     radius_min: int = 1
-    radius_max: int = 4
+    radius_max: int = 2
 
 
 class DefocusBlurConfigGenerator(
@@ -86,7 +86,7 @@ defocus_blur_policy_factory = DistortionPolicyFactory(
 @attrs.define
 class MotionBlurConfigGeneratorConfig:
     radius_min: int = 1
-    radius_max: int = 4
+    radius_max: int = 2
 
 
 class MotionBlurConfigGenerator(
@@ -121,11 +121,11 @@ motion_blur_policy_factory = DistortionPolicyFactory(
 @attrs.define
 class GlassBlurConfigGeneratorConfig:
     sigma_min: float = 0.5
-    sigma_max: float = 2.0
+    sigma_max: float = 1.0
     delta_min: int = 1
     delta_max: int = 1
-    loop_min: int = 3
-    loop_max: int = 8
+    loop_min: int = 1
+    loop_max: int = 4
 
 
 class GlassBlurConfigGenerator(
