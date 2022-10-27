@@ -432,7 +432,7 @@ _PHOTOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
             color.color_balance_policy_factory,
             color.channel_permutation_policy_factory,
         ),
-        2.0,
+        10.0,
     ),
     (
         (
@@ -451,7 +451,7 @@ _PHOTOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
             noise.impulse_noise_policy_factory,
             noise.speckle_noise_policy_factory,
         ),
-        1.0,
+        3.0,
     ),
     (
         (
@@ -467,7 +467,7 @@ _PHOTOMETRIC_POLICY_FACTORIES_AND_DEFAULT_WEIGHTS_SUM_PAIRS = (
             streak.rectangle_streak_policy_factory,
             streak.ellipse_streak_policy_factory,
         ),
-        2.0,
+        1.0,
     ),
 )
 
