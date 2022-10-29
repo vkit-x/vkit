@@ -81,7 +81,7 @@ class RandomDistortionStageConfig:
     num_distortions_max: int
     inject_corner_points: bool = False
     conflict_control_keyword_groups: Sequence[Sequence[str]] = ()
-    force_random_level: bool = False
+    force_sample_level_in_full_range: bool = False
 
 
 class RandomDistortionStage:
@@ -143,7 +143,8 @@ class RandomDistortionStage:
     def apply_distortions(
         self,
         distortion_result: DistortionResult,
-        level: int,
+        level_min: int,
+        level_max: int,
         rng: RandomGenerator,
         debug: Optional[RandomDistortionDebug] = None,
     ):
@@ -177,12 +178,15 @@ class RandomDistortionStage:
 
             distortion_result.corner_points = corner_points.to_point_tuple()
 
+        if self.config.force_sample_level_in_full_range:
+            level_min = LEVEL_MIN
+            level_max = LEVEL_MAX
+
         distortion_policies = self.sample_distortion_policies(rng)
 
-        if self.config.force_random_level:
-            level = rng.integers(LEVEL_MIN, LEVEL_MAX + 1)
-
         for distortion_policy in distortion_policies:
+            level = rng.integers(level_min, level_max + 1)
+
             distortion_result = distortion_policy.distort(
                 level=level,
                 shapable_or_shape=distortion_result.shape,
@@ -374,12 +378,11 @@ class RandomDistortion:
             distortion_result.polygons = tuple(polygons)
 
         # Apply distortions.
-        level = rng.integers(self.level_min, self.level_max + 1)
-
         for stage in self.stages:
             distortion_result = stage.apply_distortions(
                 distortion_result=distortion_result,
-                level=level,
+                level_min=self.level_min,
+                level_max=self.level_max,
                 rng=rng,
                 debug=debug,
             )
@@ -654,7 +657,7 @@ class RandomDistortionFactory:
                     prob_enable=1.0,
                     num_distortions_min=1,
                     num_distortions_max=1,
-                    force_random_level=True,
+                    force_sample_level_in_full_range=True,
                 )
             )
 
