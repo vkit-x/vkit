@@ -292,6 +292,8 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
                 if not rng:
                     raise RuntimeError('both config.rng_state and rng are None.')
                 config.rng_state = rng.bit_generator.state
+                # Move forward rng state to randomize the next run.
+                rng.random()
 
             # Calling rng methods changes rng's state. We don't want to change the state
             # of exterior rng, hence making a copy here.
