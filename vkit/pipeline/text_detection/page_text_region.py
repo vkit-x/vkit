@@ -293,11 +293,18 @@ class TextRegionFlattener:
             bounding_rectangular_polygon = \
                 text_region_polygon.to_bounding_rectangular_polygon(shape)
 
-            bounding_box = bounding_rectangular_polygon.bounding_box
+            # See the comment in Polygon.to_bounding_rectangular_polygon.
+            bounding_box = Box.from_boxes((
+                text_region_polygon.bounding_box,
+                bounding_rectangular_polygon.bounding_box,
+            ))
 
             # Get other text region.
-            bounding_other_text_mask = bounding_rectangular_polygon.extract_mask(text_mask).copy()
+            bounding_other_text_mask = Mask.from_shapable(bounding_box)
+            bounding_other_text_mask = bounding_other_text_mask.to_box_attached(bounding_box)
+
             # NOTE: Use the original text region polygon to unset the current text mask.
+            bounding_rectangular_polygon.fill_mask(bounding_other_text_mask, text_mask)
             original_text_region_polygon.fill_mask(bounding_other_text_mask, 0)
 
             # Get protentially dilated text region.

@@ -306,6 +306,8 @@ class Polygon:
         shapely_polygon = self.to_smooth_shapely_polygon()
 
         assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
+        # NOTE: For unknown reasons, the polygon border COULD exceed the bounding box
+        # a little bit. Hence we cannot assume the bounding box contains the polygon.
         polygon = self.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
         assert polygon.num_points == 4
 
