@@ -27,6 +27,19 @@ from vkit.engine.interface import (
 from .type import CharHeatmapEngineRunConfig, CharHeatmap
 
 
+def build_np_distance(radius: int):
+    # Make it symmetric.
+    side_length = radius * 2 + 1
+
+    # Build distances to the center point.
+    np_offset = np.abs(np.arange(side_length, dtype=np.float32) - radius)
+    np_vert_offset = np.repeat(np_offset[:, None], side_length, axis=1)
+    np_hori_offset = np.repeat(np_offset[None, :], side_length, axis=0)
+    np_distance = np.sqrt(np.square(np_vert_offset) + np.square(np_hori_offset))
+
+    return np_distance
+
+
 @attrs.define
 class CharHeatmapDefaultEngineInitConfig:
     # Adjust the std. The std gets smaller as the distance factor gets larger.
@@ -63,13 +76,8 @@ class CharHeatmapDefaultEngine(
 
     def generate_np_gaussian_map(self):
         char_radius = self.init_config.gaussian_map_char_radius
-        side_length = char_radius * 2
-
-        # Build distances to the center point.
-        np_offset = np.abs(np.arange(side_length, dtype=np.float32) - char_radius)
-        np_vert_offset = np.repeat(np_offset[:, None], side_length, axis=1)
-        np_hori_offset = np.repeat(np_offset[None, :], side_length, axis=0)
-        np_distance = np.sqrt(np.square(np_vert_offset) + np.square(np_hori_offset))
+        np_distance = build_np_distance(char_radius)
+        side_length = np_distance.shape[0]
 
         np_norm_distance = np_distance / char_radius
         np_gaussian_map = np.exp(

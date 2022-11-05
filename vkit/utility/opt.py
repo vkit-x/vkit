@@ -144,6 +144,12 @@ _T_TARGET = TypeVar('_T_TARGET')
 
 _cattrs = cattrs.GenConverter(forbid_extra_keys=True)
 
+# Do nothing for config field.
+_cattrs.register_structure_hook(
+    Optional[Union[Mapping[str, Any], str, PathLike]],
+    lambda d, _: d,
+)
+
 
 def dyn_structure(
     dyn_object: Any,
