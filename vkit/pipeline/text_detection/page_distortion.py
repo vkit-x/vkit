@@ -13,6 +13,8 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Union, Mapping, Any, List, Tuple, Sequence, TypeVar, Generic
 import itertools
+from enum import unique, Enum
+import math
 
 import attrs
 from numpy.random import Generator as RandomGenerator
@@ -22,6 +24,7 @@ from vkit.utility import PathType
 from vkit.element import (
     Point,
     PointList,
+    Box,
     Polygon,
     Mask,
     ScoreMap,
@@ -32,6 +35,7 @@ from vkit.mechanism.distortion_policy import (
     RandomDistortionDebug,
 )
 from vkit.mechanism.painter import Painter
+from vkit.engine.char_heatmap.default import build_np_distance
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_layout import DisconnectedTextRegion, NonTextRegion
 from .page_text_line_label import (
@@ -43,6 +47,12 @@ from .page_assembler import (
     PageDisconnectedTextRegionCollection,
     PageNonTextRegionCollection,
 )
+
+
+@unique
+class CharMaskStyle(Enum):
+    DEFAULT = 'default'
+    EXTERNAL_ELLIPSE = 'external_ellipse'
 
 
 @attrs.define
@@ -59,6 +69,8 @@ class PageDistortionStepConfig:
     )
     enable_debug_random_distortion: bool = False
     enable_distorted_char_mask: bool = True
+    char_mask_style: CharMaskStyle = CharMaskStyle.DEFAULT
+    char_mask_style_external_ellipse_internal_side_length: int = 40
     enable_distorted_char_height_score_map: bool = True
     enable_debug_distorted_char_heights: bool = False
     enable_distorted_text_line_mask: bool = True
@@ -207,6 +219,110 @@ class PageDistortionStep(
             text_line_heights_debug_image,
         )
 
+    def generate_char_mask(self, shape: Tuple[int, int], char_polygons: Sequence[Polygon]):
+        char_mask = Mask.from_shape(shape)
+
+        if self.config.char_mask_style == CharMaskStyle.DEFAULT:
+            for polygon in char_polygons:
+                polygon.fill_mask(char_mask)
+
+        elif self.config.char_mask_style == CharMaskStyle.EXTERNAL_ELLIPSE:
+            internal_side_length = self.config.char_mask_style_external_ellipse_internal_side_length
+            external_radius = math.ceil(internal_side_length / math.sqrt(2))
+
+            # Build distances to the center point.
+            np_distance = build_np_distance(external_radius)
+
+            # Build mask.
+            external_circle_mask = Mask(mat=(np_distance <= external_radius).astype(np.uint8))
+            external_circle_ratio = external_circle_mask.height / internal_side_length
+
+            # TODO: NOOOOOOOO, it's after distortion!.
+            # # Fill mask.
+            # for polygon in char_polygons:
+            #     # Recover to box.
+            #     assert polygon.num_points == 4
+            #     (
+            #         up_left,
+            #         up_right,
+            #         down_right,
+            #         down_left,
+            #     ) = polygon.points
+            #     assert up_left.y == up_right.y
+            #     up = up_left.y
+            #     assert down_left.y == down_right.y
+            #     down = down_left.y
+            #     assert up_left.x == down_left.x
+            #     left = up_left.x
+            #     assert up_right.x == down_right.x
+            #     right = up_right.x
+
+            #     height = down + 1 - up
+            #     width = right + 1 - left
+
+            #     # Resize to build mask for external ellipse pattern.
+            #     resized_height = round(external_circle_ratio * height)
+            #     resized_width = round(external_circle_ratio * width)
+
+            #     external_ellipse_mask = external_circle_mask.to_resized_mask(
+            #         resized_height=resized_height,
+            #         resized_width=resized_width,
+            #     )
+
+            #     # Placement.
+            #     # TODO: Refactor.
+            #     pad_up = (resized_height - height) // 2
+            #     target_up = up - pad_up
+            #     if target_up < 0:
+            #         pad_up += target_up
+            #         assert pad_up >= 0
+            #         target_up = 0
+
+            #     pad_down = (resized_height - height) // 2
+            #     target_down = down + pad_down
+            #     if target_down >= char_mask.height:
+            #         pad_down -= (target_down + 1 - char_mask.height)
+            #         assert pad_down >= 0
+            #         target_down = char_mask.height - 1
+
+            #     pad_left = (resized_width - width) // 2
+            #     target_left = left - pad_left
+            #     if target_left < 0:
+            #         pad_left += target_left
+            #         assert pad_left >= 0
+            #         target_left = 0
+
+            #     pad_right = (resized_width - width) // 2
+            #     target_right = right + pad_right
+            #     if target_right >= char_mask.width:
+            #         pad_right -= (target_right + 1 - char_mask.width)
+            #         assert pad_right >= 0
+            #         target_right = char_mask.width - 1
+
+            #     target_box = Box(
+            #         up=target_up,
+            #         down=target_down,
+            #         left=target_left,
+            #         right=target_right,
+            #     )
+            #     trimmed_box = Box(
+            #         up=pad_up,
+            #         down=pad_down + height + pad_down - 1,
+            #         left=pad_left,
+            #         right=pad_left + width + pad_right - 1,
+            #     )
+            #     assert target_box.shape == trimmed_box.shape
+            #     target_box.fill_mask(
+            #         char_mask,
+            #         trimmed_box.extract_mask(external_ellipse_mask),
+            #         keep_max_value=True,
+            #     )
+
+        else:
+            raise NotImplementedError()
+
+        return char_mask
+
     def generate_char_labelings(
         self,
         distorted_image: Image,
@@ -215,10 +331,8 @@ class PageDistortionStep(
         char_height_points_down: PointList,
     ):
         char_mask: Optional[Mask] = None
-        if self.config.enable_distorted_text_line_mask:
-            char_mask = Mask.from_shapable(distorted_image)
-            for polygon in char_polygons:
-                polygon.fill_mask(char_mask)
+        if self.config.enable_distorted_char_mask:
+            char_mask = self.generate_char_mask(distorted_image.shape, char_polygons)
 
         char_height_score_map: Optional[ScoreMap] = None
         char_heights: Optional[List[float]] = None
