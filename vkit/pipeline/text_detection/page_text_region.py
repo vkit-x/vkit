@@ -34,10 +34,10 @@ from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
 from .page_resizing import PageResizingStepOutput
 
-logger = logging.getLogger(__name__)
-
 # Shapely version has been explicitly locked under 2.0, hence ignore this warning.
 warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
+
+logger = logging.getLogger(__name__)
 
 
 @attrs.define
