@@ -19,6 +19,7 @@ import math
 import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
+import cv2 as cv
 
 from vkit.utility import PathType
 from vkit.element import (
@@ -30,6 +31,7 @@ from vkit.element import (
     ScoreMap,
     Image,
 )
+from vkit.mechanism.distortion.geometric.affine import affine_np_points
 from vkit.mechanism.distortion_policy import (
     random_distortion_factory,
     RandomDistortionDebug,
@@ -234,89 +236,113 @@ class PageDistortionStep(
             np_distance = build_np_distance(external_radius)
 
             # Build mask.
-            external_circle_mask = Mask(mat=(np_distance <= external_radius).astype(np.uint8))
-            external_circle_ratio = external_circle_mask.height / internal_side_length
+            np_external_mask = (np_distance <= external_radius).astype(np.uint8)
+            external_side_length = np_external_mask.shape[0]
 
-            # TODO: NOOOOOOOO, it's after distortion!.
-            # # Fill mask.
-            # for polygon in char_polygons:
-            #     # Recover to box.
-            #     assert polygon.num_points == 4
-            #     (
-            #         up_left,
-            #         up_right,
-            #         down_right,
-            #         down_left,
-            #     ) = polygon.points
-            #     assert up_left.y == up_right.y
-            #     up = up_left.y
-            #     assert down_left.y == down_right.y
-            #     down = down_left.y
-            #     assert up_left.x == down_left.x
-            #     left = up_left.x
-            #     assert up_right.x == down_right.x
-            #     right = up_right.x
+            # For perspective transformation.
+            char_pad = (external_side_length - internal_side_length) // 2
+            char_begin = char_pad
+            char_end = char_pad + internal_side_length - 1
+            np_char_points = np.asarray(
+                [
+                    (char_begin, char_begin),
+                    (char_end, char_begin),
+                    (char_end, char_end),
+                    (char_begin, char_end),
+                ],
+                dtype=np.float32,
+            )
 
-            #     height = down + 1 - up
-            #     width = right + 1 - left
+            external_begin = 0
+            external_end = external_side_length - 1
+            np_external_points = np.asarray(
+                [
+                    (external_begin, external_begin),
+                    (external_end, external_begin),
+                    (external_end, external_end),
+                    (external_begin, external_end),
+                ],
+                dtype=np.float32,
+            )
 
-            #     # Resize to build mask for external ellipse pattern.
-            #     resized_height = round(external_circle_ratio * height)
-            #     resized_width = round(external_circle_ratio * width)
+            for char_polygon in char_polygons:
+                # 1. Find the transformed external points.
+                assert char_polygon.num_points == 4
+                np_trans_mat = cv.getPerspectiveTransform(
+                    np_char_points,
+                    char_polygon.internals.np_self_relative_points,
+                    cv.DECOMP_SVD,
+                )
+                np_transformed_external_points = affine_np_points(np_trans_mat, np_external_points)
 
-            #     external_ellipse_mask = external_circle_mask.to_resized_mask(
-            #         resized_height=resized_height,
-            #         resized_width=resized_width,
-            #     )
+                # Make self-relative and keep the offset.
+                y_offset = np_transformed_external_points[:, 1].min()
+                x_offset = np_transformed_external_points[:, 0].min()
+                np_transformed_external_points[:, 1] -= y_offset
+                np_transformed_external_points[:, 0] -= x_offset
 
-            #     # Placement.
-            #     # TODO: Refactor.
-            #     pad_up = (resized_height - height) // 2
-            #     target_up = up - pad_up
-            #     if target_up < 0:
-            #         pad_up += target_up
-            #         assert pad_up >= 0
-            #         target_up = 0
+                # 2. Transform the external mask.
+                np_transformed_external_points = np_transformed_external_points.astype(np.float32)
+                np_trans_mat = cv.getPerspectiveTransform(
+                    np_external_points,
+                    np_transformed_external_points,
+                    cv.DECOMP_SVD,
+                )
+                y_max = np_transformed_external_points[:, 1].max()
+                height = math.ceil(y_max)
+                x_max = np_transformed_external_points[:, 0].max()
+                width = math.ceil(x_max)
+                np_transformed_external_mask = cv.warpPerspective(
+                    np_external_mask,
+                    np_trans_mat,
+                    (width, height),
+                )
 
-            #     pad_down = (resized_height - height) // 2
-            #     target_down = down + pad_down
-            #     if target_down >= char_mask.height:
-            #         pad_down -= (target_down + 1 - char_mask.height)
-            #         assert pad_down >= 0
-            #         target_down = char_mask.height - 1
+                # 3. Place the transformed external mask.
+                smooth_y_min = min(point.smooth_y for point in char_polygon.points)
+                smooth_x_min = min(point.smooth_x for point in char_polygon.points)
 
-            #     pad_left = (resized_width - width) // 2
-            #     target_left = left - pad_left
-            #     if target_left < 0:
-            #         pad_left += target_left
-            #         assert pad_left >= 0
-            #         target_left = 0
+                target_up = round(smooth_y_min + y_offset)
+                target_down = target_up + height - 1
+                target_left = round(smooth_x_min + x_offset)
+                target_right = target_left + width - 1
 
-            #     pad_right = (resized_width - width) // 2
-            #     target_right = right + pad_right
-            #     if target_right >= char_mask.width:
-            #         pad_right -= (target_right + 1 - char_mask.width)
-            #         assert pad_right >= 0
-            #         target_right = char_mask.width - 1
+                trimmed_up = 0
+                if target_up < 0:
+                    trimmed_up = abs(target_up)
+                    target_up = 0
 
-            #     target_box = Box(
-            #         up=target_up,
-            #         down=target_down,
-            #         left=target_left,
-            #         right=target_right,
-            #     )
-            #     trimmed_box = Box(
-            #         up=pad_up,
-            #         down=pad_down + height + pad_down - 1,
-            #         left=pad_left,
-            #         right=pad_left + width + pad_right - 1,
-            #     )
-            #     assert target_box.shape == trimmed_box.shape
-            #     target_box.fill_mask(
-            #         char_mask,
-            #         trimmed_box.extract_mask(external_ellipse_mask),
-            #         keep_max_value=True,
-            #     )
+                trimmed_down = height - 1
+                if target_down >= char_mask.height:
+                    trimmed_down -= (target_down + 1 - char_mask.height)
+                    target_down = char_mask.height - 1
+
+                trimmed_left = 0
+                if target_left < 0:
+                    trimmed_left = abs(target_left)
+                    target_left = 0
+
+                trimmed_right = width - 1
+                if target_right >= char_mask.width:
+                    trimmed_right -= (target_right + 1 - char_mask.width)
+                    target_right = char_mask.width - 1
+
+                target_box = Box(
+                    up=target_up,
+                    down=target_down,
+                    left=target_left,
+                    right=target_right,
+                )
+                np_transformed_external_mask = \
+                    np_transformed_external_mask[
+                        trimmed_up:trimmed_down + 1,
+                        trimmed_left:trimmed_right + 1
+                    ]
+                target_box.fill_mask(
+                    char_mask,
+                    np_transformed_external_mask,
+                    keep_max_value=True,
+                )
 
         else:
             raise NotImplementedError()
