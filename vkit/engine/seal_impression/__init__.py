@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from vkit.engine.interface import EngineExecutorAggregatorFactory
+from ..interface import EngineExecutorAggregatorFactory
 from .type import (
     CharSlot,
     SealImpression,

@@ -390,6 +390,22 @@ class EngineExecutorAggregatorFactory(
             [init_resource] * len(factory_init_configs),
         )
 
+    def create_engine_executor(
+        self,
+        factory_init_config: Mapping[str, Any],
+        init_resource: Optional[
+            Union[
+                Mapping[str, Any],
+                Any,
+            ]
+        ] = None,
+    ):  # yapf: disable
+        executor_aggregator = self.create(
+            factory_init_configs=[factory_init_config],
+            init_resources=[init_resource] if init_resource else None,
+        )
+        return executor_aggregator.selector.engine_executors[0]
+
 
 # TODO: move to doc.
 # A minimum template.
@@ -399,7 +415,7 @@ from typing import Optional
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

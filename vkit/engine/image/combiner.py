@@ -23,7 +23,7 @@ import iolite as io
 
 from vkit.utility import rng_choice, read_json_file
 from vkit.element import Image, ImageMode, Mask
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

@@ -20,7 +20,7 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
 from vkit.element import LexiconCollection
-from vkit.engine.interface import (
+from ..interface import (
     NoneTypeEngineInitConfig,
     Engine,
     EngineExecutorFactory,

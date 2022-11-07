@@ -19,7 +19,7 @@ from numpy.random import Generator as RandomGenerator
 from faker import Faker
 
 from vkit.utility import rng_choice, normalize_to_probs
-from vkit.engine.interface import Engine, EngineExecutorFactory
+from ..interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 

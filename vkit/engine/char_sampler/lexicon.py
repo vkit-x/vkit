@@ -17,7 +17,7 @@ import attrs
 from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice, normalize_to_probs
-from vkit.engine.interface import Engine, EngineExecutorFactory
+from ..interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 

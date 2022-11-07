@@ -11,20 +11,21 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from ..interface import EngineExecutorAggregatorFactory
-from .type import ImageEngineRunConfig
-from .combiner import (
-    image_combiner_engine_executor_factory,
-    ImageCombinerEngineInitConfig,
-    ImageCombinerEngine,
-)
-from .selector import (
-    image_selector_engine_executor_factory,
-    ImageSelectorEngineInitConfig,
-    ImageSelectorEngine,
-)
+from typing import Sequence, Optional
 
-image_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
-    image_combiner_engine_executor_factory,
-    image_selector_engine_executor_factory,
-])
+import attrs
+
+from vkit.element import Box, Polygon, Mask
+
+
+@attrs.define
+class CharMaskEngineRunConfig:
+    height: int
+    width: int
+    char_polygons: Sequence[Polygon]
+    char_bounding_boxes: Optional[Sequence[Box]] = None
+
+
+@attrs.define
+class CharMask:
+    mask: Mask

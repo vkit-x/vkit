@@ -20,7 +20,7 @@ from numpy.random import Generator as RandomGenerator
 import pytz
 
 from vkit.utility import rng_choice
-from vkit.engine.interface import Engine, EngineExecutorFactory
+from ..interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 

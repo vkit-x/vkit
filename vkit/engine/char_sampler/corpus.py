@@ -21,7 +21,7 @@ from numpy.random import Generator as RandomGenerator
 import iolite as io
 
 from vkit.utility import normalize_to_probs, rng_choice
-from vkit.engine.interface import Engine, EngineExecutorFactory
+from ..interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 logger = logging.getLogger(__name__)

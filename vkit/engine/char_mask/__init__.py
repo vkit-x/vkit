@@ -12,19 +12,20 @@
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from ..interface import EngineExecutorAggregatorFactory
-from .type import ImageEngineRunConfig
-from .combiner import (
-    image_combiner_engine_executor_factory,
-    ImageCombinerEngineInitConfig,
-    ImageCombinerEngine,
+from .type import CharMaskEngineRunConfig, CharMask
+
+from .default import (
+    char_mask_default_engine_executor_factory,
+    CharMaskDefaultEngineInitConfig,
+    CharMaskDefaultEngine,
 )
-from .selector import (
-    image_selector_engine_executor_factory,
-    ImageSelectorEngineInitConfig,
-    ImageSelectorEngine,
+from .external_ellipse import (
+    char_mask_external_ellipse_engine_executor_factory,
+    CharMaskExternalEllipseEngineInitConfig,
+    CharMaskExternalEllipseEngine,
 )
 
-image_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
-    image_combiner_engine_executor_factory,
-    image_selector_engine_executor_factory,
+char_mask_engine_executor_aggregator_factory = EngineExecutorAggregatorFactory([
+    char_mask_default_engine_executor_factory,
+    char_mask_external_ellipse_engine_executor_factory,
 ])

@@ -20,7 +20,7 @@ import cv2 as cv
 
 from vkit.utility import rng_choice_with_size
 from vkit.element import Mask, ScoreMap
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

@@ -20,7 +20,7 @@ import iolite as io
 
 from vkit.utility import rng_choice
 from vkit.element import Image, ImageMode, Box
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

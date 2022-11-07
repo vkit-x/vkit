@@ -22,7 +22,7 @@ from barcode.writer import BaseWriter, mm2px
 from PIL import Image as PilImage, ImageDraw as PilImageDraw
 
 from vkit.element import Mask, ScoreMap
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

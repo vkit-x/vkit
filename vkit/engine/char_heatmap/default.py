@@ -19,7 +19,7 @@ import numpy as np
 import cv2 as cv
 
 from vkit.element import Mask, ScoreMap, ElementSetOperationMode
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

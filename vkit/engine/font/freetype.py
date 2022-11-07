@@ -22,7 +22,7 @@ import freetype
 
 from vkit.utility import sample_cv_resize_interpolation
 from vkit.element import Image, Box, Mask, ScoreMap
-from vkit.engine.interface import (
+from ..interface import (
     NoneTypeEngineInitConfig,
     NoneTypeEngineInitResource,
     Engine,

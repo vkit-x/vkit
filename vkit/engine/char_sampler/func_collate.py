@@ -15,7 +15,7 @@ from typing import Sequence, List
 
 from numpy.random import Generator as RandomGenerator
 
-from vkit.engine.interface import EngineExecutorAggregatorSelector
+from ..interface import EngineExecutorAggregatorSelector
 from .type import CharSamplerEngineRunConfig
 
 

@@ -21,7 +21,7 @@ import cv2 as cv
 
 from vkit.utility import normalize_to_keys_and_probs, rng_choice
 from vkit.element import Point, PointList, Box, Mask, ImageMode
-from vkit.engine.interface import (
+from ..interface import (
     NoneTypeEngineInitResource,
     Engine,
     EngineExecutorFactory,
