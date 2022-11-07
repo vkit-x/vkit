@@ -42,10 +42,10 @@ class CharMaskDefaultEngine(
         return 'default'
 
     def run(self, run_config: CharMaskEngineRunConfig, rng: RandomGenerator) -> CharMask:
-        mask = Mask.from_shape((run_config.height, run_config.width))
-        for polygon in run_config.char_polygons:
-            polygon.fill_mask(mask, keep_max_value=True)
-        return CharMask(mask=mask)
+        combined_chars_mask = Mask.from_shape((run_config.height, run_config.width))
+        for char_polygon in run_config.char_polygons:
+            char_polygon.fill_mask(combined_chars_mask, keep_max_value=True)
+        return CharMask(combined_chars_mask=combined_chars_mask)
 
 
 char_mask_default_engine_executor_factory = EngineExecutorFactory(CharMaskDefaultEngine)

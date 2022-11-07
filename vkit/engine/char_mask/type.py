@@ -28,4 +28,5 @@ class CharMaskEngineRunConfig:
 
 @attrs.define
 class CharMask:
-    mask: Mask
+    combined_chars_mask: Mask
+    char_masks: Optional[Sequence[Mask]] = None

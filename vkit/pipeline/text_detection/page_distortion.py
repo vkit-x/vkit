@@ -224,6 +224,7 @@ class PageDistortionStep(
         char_height_points_down: PointList,
     ):
         char_mask: Optional[Mask] = None
+        fill_char_height_score_map_masks: Optional[Sequence[Mask]] = None
         if self.config.enable_distorted_char_mask:
             result = self.char_mask_engine_executor.run(
                 CharMaskEngineRunConfig(
@@ -234,7 +235,8 @@ class PageDistortionStep(
                 # NOTE: This rng will not be used.
                 default_rng(0),
             )
-            char_mask = result.mask
+            char_mask = result.combined_chars_mask
+            fill_char_height_score_map_masks = result.char_masks
 
         char_height_score_map: Optional[ScoreMap] = None
         char_heights: Optional[List[float]] = None
@@ -261,10 +263,18 @@ class PageDistortionStep(
                 polygon = char_polygons[idx]
                 char_height = float(np_heights[idx])
                 char_heights[idx] = char_height
-                polygon.fill_score_map(
-                    score_map=char_height_score_map,
-                    value=char_height,
-                )
+
+                if fill_char_height_score_map_masks is None:
+                    polygon.fill_score_map(
+                        score_map=char_height_score_map,
+                        value=char_height,
+                    )
+                else:
+                    fill_char_height_score_map_mask = fill_char_height_score_map_masks[idx]
+                    fill_char_height_score_map_mask.fill_score_map(
+                        score_map=char_height_score_map,
+                        value=char_height,
+                    )
 
             if self.config.enable_debug_distorted_char_heights:
                 painter = Painter.create(distorted_image)

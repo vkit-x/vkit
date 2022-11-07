@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Optional
+from typing import Optional, List
 import math
 import itertools
 
@@ -107,7 +107,8 @@ class CharMaskExternalEllipseEngine(
             )
             char_bounding_boxes = itertools.repeat(bounding_box)
 
-        mask = Mask.from_shape((run_config.height, run_config.width))
+        combined_chars_mask = Mask.from_shape((run_config.height, run_config.width))
+        char_masks: List[Mask] = []
 
         for char_polygon, char_bounding_box in zip(char_polygons, char_bounding_boxes):
             # 1. Find the transformed external points.
@@ -145,7 +146,7 @@ class CharMaskExternalEllipseEngine(
                 (transformed_width, transformed_height),
             )
 
-            # 3. Place the transformed external mask.
+            # 3. Place char mask.
             smooth_y_min = min(point.smooth_y for point in char_polygon.points)
             smooth_x_min = min(point.smooth_x for point in char_polygon.points)
 
@@ -185,13 +186,16 @@ class CharMaskExternalEllipseEngine(
                     trimmed_up:trimmed_down + 1,
                     trimmed_left:trimmed_right + 1
                 ]
-            target_box.fill_mask(
-                mask,
-                np_transformed_external_mask,
-                keep_max_value=True,
-            )
+            char_mask = Mask(mat=np_transformed_external_mask, box=target_box)
+            char_masks.append(char_mask)
 
-        return CharMask(mask=mask)
+            # Fill.
+            char_mask.fill_mask(combined_chars_mask, 1, keep_max_value=True)
+
+        return CharMask(
+            combined_chars_mask=combined_chars_mask,
+            char_masks=char_masks,
+        )
 
 
 char_mask_external_ellipse_engine_executor_factory = EngineExecutorFactory(
