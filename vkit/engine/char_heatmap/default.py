@@ -47,7 +47,7 @@ class CharHeatmapDefaultEngineInitConfig:
     # https://colab.research.google.com/drive/1TQ1-BTisMYZHIRVVNpVwDFPviXYMhT7A
     gaussian_map_distance_factor: float = 2.25
     gaussian_map_char_radius: int = 25
-    gaussian_map_preserving_score_min: float = 0.8
+    gaussian_map_preserving_score_min: float = 0.9
     weight_neutralized_score_map: float = 0.4
 
 

@@ -20,7 +20,7 @@ from numpy.random import Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
 
-from vkit.element import Box, Mask
+from vkit.element import Box, Polygon, Mask
 from vkit.mechanism.distortion.geometric.affine import affine_np_points
 from ..char_heatmap.default import build_np_distance
 from ..interface import (
@@ -99,9 +99,19 @@ class CharMaskExternalEllipseEngine(
     ) -> CharMask:
         char_polygons = run_config.char_polygons
         char_bounding_boxes = run_config.char_bounding_boxes
+        char_bounding_polygons = run_config.char_bounding_polygons
+
+        if char_bounding_boxes or char_bounding_polygons:
+            assert not (char_bounding_boxes and char_bounding_polygons)
 
         if char_bounding_boxes:
             assert len(char_bounding_boxes) == len(char_polygons)
+            char_bounding_elements = char_bounding_boxes
+
+        elif char_bounding_polygons:
+            assert len(char_bounding_polygons) == len(char_polygons)
+            char_bounding_elements = char_bounding_polygons
+
         else:
             bounding_box = Box(
                 up=0,
@@ -109,12 +119,12 @@ class CharMaskExternalEllipseEngine(
                 left=0,
                 right=run_config.width - 1,
             )
-            char_bounding_boxes = itertools.repeat(bounding_box)
+            char_bounding_elements = itertools.repeat(bounding_box)
 
         combined_chars_mask = Mask.from_shape((run_config.height, run_config.width))
         char_masks: List[Mask] = []
 
-        for char_polygon, char_bounding_box in zip(char_polygons, char_bounding_boxes):
+        for char_polygon, char_bounding_element in zip(char_polygons, char_bounding_elements):
             # 1. Find the transformed external points.
             assert char_polygon.num_points == 4
             np_trans_mat = cv.getPerspectiveTransform(
@@ -159,6 +169,11 @@ class CharMaskExternalEllipseEngine(
             target_left = round(smooth_x_min + x_offset)
             target_right = target_left + transformed_width - 1
 
+            if isinstance(char_bounding_element, Box):
+                char_bounding_box = char_bounding_element
+            else:
+                char_bounding_box = char_bounding_element.bounding_box
+
             trimmed_up = 0
             if target_up < char_bounding_box.up:
                 trimmed_up = char_bounding_box.up - target_up
@@ -191,6 +206,12 @@ class CharMaskExternalEllipseEngine(
                     trimmed_left:trimmed_right + 1
                 ]
             char_mask = Mask(mat=np_transformed_external_mask, box=target_box)
+
+            if isinstance(char_bounding_element, Polygon):
+                char_inverted_mask = char_bounding_element.mask.to_inverted_mask()
+                char_inverted_mask = target_box.extract_mask(char_inverted_mask)
+                char_inverted_mask.fill_mask(char_mask, 0)
+
             char_masks.append(char_mask)
 
             # Fill.
