@@ -232,8 +232,6 @@ class PageDistortionStep(
                     width=distorted_image.width,
                     char_polygons=char_polygons,
                 ),
-                # NOTE: This rng will not be used.
-                default_rng(0),
             )
             char_mask = result.combined_chars_mask
             fill_char_height_score_map_masks = result.char_masks

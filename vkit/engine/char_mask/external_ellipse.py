@@ -92,7 +92,11 @@ class CharMaskExternalEllipseEngine(
             dtype=np.float32,
         )
 
-    def run(self, run_config: CharMaskEngineRunConfig, rng: RandomGenerator) -> CharMask:
+    def run(
+        self,
+        run_config: CharMaskEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> CharMask:
         char_polygons = run_config.char_polygons
         char_bounding_boxes = run_config.char_bounding_boxes
 

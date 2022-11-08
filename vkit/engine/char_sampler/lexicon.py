@@ -79,7 +79,13 @@ class CharSamplerLexiconEngine(
                 init_config.prob_space / (1 - init_config.prob_space),
             ))
 
-    def run(self, run_config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
+    def run(
+        self,
+        run_config: CharSamplerEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Sequence[str]:
+        assert rng is not None
+
         num_chars = run_config.num_chars
 
         if run_config.enable_aggregator_mode:

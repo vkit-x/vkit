@@ -11,6 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
+from typing import Optional
 import attrs
 from numpy.random import Generator as RandomGenerator
 
@@ -41,7 +42,11 @@ class CharMaskDefaultEngine(
     def get_type_name(cls) -> str:
         return 'default'
 
-    def run(self, run_config: CharMaskEngineRunConfig, rng: RandomGenerator) -> CharMask:
+    def run(
+        self,
+        run_config: CharMaskEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> CharMask:
         combined_chars_mask = Mask.from_shape((run_config.height, run_config.width))
         for char_polygon in run_config.char_polygons:
             char_polygon.fill_mask(combined_chars_mask, keep_max_value=True)

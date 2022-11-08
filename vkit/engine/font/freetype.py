@@ -991,7 +991,13 @@ class FontFreetypeDefaultEngine(
 
         return build_char_glyph(run_config, char, glyph, np_image)
 
-    def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
+    def run(
+        self,
+        run_config: FontEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Optional[TextLine]:
+        assert rng is not None
+
         font_face = load_freetype_font_face(run_config)
         return render_text_line_meta(
             run_config=run_config,
@@ -1059,7 +1065,13 @@ class FontFreetypeLcdEngine(
             char,
         )
 
-    def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
+    def run(
+        self,
+        run_config: FontEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Optional[TextLine]:
+        assert rng is not None
+
         lcd_compression_factor = 10
         font_face = load_freetype_font_face(
             run_config,
@@ -1134,7 +1146,13 @@ class FontFreetypeMonochromeEngine(
 
         return build_char_glyph(run_config, char, glyph, np_image)
 
-    def run(self, run_config: FontEngineRunConfig, rng: RandomGenerator) -> Optional[TextLine]:
+    def run(
+        self,
+        run_config: FontEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Optional[TextLine]:
+        assert rng is not None
+
         font_face = load_freetype_font_face(run_config)
         return render_text_line_meta(
             run_config=run_config,

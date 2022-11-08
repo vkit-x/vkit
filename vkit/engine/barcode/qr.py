@@ -61,7 +61,13 @@ class BarcodeQrEngine(
         assert self.init_config.payload_text_length_max <= CV_PAYLOAD_TEXT_LENGTH_MAX
         self.ascii_letters = tuple(string.ascii_letters)
 
-    def run(self, run_config: BarcodeEngineRunConfig, rng: RandomGenerator) -> ScoreMap:
+    def run(
+        self,
+        run_config: BarcodeEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> ScoreMap:
+        assert rng is not None
+
         payload_text_length = rng.integers(
             self.init_config.payload_text_length_min,
             self.init_config.payload_text_length_max + 1,

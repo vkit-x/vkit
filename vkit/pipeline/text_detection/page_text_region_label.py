@@ -11,23 +11,27 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import cast, Tuple, Sequence, List, Optional
+from typing import cast, Tuple, Sequence, List, Optional, Mapping, Any
 from enum import Enum, unique
 import math
 import logging
 
 import attrs
-from numpy.random import Generator as RandomGenerator
+from numpy.random import default_rng, Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
 from sklearn.neighbors import KDTree
 
 from vkit.utility import attrs_lazy_field, normalize_to_probs
-from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
+from vkit.element import Point, PointList, Box, Polygon, Mask, ScoreMap
 from vkit.mechanism.distortion.geometric.affine import affine_points
 from vkit.engine.char_heatmap import (
     char_heatmap_default_engine_executor_factory,
     CharHeatmapDefaultEngineInitConfig,
+)
+from vkit.engine.char_mask import (
+    char_mask_engine_executor_aggregator_factory,
+    CharMaskEngineRunConfig,
 )
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_text_region import PageTextRegionStepOutput
@@ -39,6 +43,7 @@ logger = logging.getLogger(__name__)
 class PageTextRegionLabelStepConfig:
     char_heatmap_default_engine_init_config: CharHeatmapDefaultEngineInitConfig = \
         attrs.field(factory=CharHeatmapDefaultEngineInitConfig)
+    char_mask_engine_config: Mapping[str, Any] = attrs.field(factory=lambda: {'type': 'default'})
 
     # 1 centrod + n deviate points.
     num_deviate_char_regression_labels: int = 3
@@ -307,47 +312,70 @@ class PageTextRegionLabelStep(
             char_heatmap_default_engine_executor_factory.create(
                 self.config.char_heatmap_default_engine_init_config
             )
+        self.char_mask_engine_executor = \
+            char_mask_engine_executor_aggregator_factory.create_engine_executor(
+                self.config.char_mask_engine_config
+            )
 
-    @classmethod
     def generate_page_char_mask(
-        cls,
+        self,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
+        page_boxes: Sequence[Box],
+        page_char_polygon_box_indices: Sequence[int],
     ):
-        page_char_mask = Mask.from_shape(shape)
-        for polygon in page_char_polygons:
-            polygon.fill_mask(page_char_mask)
-        return page_char_mask
+        height, width = shape
+        result = self.char_mask_engine_executor.run(
+            CharMaskEngineRunConfig(
+                height=height,
+                width=width,
+                char_polygons=page_char_polygons,
+                char_bounding_boxes=[page_boxes[idx] for idx in page_char_polygon_box_indices],
+            ),
+        )
+        return result.combined_chars_mask, result.char_masks
 
     @classmethod
     def generate_page_char_height_score_map(
         cls,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
+        fill_score_map_char_masks: Optional[Sequence[Mask]],
     ):
+        rectangular_heights = [
+            char_polygon.get_rectangular_height() for char_polygon in page_char_polygons
+        ]
+        sorted_indices: Tuple[int, ...] = tuple(reversed(np.asarray(rectangular_heights).argsort()))
+
         page_char_height_score_map = ScoreMap.from_shape(shape, is_prob=False)
-        for polygon in page_char_polygons:
-            polygon.fill_score_map(
-                page_char_height_score_map,
-                value=polygon.get_rectangular_height(),
-            )
+        for idx in sorted_indices:
+            char_polygon = page_char_polygons[idx]
+            rectangular_height = rectangular_heights[idx]
+            if fill_score_map_char_masks is None:
+                char_polygon.fill_score_map(
+                    page_char_height_score_map,
+                    value=rectangular_height,
+                )
+            else:
+                char_mask = fill_score_map_char_masks[idx]
+                char_mask.fill_score_map(
+                    page_char_height_score_map,
+                    value=rectangular_height,
+                )
+
         return page_char_height_score_map
 
     def generate_page_char_gaussian_score_map(
         self,
         shape: Tuple[int, int],
         page_char_polygons: Sequence[Polygon],
-        rng: RandomGenerator,
     ):
         height, width = shape
-        char_heatmap = self.char_heatmap_default_engine_executor.run(
-            {
-                'height': height,
-                'width': width,
-                'char_polygons': page_char_polygons,
-            },
-            rng,
-        )
+        char_heatmap = self.char_heatmap_default_engine_executor.run({
+            'height': height,
+            'width': width,
+            'char_polygons': page_char_polygons,
+        })
         return char_heatmap.score_map
 
     def generate_page_char_regression_labels(
@@ -472,20 +500,24 @@ class PageTextRegionLabelStep(
         page_text_region_step_output = input.page_text_region_step_output
         page_image = page_text_region_step_output.page_image
         page_char_polygons = page_text_region_step_output.page_char_polygons
+        page_boxes = page_text_region_step_output.page_boxes
+        page_char_polygon_box_indices = page_text_region_step_output.page_char_polygon_box_indices
 
-        page_char_mask = self.generate_page_char_mask(
-            page_image.shape,
-            page_char_polygons,
+        page_char_mask, fill_score_map_char_masks = self.generate_page_char_mask(
+            shape=page_image.shape,
+            page_char_polygons=page_char_polygons,
+            page_boxes=page_boxes,
+            page_char_polygon_box_indices=page_char_polygon_box_indices,
         )
         page_char_height_score_map = self.generate_page_char_height_score_map(
             page_image.shape,
             page_char_polygons,
+            fill_score_map_char_masks,
         )
 
         page_char_gaussian_score_map = self.generate_page_char_gaussian_score_map(
             page_image.shape,
             page_char_polygons,
-            rng,
         )
         page_char_regression_labels = self.generate_page_char_regression_labels(
             page_image.shape,
