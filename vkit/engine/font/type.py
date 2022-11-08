@@ -273,6 +273,7 @@ class FontEngineRunConfigStyle:
     font_size_max: int = 96
 
     # Space between chars.
+    prob_set_char_space_min: float = 0.1
     char_space_min: float = 0.0
     char_space_max: float = 0.2
     char_space_mean: float = 0.1

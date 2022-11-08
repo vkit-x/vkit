@@ -49,11 +49,11 @@ class PageTextLineStepConfig:
     font_style: FontEngineRunConfigStyle = attrs.field(factory=FontEngineRunConfigStyle)
     weight_font_style_glyph_color_grayscale: float = 0.9
     font_style_glyph_color_grayscale_min: int = 0
-    font_style_glyph_color_grayscale_max: int = 75
-    weight_font_style_glyph_color_red: float = 0.04
-    weight_font_style_glyph_color_green: float = 0.02
-    weight_font_style_glyph_color_blue: float = 0.04
-    font_style_glyph_color_rgb_min: int = 128
+    font_style_glyph_color_grayscale_max: int = 100
+    weight_font_style_glyph_color_red: float = 0.06
+    weight_font_style_glyph_color_green: float = 0.01
+    weight_font_style_glyph_color_blue: float = 0.03
+    font_style_glyph_color_rgb_min: int = 100
     font_style_glyph_color_rgb_max: int = 255
     return_font_variant: bool = False
     short_text_line_char_sampler_configs: Optional[

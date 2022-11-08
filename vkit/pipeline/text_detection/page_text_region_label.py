@@ -46,8 +46,8 @@ class PageTextRegionLabelStepConfig:
     char_mask_engine_config: Mapping[str, Any] = attrs.field(factory=lambda: {'type': 'default'})
 
     # 1 centrod + n deviate points.
-    num_deviate_char_regression_labels: int = 3
-    num_deviate_char_regression_labels_candiates_factor: int = 5
+    num_deviate_char_regression_labels: int = 1
+    num_deviate_char_regression_labels_candiates_factor: int = 3
 
 
 @attrs.define

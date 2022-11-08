@@ -438,13 +438,16 @@ def place_char_glyphs_in_text_line_hori_default(
 
         else:
             # Random char space.
-            space = round(
-                np.clip(
-                    rng.normal(loc=char_space_mean, scale=char_space_std),
-                    char_space_min,
-                    char_space_max,
-                )  # type: ignore
-            )
+            if rng.random() < style.prob_set_char_space_min:
+                space = round(char_space_min)
+            else:
+                space = round(
+                    np.clip(
+                        rng.normal(loc=char_space_mean, scale=char_space_std),
+                        char_space_min,
+                        char_space_max,
+                    )  # type: ignore
+                )
 
         hori_offset += space
 
@@ -540,13 +543,16 @@ def place_char_glyphs_in_text_line_vert_default(
 
         else:
             # Random char space.
-            space = round(
-                np.clip(
-                    rng.normal(loc=char_space_mean, scale=char_space_std),
-                    char_space_min,
-                    char_space_max,
-                )  # type: ignore
-            )
+            if rng.random() < style.prob_set_char_space_min:
+                space = round(char_space_min)
+            else:
+                space = round(
+                    np.clip(
+                        rng.normal(loc=char_space_mean, scale=char_space_std),
+                        char_space_min,
+                        char_space_max,
+                    )  # type: ignore
+                )
 
         vert_offset += space
 
