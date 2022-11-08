@@ -19,7 +19,7 @@ from numpy.random import Generator as RandomGenerator
 from faker import Faker
 
 from vkit.utility import rng_choice, normalize_to_probs
-from vkit.engine.interface import Engine, EngineExecutorFactory
+from ..interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 
@@ -97,7 +97,13 @@ class CharSamplerFakerEngine(
             if segments:
                 return ' '.join(segments)
 
-    def run(self, run_config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
+    def run(
+        self,
+        run_config: CharSamplerEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Sequence[str]:
+        assert rng is not None
+
         if not run_config.enable_aggregator_mode:
             num_chars = run_config.num_chars
 

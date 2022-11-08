@@ -23,7 +23,7 @@ import iolite as io
 
 from vkit.utility import rng_choice, read_json_file
 from vkit.element import Image, ImageMode, Mask
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,
@@ -309,7 +309,13 @@ class ImageCombinerEngine(
 
         return Image(mat=mat)
 
-    def run(self, run_config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
+    def run(
+        self,
+        run_config: ImageEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Image:
+        assert rng is not None
+
         assert not run_config.disable_resizing
         image_metas = self.sample_image_metas_based_on_random_anchor(run_config, rng)
         return self.synthesize_image(run_config, image_metas, rng)

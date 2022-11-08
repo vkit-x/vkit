@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from .type import CharHeatmapEngineRunConfig
+from .type import CharHeatmapEngineRunConfig, CharHeatmap
 from .default import (
     char_heatmap_default_engine_executor_factory,
     CharHeatmapDefaultEngineInitConfig,

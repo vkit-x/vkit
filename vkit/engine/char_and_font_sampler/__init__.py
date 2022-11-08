@@ -20,7 +20,7 @@ from numpy.random import Generator as RandomGenerator
 
 from vkit.utility import rng_choice
 from vkit.element import LexiconCollection
-from vkit.engine.interface import (
+from ..interface import (
     NoneTypeEngineInitConfig,
     Engine,
     EngineExecutorFactory,
@@ -105,8 +105,10 @@ class CharAndFontSamplerEngine(
     def run(
         self,
         run_config: CharAndFontSamplerEngineRunConfig,
-        rng: RandomGenerator,
+        rng: Optional[RandomGenerator] = None,
     ) -> Optional[CharAndFont]:
+        assert rng is not None
+
         # Sample chars.
         num_chars = self.estimate_num_chars(run_config)
         chars = self.char_sampler_engine_executor_aggregator.run(

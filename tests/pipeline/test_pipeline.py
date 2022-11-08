@@ -96,6 +96,18 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     page_distorted_char_mask = output.page_char_mask
     assert page_distorted_char_mask
     page_distorted_char_mask.fill_image(image, (255, 0, 0), 0.5)
+
+    if False:
+        points: List[Point] = []
+        point_colors: List[str] = []
+        for polygon in output.page_char_polygon_collection.polygons:
+            assert polygon.num_points == 4
+            points.extend(polygon.points)
+            point_colors.extend(['red', 'green', 'blue', 'lightskyblue'])
+        painter = Painter.create(image)
+        painter.paint_points(points, color=point_colors, radius=1, alpha=1.0)
+        image = painter.image
+
     cur_write_image(f'page_{seed}_char_mask.jpg', image, frames_offset=1)
 
     # Char level score map.

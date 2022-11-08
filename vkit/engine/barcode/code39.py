@@ -22,7 +22,7 @@ from barcode.writer import BaseWriter, mm2px
 from PIL import Image as PilImage, ImageDraw as PilImageDraw
 
 from vkit.element import Mask, ScoreMap
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,
@@ -120,7 +120,13 @@ class BarcodeCode39Engine(
 
         self.ascii_letters = tuple(string.ascii_letters)
 
-    def run(self, run_config: BarcodeEngineRunConfig, rng: RandomGenerator) -> ScoreMap:
+    def run(
+        self,
+        run_config: BarcodeEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> ScoreMap:
+        assert rng is not None
+
         num_chars = max(
             1,
             round(run_config.width / (run_config.height * self.init_config.aspect_ratio)),

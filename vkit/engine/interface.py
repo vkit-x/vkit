@@ -77,7 +77,11 @@ class Engine(
         self.init_config = init_config
         self.init_resource = init_resource
 
-    def run(self, run_config: _T_RUN_CONFIG, rng: RandomGenerator) -> _T_RUN_OUTPUT:
+    def run(
+        self,
+        run_config: _T_RUN_CONFIG,
+        rng: Optional[RandomGenerator] = None,
+    ) -> _T_RUN_OUTPUT:
         raise NotImplementedError()
 
 
@@ -110,7 +114,7 @@ class EngineExecutor(
             Mapping[str, Any],
             _T_RUN_CONFIG,
         ],
-        rng: RandomGenerator,
+        rng: Optional[RandomGenerator] = None,
     ) -> _T_RUN_OUTPUT:  # yapf: disable
         run_config = dyn_structure(run_config, self.get_run_config_cls())
         return self.engine.run(run_config, rng)
@@ -390,6 +394,22 @@ class EngineExecutorAggregatorFactory(
             [init_resource] * len(factory_init_configs),
         )
 
+    def create_engine_executor(
+        self,
+        factory_init_config: Mapping[str, Any],
+        init_resource: Optional[
+            Union[
+                Mapping[str, Any],
+                Any,
+            ]
+        ] = None,
+    ):  # yapf: disable
+        executor_aggregator = self.create(
+            factory_init_configs=[factory_init_config],
+            init_resources=[init_resource] if init_resource else None,
+        )
+        return executor_aggregator.selector.engine_executors[0]
+
 
 # TODO: move to doc.
 # A minimum template.
@@ -399,7 +419,7 @@ from typing import Optional
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,

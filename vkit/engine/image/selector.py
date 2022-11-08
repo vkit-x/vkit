@@ -20,7 +20,7 @@ import iolite as io
 
 from vkit.utility import rng_choice
 from vkit.element import Image, ImageMode, Box
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,
@@ -62,7 +62,13 @@ class ImageSelectorEngine(
                 for new_ext in [ext, ext.upper()]:
                     self.image_files.extend(image_fd.glob(f'**/*.{new_ext}'))
 
-    def run(self, run_config: ImageEngineRunConfig, rng: RandomGenerator) -> Image:
+    def run(
+        self,
+        run_config: ImageEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Image:
+        assert rng is not None
+
         image_file = rng_choice(rng, self.image_files)
         image = Image.from_file(image_file)
 

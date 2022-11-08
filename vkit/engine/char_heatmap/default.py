@@ -19,7 +19,7 @@ import numpy as np
 import cv2 as cv
 
 from vkit.element import Mask, ScoreMap, ElementSetOperationMode
-from vkit.engine.interface import (
+from ..interface import (
     Engine,
     EngineExecutorFactory,
     NoneTypeEngineInitResource,
@@ -108,7 +108,11 @@ class CharHeatmapDefaultEngine(
 
         self.np_gaussian_map, self.np_char_points = self.generate_np_gaussian_map()
 
-    def run(self, run_config: CharHeatmapEngineRunConfig, rng: RandomGenerator) -> CharHeatmap:
+    def run(
+        self,
+        run_config: CharHeatmapEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> CharHeatmap:
         height = run_config.height
         width = run_config.width
         char_polygons = run_config.char_polygons

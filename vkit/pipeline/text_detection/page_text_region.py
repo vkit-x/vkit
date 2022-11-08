@@ -34,10 +34,10 @@ from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
 from .page_resizing import PageResizingStepOutput
 
-logger = logging.getLogger(__name__)
-
 # Shapely version has been explicitly locked under 2.0, hence ignore this warning.
 warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
+
+logger = logging.getLogger(__name__)
 
 
 @attrs.define
@@ -179,6 +179,8 @@ class PageTextRegionStepDebug:
 class PageTextRegionStepOutput:
     page_image: Image
     page_char_polygons: Sequence[Polygon]
+    page_boxes: Sequence[Box]
+    page_char_polygon_box_indices: Sequence[int]
     shape_before_rotate: Tuple[int, int]
     rotate_angle: int
     debug: Optional[PageTextRegionStepDebug]
@@ -687,6 +689,7 @@ def stack_flattened_text_regions(
     image = build_background_image_for_stacking(page_height, page_width)
     boxes: List[Box] = []
     char_polygons: List[Polygon] = []
+    char_polygon_box_indices: List[int] = []
 
     for padded_box, flattened_text_region in zip(padded_boxes, flattened_text_regions):
         assert flattened_text_region.height + flattened_text_regions_double_pad \
@@ -705,6 +708,7 @@ def stack_flattened_text_regions(
             right=left + flattened_text_region.width - 1,
         )
         boxes.append(box)
+        box_idx = len(boxes) - 1
 
         # Render.
         box.fill_image(
@@ -719,8 +723,9 @@ def stack_flattened_text_regions(
                     offset_y=up,
                     offset_x=left,
                 ))
+                char_polygon_box_indices.append(box_idx)
 
-    return image, boxes, char_polygons
+    return image, boxes, char_polygons, char_polygon_box_indices
 
 
 class PageTextRegionStep(
@@ -1100,7 +1105,12 @@ class PageTextRegionStep(
             debug.flattened_text_regions = flattened_text_regions
 
         # Stack text regions.
-        image, _, char_polygons = stack_flattened_text_regions(
+        (
+            image,
+            boxes,
+            char_polygons,
+            char_polygon_box_indices,
+        ) = stack_flattened_text_regions(
             page_pad=0,
             flattened_text_regions_pad=self.config.stack_flattened_text_regions_pad,
             flattened_text_regions=flattened_text_regions,
@@ -1129,6 +1139,8 @@ class PageTextRegionStep(
         return PageTextRegionStepOutput(
             page_image=image,
             page_char_polygons=char_polygons,
+            page_boxes=boxes,
+            page_char_polygon_box_indices=char_polygon_box_indices,
             shape_before_rotate=shape_before_rotate,
             rotate_angle=rotate_angle,
             debug=debug,

@@ -20,7 +20,7 @@ from numpy.random import Generator as RandomGenerator
 import pytz
 
 from vkit.utility import rng_choice
-from vkit.engine.interface import Engine, EngineExecutorFactory
+from ..interface import Engine, EngineExecutorFactory
 from .type import CharSamplerEngineInitResource, CharSamplerEngineRunConfig
 
 
@@ -90,7 +90,13 @@ class CharSamplerDatetimeEngine(
             char for char in text if char.isspace() or self.lexicon_collection.has_char(char)
         ).strip()
 
-    def run(self, run_config: CharSamplerEngineRunConfig, rng: RandomGenerator) -> Sequence[str]:
+    def run(
+        self,
+        run_config: CharSamplerEngineRunConfig,
+        rng: Optional[RandomGenerator] = None,
+    ) -> Sequence[str]:
+        assert rng is not None
+
         if not run_config.enable_aggregator_mode:
             num_chars = run_config.num_chars
 
