@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 @attrs.define
 class PageTextRegionStepConfig:
+    prob_drop_single_char_page_text_region_info: float = 0.5
     text_region_flattener_typical_long_side_ratio_min: float = 3.0
     text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.85
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
@@ -178,9 +179,10 @@ class PageTextRegionStepDebug:
 @attrs.define
 class PageTextRegionStepOutput:
     page_image: Image
+    page_active_mask: Mask
     page_char_polygons: Sequence[Polygon]
-    page_boxes: Sequence[Box]
-    page_char_polygon_box_indices: Sequence[int]
+    page_text_region_polygons: Sequence[Polygon]
+    page_char_polygon_text_region_polygon_indices: Sequence[int]
     shape_before_rotate: Tuple[int, int]
     rotate_angle: int
     debug: Optional[PageTextRegionStepDebug]
@@ -687,9 +689,10 @@ def stack_flattened_text_regions(
     page_width = max(box.right for box in padded_boxes) + 1 + page_double_pad
 
     image = build_background_image_for_stacking(page_height, page_width)
-    boxes: List[Box] = []
+    active_mask = Mask.from_shapable(image)
+    text_region_boxes: List[Box] = []
     char_polygons: List[Polygon] = []
-    char_polygon_box_indices: List[int] = []
+    char_polygon_text_region_box_indices: List[int] = []
 
     for padded_box, flattened_text_region in zip(padded_boxes, flattened_text_regions):
         assert flattened_text_region.height + flattened_text_regions_double_pad \
@@ -701,20 +704,25 @@ def stack_flattened_text_regions(
         up = padded_box.up + flattened_text_regions_pad + page_pad
         left = padded_box.left + flattened_text_regions_pad + page_pad
 
-        box = Box(
+        text_region_box = Box(
             up=up,
             down=up + flattened_text_region.height - 1,
             left=left,
             right=left + flattened_text_region.width - 1,
         )
-        boxes.append(box)
-        box_idx = len(boxes) - 1
+        text_region_boxes.append(text_region_box)
+        text_region_box_idx = len(text_region_boxes) - 1
 
         # Render.
-        box.fill_image(
+        text_region_box.fill_image(
             image,
             flattened_text_region.flattened_image,
             image_mask=flattened_text_region.flattened_mask,
+        )
+        text_region_box.fill_mask(
+            active_mask,
+            value=1,
+            mask_mask=flattened_text_region.flattened_mask,
         )
 
         if flattened_text_region.flattened_char_polygons:
@@ -723,9 +731,15 @@ def stack_flattened_text_regions(
                     offset_y=up,
                     offset_x=left,
                 ))
-                char_polygon_box_indices.append(box_idx)
+                char_polygon_text_region_box_indices.append(text_region_box_idx)
 
-    return image, boxes, char_polygons, char_polygon_box_indices
+    return (
+        image,
+        active_mask,
+        text_region_boxes,
+        char_polygons,
+        char_polygon_text_region_box_indices,
+    )
 
 
 class PageTextRegionStep(
@@ -836,6 +850,10 @@ class PageTextRegionStep(
         text_region_polygons: List[Polygon] = []
         grouped_char_polygons: List[Sequence[Polygon]] = []
         for page_text_region_info in page_text_region_infos:
+            if len(page_text_region_info.char_polygons) == 1 \
+                    and rng.random() < self.config.prob_drop_single_char_page_text_region_info:
+                # Ignore some single-char text region for reducing label confusion.
+                continue
             text_region_polygons.append(page_text_region_info.precise_text_region_polygon)
             grouped_char_polygons.append(page_text_region_info.char_polygons)
 
@@ -1107,20 +1125,27 @@ class PageTextRegionStep(
         # Stack text regions.
         (
             image,
-            boxes,
+            active_mask,
+            text_region_boxes,
             char_polygons,
-            char_polygon_box_indices,
+            char_polygon_text_region_box_indices,
         ) = stack_flattened_text_regions(
             page_pad=0,
             flattened_text_regions_pad=self.config.stack_flattened_text_regions_pad,
             flattened_text_regions=flattened_text_regions,
         )
 
+        text_region_polygons = [
+            text_region_box.to_polygon() for text_region_box in text_region_boxes
+        ]
+
         # Post uniform rotation.
         shape_before_rotate = image.shape
         rotate_angle = 0
 
         if self.config.enable_post_rotate:
+            # For unpacking.
+            num_char_polygons = len(char_polygons)
             rotate_angle = int(
                 rng.integers(
                     self.config.post_rotate_angle_min,
@@ -1130,17 +1155,21 @@ class PageTextRegionStep(
             rotated_result = rotate.distort(
                 {'angle': rotate_angle},
                 image=image,
-                polygons=char_polygons,
+                mask=active_mask,
+                polygons=(*char_polygons, *text_region_polygons),
             )
-            assert rotated_result.image and rotated_result.polygons
+            assert rotated_result.image and rotated_result.mask and rotated_result.polygons
             image = rotated_result.image
-            char_polygons = rotated_result.polygons
+            active_mask = rotated_result.mask
+            char_polygons = rotated_result.polygons[:num_char_polygons]
+            text_region_polygons = rotated_result.polygons[num_char_polygons:]
 
         return PageTextRegionStepOutput(
             page_image=image,
+            page_active_mask=active_mask,
             page_char_polygons=char_polygons,
-            page_boxes=boxes,
-            page_char_polygon_box_indices=char_polygon_box_indices,
+            page_text_region_polygons=text_region_polygons,
+            page_char_polygon_text_region_polygon_indices=char_polygon_text_region_box_indices,
             shape_before_rotate=shape_before_rotate,
             rotate_angle=rotate_angle,
             debug=debug,

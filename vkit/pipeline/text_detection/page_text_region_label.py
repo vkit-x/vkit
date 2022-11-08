@@ -23,7 +23,7 @@ import cv2 as cv
 from sklearn.neighbors import KDTree
 
 from vkit.utility import attrs_lazy_field, normalize_to_probs
-from vkit.element import Point, PointList, Box, Polygon, Mask, ScoreMap
+from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
 from vkit.mechanism.distortion.geometric.affine import affine_points
 from vkit.engine.char_heatmap import (
     char_heatmap_default_engine_executor_factory,
@@ -320,9 +320,10 @@ class PageTextRegionLabelStep(
     def generate_page_char_mask(
         self,
         shape: Tuple[int, int],
+        page_inactive_mask: Mask,
         page_char_polygons: Sequence[Polygon],
-        page_boxes: Sequence[Box],
-        page_char_polygon_box_indices: Sequence[int],
+        page_text_region_polygons: Sequence[Polygon],
+        page_char_polygon_text_region_polygon_indices: Sequence[int],
     ):
         height, width = shape
         result = self.char_mask_engine_executor.run(
@@ -330,15 +331,22 @@ class PageTextRegionLabelStep(
                 height=height,
                 width=width,
                 char_polygons=page_char_polygons,
-                char_bounding_boxes=[page_boxes[idx] for idx in page_char_polygon_box_indices],
+                char_bounding_polygons=[
+                    page_text_region_polygons[idx]
+                    for idx in page_char_polygon_text_region_polygon_indices
+                ],
             ),
         )
+
+        page_inactive_mask.fill_mask(result.combined_chars_mask, 0)
+
         return result.combined_chars_mask, result.char_masks
 
     @classmethod
     def generate_page_char_height_score_map(
         cls,
         shape: Tuple[int, int],
+        page_inactive_mask: Mask,
         page_char_polygons: Sequence[Polygon],
         fill_score_map_char_masks: Optional[Sequence[Mask]],
     ):
@@ -362,6 +370,8 @@ class PageTextRegionLabelStep(
                     page_char_height_score_map,
                     value=rectangular_height,
                 )
+
+        page_inactive_mask.fill_score_map(page_char_height_score_map, 0.0)
 
         return page_char_height_score_map
 
@@ -499,20 +509,30 @@ class PageTextRegionLabelStep(
     def run(self, input: PageTextRegionLabelStepInput, rng: RandomGenerator):
         page_text_region_step_output = input.page_text_region_step_output
         page_image = page_text_region_step_output.page_image
+        page_active_mask = page_text_region_step_output.page_active_mask
         page_char_polygons = page_text_region_step_output.page_char_polygons
-        page_boxes = page_text_region_step_output.page_boxes
-        page_char_polygon_box_indices = page_text_region_step_output.page_char_polygon_box_indices
+        page_text_region_polygons = page_text_region_step_output.page_text_region_polygons
+        page_char_polygon_text_region_polygon_indices = \
+            page_text_region_step_output.page_char_polygon_text_region_polygon_indices
 
+        page_inactive_mask = page_active_mask.to_inverted_mask()
         page_char_mask, fill_score_map_char_masks = self.generate_page_char_mask(
             shape=page_image.shape,
+            page_inactive_mask=page_inactive_mask,
             page_char_polygons=page_char_polygons,
-            page_boxes=page_boxes,
-            page_char_polygon_box_indices=page_char_polygon_box_indices,
+            page_text_region_polygons=page_text_region_polygons,
+            page_char_polygon_text_region_polygon_indices=(
+                page_char_polygon_text_region_polygon_indices
+            ),
         )
+
+        # NOTE: page_char_height_score_map is different from the one defined in page distortion.
+        # TODO: Resolve the inconsistency.
         page_char_height_score_map = self.generate_page_char_height_score_map(
-            page_image.shape,
-            page_char_polygons,
-            fill_score_map_char_masks,
+            shape=page_image.shape,
+            page_inactive_mask=page_inactive_mask,
+            page_char_polygons=page_char_polygons,
+            fill_score_map_char_masks=fill_score_map_char_masks,
         )
 
         page_char_gaussian_score_map = self.generate_page_char_gaussian_score_map(

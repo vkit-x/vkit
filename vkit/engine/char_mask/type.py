@@ -24,6 +24,7 @@ class CharMaskEngineRunConfig:
     width: int
     char_polygons: Sequence[Polygon]
     char_bounding_boxes: Optional[Sequence[Box]] = None
+    char_bounding_polygons: Optional[Sequence[Polygon]] = None
 
 
 @attrs.define
