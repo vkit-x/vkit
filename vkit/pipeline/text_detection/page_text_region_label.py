@@ -17,7 +17,7 @@ import math
 import logging
 
 import attrs
-from numpy.random import default_rng, Generator as RandomGenerator
+from numpy.random import Generator as RandomGenerator
 import numpy as np
 import cv2 as cv
 from sklearn.neighbors import KDTree

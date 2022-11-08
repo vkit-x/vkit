@@ -15,7 +15,7 @@ from typing import Optional, Union, Mapping, Any, List, Tuple, Sequence, TypeVar
 import itertools
 
 import attrs
-from numpy.random import default_rng, Generator as RandomGenerator
+from numpy.random import Generator as RandomGenerator
 import numpy as np
 
 from vkit.utility import PathType
