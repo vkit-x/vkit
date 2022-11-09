@@ -36,7 +36,7 @@ import attrs
 import cattrs
 from cattrs.errors import ClassValidationError
 
-from vkit.utility import PathType
+from .type import PathType
 
 
 def attrs_lazy_field():
