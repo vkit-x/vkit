@@ -277,12 +277,14 @@ class PageCharRegressionLabel:
         assert self._clockwise_angle_distribution is not None
         return self._clockwise_angle_distribution
 
-    def generate_non_up_left_distances(self):
+    def generate_clockwise_distances(self):
         self.lazy_post_init()
+        assert self._up_left_vector is not None
         assert self._up_right_vector is not None
         assert self._down_right_vector is not None
         assert self._down_left_vector is not None
         return (
+            self._up_left_vector.distance,
             self._up_right_vector.distance,
             self._down_right_vector.distance,
             self._down_left_vector.distance,

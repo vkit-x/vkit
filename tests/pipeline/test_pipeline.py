@@ -322,7 +322,7 @@ def visualize_page_text_region_label_step_output(
         theta = theta % two_pi
 
         angle_distrib = label.generate_clockwise_angle_distribution()
-        up_right_dis, down_right_dis, down_left_dis = label.generate_non_up_left_distances()
+        _, up_right_dis, down_right_dis, down_left_dis = label.generate_clockwise_distances()
 
         theta += angle_distrib[0] * two_pi
         theta = theta % two_pi
