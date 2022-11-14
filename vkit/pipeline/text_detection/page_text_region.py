@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple, Set
+from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple
 from collections import defaultdict
 import itertools
 import math
@@ -22,13 +22,14 @@ import warnings
 import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
+from sklearn.neighbors import KDTree
 from shapely.errors import ShapelyDeprecationWarning
 from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
 
 from vkit.utility import rng_choice, rng_choice_with_size
-from vkit.element import Box, Polygon, Mask, Image, ElementSetOperationMode
+from vkit.element import PointList, Box, Polygon, Mask, Image, ElementSetOperationMode
 from vkit.mechanism.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
@@ -272,6 +273,7 @@ class TextRegionFlattener:
         text_mask = text_mask.to_box_attached(box)
         non_text_mask = non_text_mask.to_box_attached(box)
 
+        text_region_center_points = PointList()
         bounding_extended_text_region_masks: List[Mask] = []
         bounding_rectangular_polygons: List[Polygon] = []
 
@@ -284,6 +286,8 @@ class TextRegionFlattener:
         for text_region_polygon, force_no_dilation_flag in zip(
             text_region_polygons, force_no_dilation_flags_iter
         ):
+            text_region_center_points.append(text_region_polygon.get_center_point())
+
             original_text_region_polygon = text_region_polygon
 
             if not force_no_dilation_flag:
@@ -344,7 +348,11 @@ class TextRegionFlattener:
             bounding_extended_text_region_masks.append(bounding_extended_text_region_mask)
             bounding_rectangular_polygons.append(bounding_rectangular_polygon)
 
-        return bounding_extended_text_region_masks, bounding_rectangular_polygons
+        return (
+            bounding_extended_text_region_masks,
+            bounding_rectangular_polygons,
+            text_region_center_points,
+        )
 
     @classmethod
     def analyze_bounding_rectangular_polygons(
@@ -390,69 +398,58 @@ class TextRegionFlattener:
         return long_side_ratios, long_side_angles
 
     @classmethod
-    def get_typical_angle(
+    def get_typical_indices(
         cls,
         typical_long_side_ratio_min: float,
         long_side_ratios: Sequence[float],
-        long_side_angles: Sequence[int],
     ):
-        typical_indices: Set[int] = set()
-        typical_long_side_angles: List[float] = []
-
-        for idx, (long_side_ratio, long_side_angle) in \
-                enumerate(zip(long_side_ratios, long_side_angles)):
-            if long_side_ratio < typical_long_side_ratio_min:
-                continue
-
-            typical_indices.add(idx)
-            typical_long_side_angles.append(long_side_angle)
-
-        if not typical_long_side_angles:
-            return None, typical_indices
-
-        # NOTE: Due to the sudden change between 179 and 0 degree,
-        # we need to normalize the range to [0, 360) before calculate the mean of angles.
-        two_pi = 2 * np.pi
-        np_angles = np.asarray(typical_long_side_angles) / 180 * two_pi
-        np_sin_mean = np.sin(np_angles).mean()
-        np_cos_mean = np.cos(np_angles).mean()
-
-        np_theta = np.arctan2(np_sin_mean, np_cos_mean)
-        np_theta = np_theta % two_pi
-        # Rescale the range back to [0, 180).
-        typical_angle = round(np_theta / two_pi * 180)
-
-        return typical_angle, typical_indices
+        return tuple(
+            idx for idx, long_side_ratio in enumerate(long_side_ratios)
+            if long_side_ratio >= typical_long_side_ratio_min
+        )
 
     @classmethod
     def get_flattening_rotate_angles(
         cls,
-        typical_angle: Optional[int],
-        typical_indices: Set[int],
+        text_region_center_points: PointList,
+        typical_indices: Sequence[int],
         long_side_angles: Sequence[int],
     ):
-        if typical_angle is not None:
-            assert typical_indices
+        typical_indices_set = set(typical_indices)
+        main_angles: List[Optional[int]] = [None] * len(long_side_angles)
 
-        flattening_rotate_angles: List[int] = []
-
+        # 1. For typical indices, or if no typical indices.
         for idx, long_side_angle in enumerate(long_side_angles):
-            if typical_angle is None or idx in typical_indices:
-                # Dominated by long_side_angle.
-                main_angle = long_side_angle
+            if not typical_indices_set or idx in typical_indices_set:
+                main_angles[idx] = long_side_angle
 
-            else:
-                # Dominated by typical_angle.
-                short_side_angle = (long_side_angle + 90) % 180
-                long_side_delta = abs((long_side_angle - typical_angle + 90) % 180 - 90)
-                short_side_delta = abs((short_side_angle - typical_angle + 90) % 180 - 90)
+        # 2. For nontypcial indices.
+        if typical_indices_set:
+            typical_center_points = PointList(
+                text_region_center_points[idx] for idx in typical_indices
+            )
+            kd_tree = KDTree(typical_center_points.to_np_array())
 
-                if long_side_delta < short_side_delta:
-                    main_angle = long_side_angle
-                else:
-                    main_angle = short_side_angle
+            nontypical_indices = tuple(
+                idx for idx, _ in enumerate(long_side_angles) if idx not in typical_indices_set
+            )
+            nontypical_center_points = PointList(
+                text_region_center_points[idx] for idx in nontypical_indices
+            )
 
-            # Angle for flattening.
+            # Set main angle as the closest typical angle.
+            _, np_kd_nbr_indices = kd_tree.query(nontypical_center_points.to_np_array())
+            for nontypical_idx, typical_indices_idx in zip(
+                nontypical_indices,
+                np_kd_nbr_indices[:, 0].tolist(),
+            ):
+                typical_idx = typical_indices[typical_indices_idx]
+                main_angles[nontypical_idx] = main_angles[typical_idx]
+
+        # 3. Get angle for flattening.
+        flattening_rotate_angles: List[int] = []
+        for main_angle in main_angles:
+            assert main_angle is not None
             if main_angle <= 90:
                 # [270, 360).
                 flattening_rotate_angle = (360 - main_angle) % 360
@@ -469,10 +466,12 @@ class TextRegionFlattener:
         image: Image,
         text_region_polygons: Sequence[Polygon],
         bounding_extended_text_region_masks: Sequence[Mask],
-        typical_indices: Set[int],
+        typical_indices: Sequence[int],
         flattening_rotate_angles: Sequence[int],
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]],
     ):
+        typical_indices_set = set(typical_indices)
+
         flattened_text_regions: List[FlattenedTextRegion] = []
 
         for idx, (
@@ -542,7 +541,7 @@ class TextRegionFlattener:
 
             flattened_text_regions.append(
                 FlattenedTextRegion(
-                    is_typical=(idx in typical_indices),
+                    is_typical=(idx in typical_indices_set),
                     text_region_polygon=text_region_polygon,
                     text_region_image=bounding_extended_text_region_mask.extract_image(image),
                     bounding_extended_text_region_mask=bounding_extended_text_region_mask,
@@ -582,25 +581,27 @@ class TextRegionFlattener:
             for char_polygons in grouped_char_polygons:
                 force_no_dilation_flags.append(not char_polygons)
 
-        self.bounding_extended_text_region_masks, self.bounding_rectangular_polygons = \
-            self.process_text_region_polygons(
-                text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
-                shape=image.shape,
-                text_region_polygons=self.text_region_polygons,
-                force_no_dilation_flags=force_no_dilation_flags,
-            )
+        (
+            self.bounding_extended_text_region_masks,
+            self.bounding_rectangular_polygons,
+            self.text_region_center_points,
+        ) = self.process_text_region_polygons(
+            text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
+            shape=image.shape,
+            text_region_polygons=self.text_region_polygons,
+            force_no_dilation_flags=force_no_dilation_flags,
+        )
 
         self.long_side_ratios, self.long_side_angles = \
             self.analyze_bounding_rectangular_polygons(self.bounding_rectangular_polygons)
 
-        self.typical_angle, self.typical_indices = self.get_typical_angle(
+        self.typical_indices = self.get_typical_indices(
             typical_long_side_ratio_min=typical_long_side_ratio_min,
             long_side_ratios=self.long_side_ratios,
-            long_side_angles=self.long_side_angles,
         )
 
         self.flattening_rotate_angles = self.get_flattening_rotate_angles(
-            typical_angle=self.typical_angle,
+            text_region_center_points=self.text_region_center_points,
             typical_indices=self.typical_indices,
             long_side_angles=self.long_side_angles,
         )
