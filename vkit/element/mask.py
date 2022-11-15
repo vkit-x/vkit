@@ -657,10 +657,13 @@ class Mask(Shapable):
     def to_disconnected_polygons(
         self,
         cv_find_contours_method: int = cv.CHAIN_APPROX_SIMPLE,
+        keep_internal: bool = False,
     ) -> Sequence['Polygon']:
-        # [ (N, 1, 2), ... ]
+        # cv_contours: [ (N, 1, 2), ... ], M contours.
+        # cv_hierarchy: [ (prev, next, child, parent), ... ], M relations.
         # https://stackoverflow.com/a/8830981
         # https://docs.opencv.org/4.x/d9/d8b/tutorial_py_contours_hierarchy.html
+        # https://docs.opencv.org/4.x/d3/dc0/group__imgproc__shape.html#gadf1ad6a0b82947fa1fe3c3d497f260e0
         cv_contours, cv_hierarchy = cv.findContours(
             (self.np_mask.astype(np.uint8) * 255),
             cv.RETR_TREE,
@@ -683,7 +686,7 @@ class Mask(Shapable):
         for cv_contour, cv_contour_hierarchy in zip(cv_contours, cv_hierarchy):
             assert len(cv_contour_hierarchy) == 4
             cv_contour_parent = cv_contour_hierarchy[-1]
-            if cv_contour_parent >= 0:
+            if not keep_internal and cv_contour_parent >= 0:
                 continue
 
             assert cv_contour.shape[1] == 1

@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from vkit.element import Polygon, Mask
+from vkit.element import Mask
 from vkit.mechanism.painter import Painter
 import cv2 as cv
 from tests.opt import read_image, write_image

@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import List, Optional, Dict, DefaultDict, Sequence, Tuple
+from typing import cast, List, Optional, Dict, DefaultDict, Sequence, Tuple
 from collections import defaultdict
 import itertools
 import math
@@ -259,22 +259,23 @@ class TextRegionFlattener:
         return patched_text_region_polygons
 
     @classmethod
-    def process_text_region_polygons(
+    def get_text_region_center_points(
+        cls,
+        text_region_polygons: Sequence[Polygon],
+    ):
+        return PointList(
+            text_region_polygon.get_center_point() for text_region_polygon in text_region_polygons
+        )
+
+    @classmethod
+    def get_dilated_and_bounding_rectangular_polygons(
         cls,
         text_region_polygon_dilate_ratio: float,
         shape: Tuple[int, int],
         text_region_polygons: Sequence[Polygon],
         force_no_dilation_flags: Optional[Sequence[bool]] = None,
     ):
-        text_mask = Mask.from_polygons(shape, text_region_polygons)
-        non_text_mask = text_mask.to_inverted_mask()
-
-        box = Box.from_shape(shape)
-        text_mask = text_mask.to_box_attached(box)
-        non_text_mask = non_text_mask.to_box_attached(box)
-
-        text_region_center_points = PointList()
-        bounding_extended_text_region_masks: List[Mask] = []
+        dilated_text_region_polygons: List[Polygon] = []
         bounding_rectangular_polygons: List[Polygon] = []
 
         if force_no_dilation_flags is None:
@@ -286,9 +287,6 @@ class TextRegionFlattener:
         for text_region_polygon, force_no_dilation_flag in zip(
             text_region_polygons, force_no_dilation_flags_iter
         ):
-            text_region_center_points.append(text_region_polygon.get_center_point())
-
-            original_text_region_polygon = text_region_polygon
 
             if not force_no_dilation_flag:
                 # Dilate.
@@ -297,62 +295,12 @@ class TextRegionFlattener:
                 )
                 text_region_polygon = text_region_polygon.to_clipped_polygon(shape)
 
-            # Get bounding rectangular box (polygon).
-            bounding_rectangular_polygon = \
+            dilated_text_region_polygons.append(text_region_polygon)
+            bounding_rectangular_polygons.append(
                 text_region_polygon.to_bounding_rectangular_polygon(shape)
-
-            # See the comment in Polygon.to_bounding_rectangular_polygon.
-            bounding_box = Box.from_boxes((
-                text_region_polygon.bounding_box,
-                bounding_rectangular_polygon.bounding_box,
-            ))
-
-            # Get other text region.
-            bounding_other_text_mask = Mask.from_shapable(bounding_box)
-            bounding_other_text_mask = bounding_other_text_mask.to_box_attached(bounding_box)
-
-            # NOTE: Use the original text region polygon to unset the current text mask.
-            bounding_rectangular_polygon.fill_mask(bounding_other_text_mask, text_mask)
-            original_text_region_polygon.fill_mask(bounding_other_text_mask, 0)
-
-            # Get protentially dilated text region.
-            bounding_text_mask = Mask.from_shapable(bounding_other_text_mask)
-            bounding_text_mask = bounding_text_mask.to_box_attached(bounding_box)
-            # NOTE: Use the protentially dilated text region polygon to set the current text mask.
-            text_region_polygon.fill_mask(bounding_text_mask, value=1)
-
-            # Should not use the protentially dilated text region polygon anymore.
-            del text_region_polygon
-
-            # Trim protentially dilated text region polygon by eliminating other text region.
-            bounding_trimmed_text_mask = Mask.from_masks(
-                bounding_box,
-                [
-                    # Includes the protentially dilated text region.
-                    bounding_text_mask,
-                    # But not includes any other text regions.
-                    bounding_other_text_mask.to_inverted_mask(),
-                ],
-                ElementSetOperationMode.INTERSECT,
             )
 
-            # Get non-text region.
-            bounding_non_text_mask = bounding_rectangular_polygon.extract_mask(non_text_mask)
-
-            # Combine trimmed text region and non-text region.
-            bounding_extended_text_region_mask = Mask.from_masks(
-                bounding_box,
-                [bounding_trimmed_text_mask, bounding_non_text_mask],
-            )
-
-            bounding_extended_text_region_masks.append(bounding_extended_text_region_mask)
-            bounding_rectangular_polygons.append(bounding_rectangular_polygon)
-
-        return (
-            bounding_extended_text_region_masks,
-            bounding_rectangular_polygons,
-            text_region_center_points,
-        )
+        return dilated_text_region_polygons, bounding_rectangular_polygons
 
     @classmethod
     def analyze_bounding_rectangular_polygons(
@@ -409,7 +357,7 @@ class TextRegionFlattener:
         )
 
     @classmethod
-    def get_flattening_rotate_angles(
+    def get_main_and_flattening_rotate_angles(
         cls,
         text_region_center_points: PointList,
         typical_indices: Sequence[int],
@@ -458,7 +406,93 @@ class TextRegionFlattener:
                 flattening_rotate_angle = 180 - main_angle
             flattening_rotate_angles.append(flattening_rotate_angle)
 
-        return flattening_rotate_angles
+        return cast(List[int], main_angles), flattening_rotate_angles
+
+    @classmethod
+    def get_bounding_extended_text_region_masks(
+        cls,
+        shape: Tuple[int, int],
+        text_region_polygons: Sequence[Polygon],
+        dilated_text_region_polygons: Sequence[Polygon],
+        bounding_rectangular_polygons: Sequence[Polygon],
+        typical_indices: Sequence[int],
+        main_angles: Sequence[int],
+    ):
+        typical_indices_set = set(typical_indices)
+
+        text_mask = Mask.from_polygons(shape, text_region_polygons)
+        non_text_mask = text_mask.to_inverted_mask()
+
+        box = Box.from_shape(shape)
+        text_mask = text_mask.to_box_attached(box)
+        non_text_mask = non_text_mask.to_box_attached(box)
+
+        bounding_extended_text_region_masks: List[Mask] = []
+
+        num_text_region_polygons = len(text_region_polygons)
+        for idx in range(num_text_region_polygons):
+            text_region_polygon = text_region_polygons[idx]
+            dilated_text_region_polygon = dilated_text_region_polygons[idx]
+            bounding_rectangular_polygon = bounding_rectangular_polygons[idx]
+            main_angle = main_angles[idx]
+
+            if typical_indices_set and idx not in typical_indices_set:
+                # Patch bounding rectangular polygon.
+                bounding_rectangular_polygon = \
+                    dilated_text_region_polygon.to_bounding_rectangular_polygon(
+                        shape=shape,
+                        angle=main_angle,
+                    )
+
+            del main_angle
+
+            # See the comment in Polygon.to_bounding_rectangular_polygon.
+            bounding_box = Box.from_boxes((
+                dilated_text_region_polygon.bounding_box,
+                bounding_rectangular_polygon.bounding_box,
+            ))
+
+            bounding_other_text_mask = Mask.from_shapable(bounding_box)
+            bounding_other_text_mask = bounding_other_text_mask.to_box_attached(bounding_box)
+
+            bounding_text_mask = Mask.from_shapable(bounding_other_text_mask)
+            bounding_text_mask = bounding_text_mask.to_box_attached(bounding_box)
+
+            # Fill other text region.
+            bounding_rectangular_polygon.fill_mask(bounding_other_text_mask, text_mask)
+            # Use the original text region polygon to unset the current text mask.
+            text_region_polygon.fill_mask(bounding_other_text_mask, 0)
+
+            # Fill protentially dilated text region.
+            # Use the protentially dilated text region polygon to set the current text mask.
+            dilated_text_region_polygon.fill_mask(bounding_text_mask, value=1)
+
+            del dilated_text_region_polygon
+
+            # Trim protentially dilated text region polygon by eliminating other text region.
+            bounding_trimmed_text_mask = Mask.from_masks(
+                bounding_box,
+                [
+                    # Includes the protentially dilated text region.
+                    bounding_text_mask,
+                    # But not includes any other text regions.
+                    bounding_other_text_mask.to_inverted_mask(),
+                ],
+                ElementSetOperationMode.INTERSECT,
+            )
+
+            # Extract non-text region.
+            bounding_non_text_mask = bounding_rectangular_polygon.extract_mask(non_text_mask)
+
+            # Unionize trimmed text region and non-text region.
+            bounding_extended_text_region_mask = Mask.from_masks(
+                bounding_box,
+                [bounding_trimmed_text_mask, bounding_non_text_mask],
+            )
+
+            bounding_extended_text_region_masks.append(bounding_extended_text_region_mask)
+
+        return bounding_extended_text_region_masks
 
     @classmethod
     def build_flattened_text_regions(
@@ -581,11 +615,14 @@ class TextRegionFlattener:
             for char_polygons in grouped_char_polygons:
                 force_no_dilation_flags.append(not char_polygons)
 
+        self.text_region_center_points = self.get_text_region_center_points(
+            self.text_region_polygons
+        )
+
         (
-            self.bounding_extended_text_region_masks,
+            self.dilated_text_region_polygons,
             self.bounding_rectangular_polygons,
-            self.text_region_center_points,
-        ) = self.process_text_region_polygons(
+        ) = self.get_dilated_and_bounding_rectangular_polygons(
             text_region_polygon_dilate_ratio=text_region_polygon_dilate_ratio,
             shape=image.shape,
             text_region_polygons=self.text_region_polygons,
@@ -600,10 +637,22 @@ class TextRegionFlattener:
             long_side_ratios=self.long_side_ratios,
         )
 
-        self.flattening_rotate_angles = self.get_flattening_rotate_angles(
+        (
+            self.main_angles,
+            self.flattening_rotate_angles,
+        ) = self.get_main_and_flattening_rotate_angles(
             text_region_center_points=self.text_region_center_points,
             typical_indices=self.typical_indices,
             long_side_angles=self.long_side_angles,
+        )
+
+        self.bounding_extended_text_region_masks = self.get_bounding_extended_text_region_masks(
+            shape=image.shape,
+            text_region_polygons=self.text_region_polygons,
+            dilated_text_region_polygons=self.dilated_text_region_polygons,
+            bounding_rectangular_polygons=self.bounding_rectangular_polygons,
+            typical_indices=self.typical_indices,
+            main_angles=self.main_angles,
         )
 
         self.flattened_text_regions = self.build_flattened_text_regions(
