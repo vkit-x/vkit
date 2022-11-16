@@ -23,6 +23,7 @@ import iolite as io
 
 from vkit.utility import rng_choice, read_json_file
 from vkit.element import Image, ImageMode, Mask
+from vkit.mechanism.distortion import rotate
 from ..interface import (
     Engine,
     EngineExecutorFactory,
@@ -73,6 +74,8 @@ class ImageCombinerEngineInitConfig:
     image_meta_folder: str
     target_image_mode: ImageMode = ImageMode.RGB
     enable_cache: bool = False
+    prob_use_only_the_anchor_image: float = 0.7
+    prob_rotate_image: float = 0.5
     sigma: float = 3.0
     init_segment_width_min_ratio: float = 0.25
     gaussian_blur_kernel_size = 5
@@ -123,18 +126,22 @@ class ImageCombinerEngine(
     ):
         # Get candidates based on anchor.
         anchor_image_meta = rng_choice(rng, self.image_metas)
-        grayscale_std = anchor_image_meta.grayscale_std
-        grayscale_mean = anchor_image_meta.grayscale_mean
 
-        grayscale_begin = round(grayscale_mean - self.init_config.sigma * grayscale_std)
-        grayscale_end = round(grayscale_mean + self.init_config.sigma * grayscale_std)
+        if rng.random() < self.init_config.prob_use_only_the_anchor_image:
+            return [anchor_image_meta]
 
-        index_begin = bisect.bisect_left(self.image_metas_grayscale_means, x=grayscale_begin)
-        index_end = bisect.bisect_right(self.image_metas_grayscale_means, x=grayscale_end)
-        image_metas = self.image_metas[index_begin:index_end]
+        else:
+            grayscale_std = anchor_image_meta.grayscale_std
+            grayscale_mean = anchor_image_meta.grayscale_mean
 
-        assert image_metas
-        return image_metas
+            grayscale_begin = round(grayscale_mean - self.init_config.sigma * grayscale_std)
+            grayscale_end = round(grayscale_mean + self.init_config.sigma * grayscale_std)
+
+            index_begin = bisect.bisect_left(self.image_metas_grayscale_means, x=grayscale_begin)
+            index_end = bisect.bisect_right(self.image_metas_grayscale_means, x=grayscale_end)
+            image_metas = self.image_metas[index_begin:index_end]
+            assert image_metas
+            return image_metas
 
     @classmethod
     def fill_np_edge_mask(
@@ -211,6 +218,9 @@ class ImageCombinerEngine(
                 right=width - 1,
             ))
 
+        # For random rotation.
+        image_file_to_rotate_flag: Dict[str, bool] = {}
+
         while priority_queue:
             # Pop a segment
             cur_segment = heapq.heappop(priority_queue)
@@ -250,12 +260,25 @@ class ImageCombinerEngine(
 
             # Load image.
             image_meta = rng_choice(rng, image_metas)
+
             if self.enable_cache and image_meta.image_file in self.image_file_to_cache_image:
                 segment_image = self.image_file_to_cache_image[image_meta.image_file]
+
             else:
                 segment_image = Image.from_file(image_meta.image_file).to_target_mode_image(
                     self.init_config.target_image_mode
                 )
+
+                if image_meta.image_file not in image_file_to_rotate_flag:
+                    rotate_flag = (rng.random() < self.init_config.prob_rotate_image)
+                    image_file_to_rotate_flag[image_meta.image_file] = rotate_flag
+
+                if image_file_to_rotate_flag[image_meta.image_file]:
+                    segment_image = rotate.distort_image(
+                        {'angle': 90},
+                        image=segment_image,
+                    )
+
                 if self.enable_cache:
                     self.image_file_to_cache_image[image_meta.image_file] = segment_image
 
