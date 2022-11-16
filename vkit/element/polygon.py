@@ -302,14 +302,131 @@ class Polygon:
             resized_width=resized_width,
         )
 
-    def to_bounding_rectangular_polygon(self, shape: Tuple[int, int]):
-        shapely_polygon = self.to_smooth_shapely_polygon()
+    @classmethod
+    def project_polygon_to_unit_vector(cls, np_points: np.ndarray, radian: float):
+        np_vector = np.asarray([math.cos(radian), math.sin(radian)])
 
-        assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
-        # NOTE: For unknown reasons, the polygon border COULD exceed the bounding box
-        # a little bit. Hence we cannot assume the bounding box contains the polygon.
-        polygon = self.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
-        assert polygon.num_points == 4
+        np_projected: np.ndarray = np.dot(np_points, np_vector.reshape(2, 1)).flatten()
+        scale_begin = float(np_projected.min())
+        scale_end = float(np_projected.max())
+
+        np_point_begin = np_vector * scale_begin
+        np_point_end = np_vector * scale_end
+
+        return np_point_begin, np_point_end
+
+    @classmethod
+    def calculate_lines_intersection_point(
+        cls,
+        np_point0: np.ndarray,
+        radian0: float,
+        np_point1: np.ndarray,
+        radian1: float,
+    ):
+        x0, y0 = np_point0
+        x1, y1 = np_point1
+
+        slope0 = np.tan(radian0)
+        slope1 = np.tan(radian1)
+
+        # Within pi / 2 + k * pi plus or minus 0.1 degree.
+        invalid_slope_abs = 572.9572133543033
+
+        if abs(slope0) > invalid_slope_abs and abs(slope1) > invalid_slope_abs:
+            raise RuntimeError('Lines are vertical.')
+
+        if abs(slope0) > invalid_slope_abs:
+            its_x = float(x0)
+            its_y = float(y1 + slope1 * (x0 - x1))
+
+        elif abs(slope1) > invalid_slope_abs:
+            its_x = float(x1)
+            its_y = float(y0 + slope0 * (x1 - x0))
+
+        else:
+            c0 = y0 - slope0 * x0
+            c1 = y1 - slope1 * x1
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                its_x = (c1 - c0) / (slope0 - slope1)
+            if its_x == np.inf:
+                raise RuntimeError('Lines not intersected.')
+
+            its_y = slope0 * its_x + c0
+
+        return Point.create(y=float(its_y), x=float(its_x))
+
+    def to_bounding_rectangular_polygon(
+        self,
+        shape: Tuple[int, int],
+        angle: Optional[float] = None,
+    ):
+        if angle is None:
+            shapely_polygon = self.to_smooth_shapely_polygon()
+
+            assert isinstance(shapely_polygon.minimum_rotated_rectangle, ShapelyPolygon)
+            # NOTE: For unknown reasons, the polygon border COULD exceed the bounding box
+            # a little bit. Hence we cannot assume the bounding box contains the polygon.
+            polygon = self.from_shapely_polygon(shapely_polygon.minimum_rotated_rectangle)
+            assert polygon.num_points == 4
+
+        else:
+            # Make sure in range [0, 180).
+            angle = angle % 180
+
+            main_radian = math.radians(angle)
+            orthogonal_radian = math.radians(angle + 90)
+
+            # Project points.
+            np_smooth_points = self.to_smooth_np_array()
+            (
+                np_main_point_begin,
+                np_main_point_end,
+            ) = self.project_polygon_to_unit_vector(
+                np_points=np_smooth_points,
+                radian=main_radian,
+            )
+            (
+                np_orthogonal_point_begin,
+                np_orthogonal_point_end,
+            ) = self.project_polygon_to_unit_vector(
+                np_points=np_smooth_points,
+                radian=orthogonal_radian,
+            )
+
+            # Build polygon.
+            polygon = Polygon.create(
+                points=[
+                    # main begin, orthogonal begin.
+                    self.calculate_lines_intersection_point(
+                        np_point0=np_main_point_begin,
+                        radian0=orthogonal_radian,
+                        np_point1=np_orthogonal_point_begin,
+                        radian1=main_radian,
+                    ),
+                    # main begin, orthogonal end.
+                    self.calculate_lines_intersection_point(
+                        np_point0=np_main_point_begin,
+                        radian0=orthogonal_radian,
+                        np_point1=np_orthogonal_point_end,
+                        radian1=main_radian,
+                    ),
+                    # main end, orthogonal end.
+                    self.calculate_lines_intersection_point(
+                        np_point0=np_main_point_end,
+                        radian0=orthogonal_radian,
+                        np_point1=np_orthogonal_point_end,
+                        radian1=main_radian,
+                    ),
+                    # main end, orthogonal begin.
+                    self.calculate_lines_intersection_point(
+                        np_point0=np_main_point_end,
+                        radian0=orthogonal_radian,
+                        np_point1=np_orthogonal_point_begin,
+                        radian1=main_radian,
+                    ),
+                ]
+            )
 
         # NOTE: Could be out-of-bound.
         polygon = polygon.to_clipped_polygon(shape)
