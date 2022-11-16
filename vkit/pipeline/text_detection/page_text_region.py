@@ -434,17 +434,15 @@ class TextRegionFlattener:
             text_region_polygon = text_region_polygons[idx]
             dilated_text_region_polygon = dilated_text_region_polygons[idx]
             bounding_rectangular_polygon = bounding_rectangular_polygons[idx]
-            main_angle = main_angles[idx]
 
             if typical_indices_set and idx not in typical_indices_set:
-                # Patch bounding rectangular polygon.
+                # Patch bounding rectangular polygon if is nontypical.
+                main_angle = main_angles[idx]
                 bounding_rectangular_polygon = \
                     dilated_text_region_polygon.to_bounding_rectangular_polygon(
                         shape=shape,
                         angle=main_angle,
                     )
-
-            del main_angle
 
             # See the comment in Polygon.to_bounding_rectangular_polygon.
             bounding_box = Box.from_boxes((
@@ -452,18 +450,17 @@ class TextRegionFlattener:
                 bounding_rectangular_polygon.bounding_box,
             ))
 
-            bounding_other_text_mask = Mask.from_shapable(bounding_box)
-            bounding_other_text_mask = bounding_other_text_mask.to_box_attached(bounding_box)
-
-            bounding_text_mask = Mask.from_shapable(bounding_other_text_mask)
-            bounding_text_mask = bounding_text_mask.to_box_attached(bounding_box)
-
             # Fill other text region.
+            bounding_other_text_mask = \
+                Mask.from_shapable(bounding_box).to_box_attached(bounding_box)
+            # Copy from text mask.
             bounding_rectangular_polygon.fill_mask(bounding_other_text_mask, text_mask)
             # Use the original text region polygon to unset the current text mask.
             text_region_polygon.fill_mask(bounding_other_text_mask, 0)
 
             # Fill protentially dilated text region.
+            bounding_text_mask = \
+                Mask.from_shapable(bounding_other_text_mask).to_box_attached(bounding_box)
             # Use the protentially dilated text region polygon to set the current text mask.
             dilated_text_region_polygon.fill_mask(bounding_text_mask, value=1)
 
@@ -601,7 +598,7 @@ class TextRegionFlattener:
         grouped_char_polygons: Optional[Sequence[Sequence[Polygon]]] = None,
         is_training: bool = False,
     ):
-        self.origional_text_region_polygons = text_region_polygons
+        self.original_text_region_polygons = text_region_polygons
 
         self.text_region_polygons = self.patch_text_region_polygons(
             text_region_polygons=text_region_polygons,
@@ -657,7 +654,8 @@ class TextRegionFlattener:
 
         self.flattened_text_regions = self.build_flattened_text_regions(
             image=image,
-            text_region_polygons=self.origional_text_region_polygons,
+            # NOTE: need to use the original text region polygons for reversed opts.
+            text_region_polygons=self.original_text_region_polygons,
             bounding_extended_text_region_masks=self.bounding_extended_text_region_masks,
             typical_indices=self.typical_indices,
             flattening_rotate_angles=self.flattening_rotate_angles,
@@ -900,15 +898,13 @@ class PageTextRegionStep(
         text_region_polygons: List[Polygon] = []
         grouped_char_polygons: List[Sequence[Polygon]] = []
         for page_text_region_info in page_text_region_infos:
-            if len(page_text_region_info.char_polygons) == 1 \
-                    and rng.random() < self.config.prob_drop_single_char_page_text_region_info:
-                # Ignore some single-char text region for reducing label confusion.
-                continue
             text_region_polygons.append(page_text_region_info.precise_text_region_polygon)
             grouped_char_polygons.append(page_text_region_info.char_polygons)
 
         # Inject nagative regions.
         for page_non_text_region_polygon in page_non_text_region_polygons:
+            # NOTE: Don't drop any text region here, otherwise will introduce labeling confusion,
+            # since dropped text region will be considered as non-text region.
             text_region_polygons.append(page_non_text_region_polygon)
             grouped_char_polygons.append(tuple())
 
@@ -931,6 +927,11 @@ class PageTextRegionStep(
         for flattened_text_region in text_region_flattener.flattened_text_regions:
             if not flattened_text_region.flattened_char_polygons:
                 num_negative_flattened_text_regions += 1
+                continue
+
+            if len(flattened_text_region.flattened_char_polygons) == 1 \
+                    and rng.random() < self.config.prob_drop_single_char_page_text_region_info:
+                # Ignore some single-char text region for reducing label confusion.
                 continue
 
             char_height_median = flattened_text_region.get_char_height_meidan()
