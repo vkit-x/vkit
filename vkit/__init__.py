@@ -11,3 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
+import os
+
+if not os.getenv('DISABLE_VKIT_COLLECT_USAGE_INFORMATION'):
+    import vkit_collect_usage_information
