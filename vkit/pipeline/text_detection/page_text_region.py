@@ -259,15 +259,6 @@ class TextRegionFlattener:
         return patched_text_region_polygons
 
     @classmethod
-    def get_text_region_center_points(
-        cls,
-        text_region_polygons: Sequence[Polygon],
-    ):
-        return PointList(
-            text_region_polygon.get_center_point() for text_region_polygon in text_region_polygons
-        )
-
-    @classmethod
     def get_dilated_and_bounding_rectangular_polygons(
         cls,
         text_region_polygon_dilate_ratio: float,
@@ -359,11 +350,15 @@ class TextRegionFlattener:
     @classmethod
     def get_main_and_flattening_rotate_angles(
         cls,
-        text_region_center_points: PointList,
+        text_region_polygons: Sequence[Polygon],
         typical_indices: Sequence[int],
         long_side_angles: Sequence[int],
     ):
         typical_indices_set = set(typical_indices)
+        text_region_center_points = [
+            text_region_polygon.get_center_point() for text_region_polygon in text_region_polygons
+        ]
+
         main_angles: List[Optional[int]] = [None] * len(long_side_angles)
 
         # 1. For typical indices, or if no typical indices.
@@ -386,13 +381,54 @@ class TextRegionFlattener:
             )
 
             # Set main angle as the closest typical angle.
+            # Round 1: Set if the closest typical polygon has larger area.
             _, np_kd_nbr_indices = kd_tree.query(nontypical_center_points.to_np_array())
+            round2_nontypical_indices: List[int] = []
             for nontypical_idx, typical_indices_idx in zip(
                 nontypical_indices,
                 np_kd_nbr_indices[:, 0].tolist(),
             ):
                 typical_idx = typical_indices[typical_indices_idx]
-                main_angles[nontypical_idx] = main_angles[typical_idx]
+                if text_region_polygons[typical_idx].area \
+                        >= text_region_polygons[nontypical_idx].area:
+                    main_angles[nontypical_idx] = main_angles[typical_idx]
+                else:
+                    round2_nontypical_indices.append(nontypical_idx)
+
+            # Round 2: Searching the closest typical polygon that has larger area.
+            round3_nontypical_indices: List[int] = []
+            if round2_nontypical_indices:
+                round2_nontypical_center_points = PointList(
+                    text_region_center_points[idx] for idx in round2_nontypical_indices
+                )
+                _, np_kd_nbr_indices = kd_tree.query(
+                    round2_nontypical_center_points.to_np_array(),
+                    k=len(typical_center_points),
+                )
+                for nontypical_idx, typical_indices_indices in zip(
+                    round2_nontypical_indices,
+                    np_kd_nbr_indices.tolist(),
+                ):
+                    hit_typical_idx = None
+                    for typical_indices_idx in typical_indices_indices:
+                        typical_idx = typical_indices[typical_indices_idx]
+                        if text_region_polygons[typical_idx].area \
+                                >= text_region_polygons[nontypical_idx].area:
+                            hit_typical_idx = typical_idx
+                            break
+
+                    if hit_typical_idx is not None:
+                        main_angles[nontypical_idx] = main_angles[hit_typical_idx]
+                    else:
+                        round3_nontypical_indices.append(nontypical_idx)
+
+            # Round 3: Last resort. Set to the median of typical angles.
+            if round3_nontypical_indices:
+                main_angles_median = statistics.median_low(
+                    long_side_angles[typical_idx] for typical_idx in typical_indices
+                )
+                for nontypical_idx in round3_nontypical_indices:
+                    main_angles[nontypical_idx] = main_angles_median
 
         # 3. Get angle for flattening.
         flattening_rotate_angles: List[int] = []
@@ -612,10 +648,6 @@ class TextRegionFlattener:
             for char_polygons in grouped_char_polygons:
                 force_no_dilation_flags.append(not char_polygons)
 
-        self.text_region_center_points = self.get_text_region_center_points(
-            self.text_region_polygons
-        )
-
         (
             self.dilated_text_region_polygons,
             self.bounding_rectangular_polygons,
@@ -638,7 +670,7 @@ class TextRegionFlattener:
             self.main_angles,
             self.flattening_rotate_angles,
         ) = self.get_main_and_flattening_rotate_angles(
-            text_region_center_points=self.text_region_center_points,
+            text_region_polygons=self.text_region_polygons,
             typical_indices=self.typical_indices,
             long_side_angles=self.long_side_angles,
         )
