@@ -298,6 +298,7 @@ class TextRegionFlattener:
         cls,
         bounding_rectangular_polygons: Sequence[Polygon],
     ):
+        short_side_lengths: List[float] = []
         long_side_ratios: List[float] = []
         long_side_angles: List[int] = []
 
@@ -312,6 +313,9 @@ class TextRegionFlattener:
                 point0.smooth_y - point3.smooth_y,
                 point0.smooth_x - point3.smooth_x,
             )
+
+            # Get the short side length.
+            short_side_lengths.append(min(side0_length, side1_length))
 
             long_side_ratios.append(
                 max(side0_length, side1_length) / min(side0_length, side1_length)
@@ -334,7 +338,7 @@ class TextRegionFlattener:
             long_side_angle = round(np_theta / np.pi * 180) % 180
             long_side_angles.append(long_side_angle)
 
-        return long_side_ratios, long_side_angles
+        return short_side_lengths, long_side_ratios, long_side_angles
 
     @classmethod
     def get_typical_indices(
@@ -348,10 +352,31 @@ class TextRegionFlattener:
         )
 
     @classmethod
+    def check_first_text_region_polygon_is_larger(
+        cls,
+        text_region_polygons: Sequence[Polygon],
+        short_side_lengths: Sequence[float],
+        first_idx: int,
+        second_idx: int,
+    ):
+        first_text_region_polygon = text_region_polygons[first_idx]
+        second_text_region_polygon = text_region_polygons[second_idx]
+
+        # The short side indicates the text line height.
+        first_short_side_length = short_side_lengths[first_idx]
+        second_short_side_length = short_side_lengths[second_idx]
+
+        return (
+            first_text_region_polygon.area >= second_text_region_polygon.area
+            and first_short_side_length >= second_short_side_length
+        )
+
+    @classmethod
     def get_main_and_flattening_rotate_angles(
         cls,
         text_region_polygons: Sequence[Polygon],
         typical_indices: Sequence[int],
+        short_side_lengths: Sequence[float],
         long_side_angles: Sequence[int],
     ):
         typical_indices_set = set(typical_indices)
@@ -381,7 +406,7 @@ class TextRegionFlattener:
             )
 
             # Set main angle as the closest typical angle.
-            # Round 1: Set if the closest typical polygon has larger area.
+            # Round 1: Set if the closest typical polygon is large enough.
             _, np_kd_nbr_indices = kd_tree.query(nontypical_center_points.to_np_array())
             round2_nontypical_indices: List[int] = []
             for nontypical_idx, typical_indices_idx in zip(
@@ -389,8 +414,12 @@ class TextRegionFlattener:
                 np_kd_nbr_indices[:, 0].tolist(),
             ):
                 typical_idx = typical_indices[typical_indices_idx]
-                if text_region_polygons[typical_idx].area \
-                        >= text_region_polygons[nontypical_idx].area:
+                if cls.check_first_text_region_polygon_is_larger(
+                    text_region_polygons=text_region_polygons,
+                    short_side_lengths=short_side_lengths,
+                    first_idx=typical_idx,
+                    second_idx=nontypical_idx,
+                ):
                     main_angles[nontypical_idx] = main_angles[typical_idx]
                 else:
                     round2_nontypical_indices.append(nontypical_idx)
@@ -412,8 +441,12 @@ class TextRegionFlattener:
                     hit_typical_idx = None
                     for typical_indices_idx in typical_indices_indices:
                         typical_idx = typical_indices[typical_indices_idx]
-                        if text_region_polygons[typical_idx].area \
-                                >= text_region_polygons[nontypical_idx].area:
+                        if cls.check_first_text_region_polygon_is_larger(
+                            text_region_polygons=text_region_polygons,
+                            short_side_lengths=short_side_lengths,
+                            first_idx=typical_idx,
+                            second_idx=nontypical_idx,
+                        ):
                             hit_typical_idx = typical_idx
                             break
 
@@ -658,8 +691,11 @@ class TextRegionFlattener:
             force_no_dilation_flags=force_no_dilation_flags,
         )
 
-        self.long_side_ratios, self.long_side_angles = \
-            self.analyze_bounding_rectangular_polygons(self.bounding_rectangular_polygons)
+        (
+            self.short_side_lengths,
+            self.long_side_ratios,
+            self.long_side_angles,
+        ) = self.analyze_bounding_rectangular_polygons(self.bounding_rectangular_polygons)
 
         self.typical_indices = self.get_typical_indices(
             typical_long_side_ratio_min=typical_long_side_ratio_min,
@@ -672,6 +708,7 @@ class TextRegionFlattener:
         ) = self.get_main_and_flattening_rotate_angles(
             text_region_polygons=self.text_region_polygons,
             typical_indices=self.typical_indices,
+            short_side_lengths=self.short_side_lengths,
             long_side_angles=self.long_side_angles,
         )
 
