@@ -13,8 +13,6 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Protocol, TypeVar, Generic, Type, Any
 import multiprocessing
-import multiprocessing.util
-import multiprocessing.process
 import threading
 import logging
 import time
@@ -80,7 +78,7 @@ def pool_worker_initializer(pool_config: PoolConfig, process_counter: Any):
     logger.setLevel(pool_config.logging_level)
 
     if pool_config.logging_to_stderr:
-        multiprocessing.util._log_to_stderr = True  # type: ignore
+        multiprocessing.log_to_stderr()
 
     logger.debug(f'process_idx={process_idx}, num_processes={pool_config.num_processes}')
 
