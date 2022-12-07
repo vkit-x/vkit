@@ -77,3 +77,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.HUNTZHAN_PAT }}
           GH_REPO: ${{ github.repository }}
+  call-workflow-alarm:
+    uses: ./.github/workflows/workflow-alarm.yaml
+    needs: [auto-upgrade-pyright]
+    if: ${{ needs.auto-upgrade-pyright.result != 'success' }}
+    with:
+      message: "WARNING: 'Auto upgrade pyright' failed. run_id=${{ github.run_id }}."
+    secrets:
+      webhook-url: ${{ secrets.VKIT_WECOM_BOT_WEBHOOK_URL }}

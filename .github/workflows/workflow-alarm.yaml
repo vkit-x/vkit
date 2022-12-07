@@ -1,0 +1,30 @@
+name: (Workflow) Alarm
+on:
+  workflow_call:
+    inputs:
+      message:
+        required: true
+        type: string
+    secrets:
+      webhook-url:
+        required: true
+jobs:
+  alarm:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Send alarm.
+        run: |
+          echo "Something is wrong, send alarm."
+          PAYLOAD=$(
+          cat << EOF
+
+          {
+              "msgtype": "text",
+              "text": {
+                  "content": "${{ inputs.message }}"
+              }
+          }
+
+          EOF
+          )
+          curl "${{ secrets.webhook-url }}" -H 'Content-Type: application/json' -d "$PAYLOAD"

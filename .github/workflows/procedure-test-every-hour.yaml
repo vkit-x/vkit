@@ -10,3 +10,11 @@ jobs:
     uses: ./.github/workflows/workflow-type-checking.yaml
   call-workflow-test:
     uses: ./.github/workflows/workflow-test.yaml
+  call-workflow-alarm:
+    uses: ./.github/workflows/workflow-alarm.yaml
+    needs: [call-workflow-type-checking, call-workflow-test]
+    if: ${{ needs.call-workflow-type-checking.result != 'success' || needs.call-workflow-test.result != 'success' }}
+    with:
+      message: "WARNING: 'Test every hour' failed. run_id=${{ github.run_id }}."
+    secrets:
+      webhook-url: ${{ secrets.VKIT_WECOM_BOT_WEBHOOK_URL }}
