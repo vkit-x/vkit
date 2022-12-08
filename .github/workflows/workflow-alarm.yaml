@@ -28,3 +28,6 @@ jobs:
           EOF
           )
           curl "${{ secrets.webhook-url }}" -H 'Content-Type: application/json' -d "$PAYLOAD"
+
+          # Mark the github action run as failed.
+          exit 1
