@@ -73,7 +73,7 @@ class PolygonInternals:
 
         np_mask = np.zeros(self.bounding_box.shape, dtype=np.uint8)
         cv.fillPoly(np_mask, [self.self_relative_polygon.to_np_array()], 1)
-        self._np_mask = np_mask.astype(np.bool8)
+        self._np_mask = np_mask.astype(np.bool_)
         return self._np_mask
 
     @property
