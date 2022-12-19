@@ -2,6 +2,9 @@ name: (Workflow) Alarm
 on:
   workflow_call:
     inputs:
+      send-alarm:
+        required: true
+        type: boolean
       message:
         required: true
         type: string
@@ -11,6 +14,7 @@ on:
 jobs:
   alarm:
     runs-on: ubuntu-20.04
+    if: ${{ inputs.send-alarm }}
     steps:
       - name: Send alarm.
         run: |
