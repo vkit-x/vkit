@@ -67,8 +67,8 @@ jobs:
         with:
           token: ${{ secrets.HUNTZHAN_PAT }}
           branch: upgrade-pyright-to-${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}
-          title: "Automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}"
-          commit-message: "Automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}"
+          title: "ci: automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}."
+          commit-message: "ci: automatically upgrade pyright to ${{ steps.check-pyright.outputs.PYRIGHT_LATEST_VERSION }}."
           body: ""
       - name: Enable auto signoff
         run: |
