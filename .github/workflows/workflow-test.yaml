@@ -12,12 +12,15 @@ jobs:
           - "cp38-cp38"
           - "cp39-cp39"
           - "cp310-cp310"
+          - "cp311-cp311"
         test_legacy_deps:
           - "yes"
           - "no"
         exclude:
           # Takes too much time to build from source.
           - python_abi: "cp310-cp310"
+            test_legacy_deps: "yes"
+          - python_abi: "cp311-cp311"
             test_legacy_deps: "yes"
     container:
       image: ${{ matrix.image }}
