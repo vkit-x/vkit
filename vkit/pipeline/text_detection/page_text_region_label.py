@@ -125,6 +125,11 @@ class PageCharRegressionLabel:
     is_downsampled: bool = False
     downsample_labeling_factor: int = 1
 
+    _bounding_smooth_up: Optional[float] = attrs_lazy_field()
+    _bounding_smooth_down: Optional[float] = attrs_lazy_field()
+    _bounding_smooth_left: Optional[float] = attrs_lazy_field()
+    _bounding_smooth_right: Optional[float] = attrs_lazy_field()
+
     _up_left_vector: Optional[Vector] = attrs_lazy_field()
     _up_right_vector: Optional[Vector] = attrs_lazy_field()
     _down_right_vector: Optional[Vector] = attrs_lazy_field()
@@ -138,6 +143,12 @@ class PageCharRegressionLabel:
     _clockwise_angle_distribution: Optional[Sequence[float]] = attrs_lazy_field()
 
     def lazy_post_init(self):
+        if self._bounding_smooth_up is None:
+            self._bounding_smooth_up = min(point.smooth_y for point in self.corner_points)
+            self._bounding_smooth_down = max(point.smooth_y for point in self.corner_points)
+            self._bounding_smooth_left = min(point.smooth_x for point in self.corner_points)
+            self._bounding_smooth_right = max(point.smooth_x for point in self.corner_points)
+
         initialized = (self._up_left_vector is not None)
         if initialized:
             return
@@ -196,10 +207,11 @@ class PageCharRegressionLabel:
             self._down_left_to_up_left_angle,
         ])
 
-    def copy(self, with_lazy_field: bool = False):
+    def copy(self, with_non_bounding_related_lazy_fields: bool = False):
         copied = attrs.evolve(self)
 
-        if with_lazy_field:
+        if with_non_bounding_related_lazy_fields:
+            # NOTE: Bounding box related properties are not copied.
             copied._up_left_vector = self._up_left_vector
             copied._up_right_vector = self._up_right_vector
             copied._down_right_vector = self._down_right_vector
@@ -217,7 +229,7 @@ class PageCharRegressionLabel:
         assert self.valid and not self.is_downsampled
 
         # Shift operation doesn't change the lazy fields.
-        shifted = self.copy(with_lazy_field=True)
+        shifted = self.copy(with_non_bounding_related_lazy_fields=True)
 
         shifted.label_point_smooth_y = self.label_point_smooth_y + offset_y
         shifted.label_point_smooth_x = self.label_point_smooth_x + offset_x
@@ -234,7 +246,7 @@ class PageCharRegressionLabel:
         assert self.valid and not self.is_downsampled
 
         # Downsample operation doesn't change the lazy fields.
-        downsampled = self.copy(with_lazy_field=True)
+        downsampled = self.copy(with_non_bounding_related_lazy_fields=True)
         # Mark as downsampled hence disables shift & downsample opts.
         downsampled.is_downsampled = True
         # Should be helpful in training.
@@ -249,23 +261,42 @@ class PageCharRegressionLabel:
 
     @property
     def corner_points(self):
-        yield from (
-            self.up_left,
-            self.up_right,
-            self.down_right,
-            self.down_left,
-        )
+        yield from (self.up_left, self.up_right, self.down_right, self.down_left)
 
-    def generate_bounding_box_smooth_shape(self):
-        up = min(point.smooth_y for point in self.corner_points)
-        down = max(point.smooth_y for point in self.corner_points)
-        height = down + 1 - up
+    @property
+    def bounding_smooth_up(self):
+        self.lazy_post_init()
+        assert self._bounding_smooth_up is not None
+        return self._bounding_smooth_up
 
-        left = min(point.smooth_x for point in self.corner_points)
-        right = max(point.smooth_x for point in self.corner_points)
-        width = right + 1 - left
+    @property
+    def bounding_smooth_down(self):
+        self.lazy_post_init()
+        assert self._bounding_smooth_down is not None
+        return self._bounding_smooth_down
 
+    @property
+    def bounding_smooth_left(self):
+        self.lazy_post_init()
+        assert self._bounding_smooth_left is not None
+        return self._bounding_smooth_left
+
+    @property
+    def bounding_smooth_right(self):
+        self.lazy_post_init()
+        assert self._bounding_smooth_right is not None
+        return self._bounding_smooth_right
+
+    def generate_bounding_smooth_shape(self):
+        height = self.bounding_smooth_down + 1 - self.bounding_smooth_up
+        width = self.bounding_smooth_right + 1 - self.bounding_smooth_left
         return height, width
+
+    def get_bounding_up_corner(self):
+        pass
+
+    def generate_corner_shift_ratios(self):
+        pass
 
     @property
     def valid(self):
