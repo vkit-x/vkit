@@ -248,6 +248,26 @@ class PageCharRegressionLabel:
         return downsampled
 
     @property
+    def corner_points(self):
+        yield from (
+            self.up_left,
+            self.up_right,
+            self.down_right,
+            self.down_left,
+        )
+
+    def generate_bounding_box_smooth_shape(self):
+        up = min(point.smooth_y for point in self.corner_points)
+        down = max(point.smooth_y for point in self.corner_points)
+        height = down + 1 - up
+
+        left = min(point.smooth_x for point in self.corner_points)
+        right = max(point.smooth_x for point in self.corner_points)
+        width = right + 1 - left
+
+        return height, width
+
+    @property
     def valid(self):
         self.lazy_post_init()
         assert self._valid is not None
