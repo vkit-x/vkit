@@ -14,6 +14,7 @@
 from .type import PathType
 from .opt import (
     attrs_lazy_field,
+    unwrap_optional_field,
     get_cattrs_converter_ignoring_init_equals_false,
     is_path_type,
     read_json_file,

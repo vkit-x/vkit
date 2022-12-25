@@ -22,7 +22,7 @@ import numpy as np
 import cv2 as cv
 from sklearn.neighbors import KDTree
 
-from vkit.utility import attrs_lazy_field, normalize_to_probs
+from vkit.utility import attrs_lazy_field, unwrap_optional_field, normalize_to_probs
 from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
 from vkit.mechanism.distortion.geometric.affine import affine_points
 from vkit.engine.char_heatmap import (
@@ -84,14 +84,12 @@ class Vector:
     @property
     def distance(self):
         self.lazy_post_init()
-        assert self._distance is not None
-        return self._distance
+        return unwrap_optional_field(self._distance)
 
     @property
     def theta(self):
         self.lazy_post_init()
-        assert self._theta is not None
-        return self._theta
+        return unwrap_optional_field(self._theta)
 
     @classmethod
     def calculate_theta_delta(
@@ -266,26 +264,22 @@ class PageCharRegressionLabel:
     @property
     def bounding_smooth_up(self):
         self.lazy_post_init()
-        assert self._bounding_smooth_up is not None
-        return self._bounding_smooth_up
+        return unwrap_optional_field(self._bounding_smooth_up)
 
     @property
     def bounding_smooth_down(self):
         self.lazy_post_init()
-        assert self._bounding_smooth_down is not None
-        return self._bounding_smooth_down
+        return unwrap_optional_field(self._bounding_smooth_down)
 
     @property
     def bounding_smooth_left(self):
         self.lazy_post_init()
-        assert self._bounding_smooth_left is not None
-        return self._bounding_smooth_left
+        return unwrap_optional_field(self._bounding_smooth_left)
 
     @property
     def bounding_smooth_right(self):
         self.lazy_post_init()
-        assert self._bounding_smooth_right is not None
-        return self._bounding_smooth_right
+        return unwrap_optional_field(self._bounding_smooth_right)
 
     def generate_bounding_smooth_shape(self):
         height = self.bounding_smooth_down + 1 - self.bounding_smooth_up
@@ -301,30 +295,24 @@ class PageCharRegressionLabel:
     @property
     def valid(self):
         self.lazy_post_init()
-        assert self._valid is not None
-        return self._valid
+        return unwrap_optional_field(self._valid)
 
     def generate_up_left_offsets(self):
         self.lazy_post_init()
-        assert self._up_left_vector is not None
-        return self._up_left_vector.y, self._up_left_vector.x
+        up_left_vector = unwrap_optional_field(self._up_left_vector)
+        return up_left_vector.y, up_left_vector.x
 
     def generate_clockwise_angle_distribution(self):
         self.lazy_post_init()
-        assert self._clockwise_angle_distribution is not None
-        return self._clockwise_angle_distribution
+        return unwrap_optional_field(self._clockwise_angle_distribution)
 
     def generate_clockwise_distances(self):
         self.lazy_post_init()
-        assert self._up_left_vector is not None
-        assert self._up_right_vector is not None
-        assert self._down_right_vector is not None
-        assert self._down_left_vector is not None
         return (
-            self._up_left_vector.distance,
-            self._up_right_vector.distance,
-            self._down_right_vector.distance,
-            self._down_left_vector.distance,
+            unwrap_optional_field(self._up_left_vector).distance,
+            unwrap_optional_field(self._up_right_vector).distance,
+            unwrap_optional_field(self._down_right_vector).distance,
+            unwrap_optional_field(self._down_left_vector).distance,
         )
 
 
