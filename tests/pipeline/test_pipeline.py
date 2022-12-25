@@ -265,7 +265,7 @@ def paint_page_char_regression_labels(
     lines_color: List[str] = []
 
     for label in page_char_regression_labels:
-        label_point = Point.create(y=label.label_point_y, x=label.label_point_x)
+        label_point = Point.create(y=label.label_point_smooth_y, x=label.label_point_smooth_x)
         points.append(label_point)
         if label.tag == PageCharRegressionLabelTag.CENTROID:
             points_color.append('red')
@@ -309,13 +309,14 @@ def visualize_page_text_region_label_step_output(
         return math.hypot(point0.y - point1.y, point0.x - point1.x)
 
     def check_point_reconstruction(label: PageCharRegressionLabel):
+        import math
         import numpy as np
 
-        label_point = Point.create(y=label.label_point_y, x=label.label_point_x)
+        label_point = Point.create(y=label.label_point_smooth_y, x=label.label_point_smooth_x)
 
         offset_y, offset_x = label.generate_up_left_offsets()
-        up_left = Point.create(y=label_point.y + offset_y, x=label_point.x + offset_x)
-        assert point_distance(up_left, label.up_left) == 0
+        up_left = Point.create(y=label_point.smooth_y + offset_y, x=label_point.smooth_x + offset_x)
+        assert math.isclose(point_distance(up_left, label.up_left), 0)
 
         theta = np.arctan2(offset_y, offset_x)
         two_pi = 2 * np.pi
@@ -327,24 +328,24 @@ def visualize_page_text_region_label_step_output(
         theta += angle_distrib[0] * two_pi
         theta = theta % two_pi
         up_right = Point.create(
-            y=label_point.y + np.sin(theta) * up_right_dis,
-            x=label_point.x + np.cos(theta) * up_right_dis,
+            y=label_point.smooth_y + np.sin(theta) * up_right_dis,
+            x=label_point.smooth_x + np.cos(theta) * up_right_dis,
         )
         assert point_distance(up_right, label.up_right) <= 2
 
         theta += angle_distrib[1] * two_pi
         theta = theta % two_pi
         down_right = Point.create(
-            y=label_point.y + np.sin(theta) * down_right_dis,
-            x=label_point.x + np.cos(theta) * down_right_dis,
+            y=label_point.smooth_y + np.sin(theta) * down_right_dis,
+            x=label_point.smooth_x + np.cos(theta) * down_right_dis,
         )
         assert point_distance(down_right, label.down_right) <= 2
 
         theta += angle_distrib[2] * two_pi
         theta = theta % two_pi
         down_left = Point.create(
-            y=label_point.y + np.sin(theta) * down_left_dis,
-            x=label_point.x + np.cos(theta) * down_left_dis,
+            y=label_point.smooth_y + np.sin(theta) * down_left_dis,
+            x=label_point.smooth_x + np.cos(theta) * down_left_dis,
         )
         assert point_distance(down_left, label.down_left) <= 2
 

@@ -11,7 +11,7 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import cast, Tuple, Sequence, List, Optional, Mapping, Any
+from typing import Tuple, Sequence, List, Optional, Mapping, Any
 from enum import Enum, unique
 import math
 import logging
@@ -113,14 +113,17 @@ class Vector:
 class PageCharRegressionLabel:
     char_idx: int
     tag: PageCharRegressionLabelTag
-    label_point_y: float
-    label_point_x: float
+    label_point_smooth_y: float
+    label_point_smooth_x: float
     downsampled_label_point_y: int
     downsampled_label_point_x: int
     up_left: Point
     up_right: Point
     down_right: Point
     down_left: Point
+
+    is_downsampled: bool = False
+    downsample_labeling_factor: int = 1
 
     _up_left_vector: Optional[Vector] = attrs_lazy_field()
     _up_right_vector: Optional[Vector] = attrs_lazy_field()
@@ -140,20 +143,20 @@ class PageCharRegressionLabel:
             return
 
         self._up_left_vector = Vector(
-            y=self.up_left.smooth_y - self.label_point_y,
-            x=self.up_left.smooth_x - self.label_point_x,
+            y=self.up_left.smooth_y - self.label_point_smooth_y,
+            x=self.up_left.smooth_x - self.label_point_smooth_x,
         )
         self._up_right_vector = Vector(
-            y=self.up_right.smooth_y - self.label_point_y,
-            x=self.up_right.smooth_x - self.label_point_x,
+            y=self.up_right.smooth_y - self.label_point_smooth_y,
+            x=self.up_right.smooth_x - self.label_point_smooth_x,
         )
         self._down_right_vector = Vector(
-            y=self.down_right.smooth_y - self.label_point_y,
-            x=self.down_right.smooth_x - self.label_point_x,
+            y=self.down_right.smooth_y - self.label_point_smooth_y,
+            x=self.down_right.smooth_x - self.label_point_smooth_x,
         )
         self._down_left_vector = Vector(
-            y=self.down_left.smooth_y - self.label_point_y,
-            x=self.down_left.smooth_x - self.label_point_x,
+            y=self.down_left.smooth_y - self.label_point_smooth_y,
+            x=self.down_left.smooth_x - self.label_point_smooth_x,
         )
 
         self._up_left_to_up_right_angle = Vector.calculate_theta_delta(
@@ -193,73 +196,56 @@ class PageCharRegressionLabel:
             self._down_left_to_up_left_angle,
         ])
 
+    def copy(self, with_lazy_field: bool = False):
+        copied = attrs.evolve(self)
+
+        if with_lazy_field:
+            copied._up_left_vector = self._up_left_vector
+            copied._up_right_vector = self._up_right_vector
+            copied._down_right_vector = self._down_right_vector
+            copied._down_left_vector = self._down_left_vector
+            copied._up_left_to_up_right_angle = self._up_left_to_up_right_angle
+            copied._up_right_to_down_right_angle = self._up_right_to_down_right_angle
+            copied._down_right_to_down_left_angle = self._down_right_to_down_left_angle
+            copied._down_left_to_up_left_angle = self._down_left_to_up_left_angle
+            copied._valid = self._valid
+            copied._clockwise_angle_distribution = self._clockwise_angle_distribution
+
+        return copied
+
     def to_shifted_page_char_regression_label(self, offset_y: int, offset_x: int):
-        assert self.valid
-        # Only can be called before downsampling.
-        assert self.label_point_y == self.downsampled_label_point_y
-        assert self.label_point_x == self.downsampled_label_point_x
+        assert self.valid and not self.is_downsampled
 
-        label_point_y = cast(int, self.label_point_y + offset_y)
-        label_point_x = cast(int, self.label_point_x + offset_x)
-        up_left = self.up_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
-        up_right = self.up_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
-        down_right = self.down_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
-        down_left = self.down_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        # Shift operation doesn't change the lazy fields.
+        shifted = self.copy(with_lazy_field=True)
 
-        shifted = PageCharRegressionLabel(
-            char_idx=self.char_idx,
-            tag=self.tag,
-            label_point_y=label_point_y,
-            label_point_x=label_point_x,
-            downsampled_label_point_y=label_point_y,
-            downsampled_label_point_x=label_point_x,
-            up_left=up_left,
-            up_right=up_right,
-            down_right=down_right,
-            down_left=down_left,
-        )
-
-        # Avoid recalculate the labelings.
-        shifted._up_left_vector = self._up_left_vector
-        shifted._up_right_vector = self._up_right_vector
-        shifted._down_right_vector = self._down_right_vector
-        shifted._down_left_vector = self._down_left_vector
-        shifted._up_left_to_up_right_angle = self._up_left_to_up_right_angle
-        shifted._up_right_to_down_right_angle = self._up_right_to_down_right_angle
-        shifted._down_right_to_down_left_angle = self._down_right_to_down_left_angle
-        shifted._down_left_to_up_left_angle = self._down_left_to_up_left_angle
-        shifted._valid = self._valid
-        shifted._clockwise_angle_distribution = self._clockwise_angle_distribution
+        shifted.label_point_smooth_y = self.label_point_smooth_y + offset_y
+        shifted.label_point_smooth_x = self.label_point_smooth_x + offset_x
+        shifted.downsampled_label_point_y = int(shifted.label_point_smooth_y)
+        shifted.downsampled_label_point_x = int(shifted.label_point_smooth_x)
+        shifted.up_left = self.up_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        shifted.up_right = self.up_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        shifted.down_right = self.down_right.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
+        shifted.down_left = self.down_left.to_shifted_point(offset_y=offset_y, offset_x=offset_x)
 
         return shifted
 
     def to_downsampled_page_char_regression_label(self, downsample_labeling_factor: int):
-        assert self.valid
-        # Only can be called before downsampling.
-        assert self.label_point_y == self.downsampled_label_point_y
-        assert self.label_point_x == self.downsampled_label_point_x
+        assert self.valid and not self.is_downsampled
 
-        downsampled_label_point_y = int(self.label_point_y // downsample_labeling_factor)
-        downsampled_label_point_x = int(self.label_point_x // downsample_labeling_factor)
+        # Downsample operation doesn't change the lazy fields.
+        downsampled = self.copy(with_lazy_field=True)
+        # Mark as downsampled hence disables shift & downsample opts.
+        downsampled.is_downsampled = True
+        # Should be helpful in training.
+        downsampled.downsample_labeling_factor = downsample_labeling_factor
 
-        # label_point_* are shifted to the center of upsampled positions.
-        offset = (downsample_labeling_factor - 1) / 2
-        label_point_y = downsampled_label_point_y * downsample_labeling_factor + offset
-        label_point_x = downsampled_label_point_x * downsample_labeling_factor + offset
+        downsampled.downsampled_label_point_y = \
+            int(self.label_point_smooth_y // downsample_labeling_factor)
+        downsampled.downsampled_label_point_x = \
+            int(self.label_point_smooth_x // downsample_labeling_factor)
 
-        downsampled_page_char_regression_label = PageCharRegressionLabel(
-            char_idx=self.char_idx,
-            tag=self.tag,
-            label_point_y=label_point_y,
-            label_point_x=label_point_x,
-            downsampled_label_point_y=downsampled_label_point_y,
-            downsampled_label_point_x=downsampled_label_point_x,
-            up_left=self.up_left,
-            up_right=self.up_right,
-            down_right=self.down_right,
-            down_left=self.down_left,
-        )
-        return downsampled_page_char_regression_label
+        return downsampled
 
     @property
     def valid(self):
@@ -414,8 +400,8 @@ class PageTextRegionLabelStep(
             label = PageCharRegressionLabel(
                 char_idx=char_idx,
                 tag=PageCharRegressionLabelTag.CENTROID,
-                label_point_y=center_point.y,
-                label_point_x=center_point.x,
+                label_point_smooth_y=center_point.smooth_y,
+                label_point_smooth_x=center_point.smooth_x,
                 downsampled_label_point_y=center_point.y,
                 downsampled_label_point_x=center_point.x,
                 up_left=up_left,
@@ -464,8 +450,8 @@ class PageTextRegionLabelStep(
                 trans_mat,
                 deviate_points_in_bounding_box.to_point_tuple(),
             ):
-                y = bounding_box.up + shifted_deviate_point.y
-                x = bounding_box.left + shifted_deviate_point.x
+                y = bounding_box.up + shifted_deviate_point.smooth_y
+                x = bounding_box.left + shifted_deviate_point.smooth_x
                 assert 0 <= y < page_height
                 assert 0 <= x < page_width
                 deviate_points.append(Point.create(y=y, x=x))
@@ -489,8 +475,8 @@ class PageTextRegionLabelStep(
                 label = PageCharRegressionLabel(
                     char_idx=char_idx,
                     tag=PageCharRegressionLabelTag.DEVIATE,
-                    label_point_y=deviate_point.y,
-                    label_point_x=deviate_point.x,
+                    label_point_smooth_y=deviate_point.smooth_y,
+                    label_point_smooth_x=deviate_point.smooth_x,
                     downsampled_label_point_y=deviate_point.y,
                     downsampled_label_point_x=deviate_point.x,
                     up_left=up_left,

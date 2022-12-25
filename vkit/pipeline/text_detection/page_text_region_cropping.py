@@ -105,9 +105,10 @@ class PageTextRegionCroppingStep(
         ] = defaultdict(list)  # yapf: disable
 
         for label in labels:
-            assert isinstance(label.label_point_x, int)
-            assert isinstance(label.label_point_y, int)
-            xy_pair = (label.label_point_x, label.label_point_y)
+            # Original resolution.
+            assert not label.is_downsampled
+            # As int.
+            xy_pair = (label.downsampled_label_point_x, label.downsampled_label_point_y)
             shapely_points.append(ShapelyPoint(*xy_pair))
             xy_pair_to_labels[xy_pair].append(label)
 
