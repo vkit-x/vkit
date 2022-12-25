@@ -282,8 +282,8 @@ class PageCharRegressionLabel:
         return unwrap_optional_field(self._bounding_smooth_right)
 
     def generate_bounding_smooth_shape(self):
-        height = self.bounding_smooth_down + 1 - self.bounding_smooth_up
-        width = self.bounding_smooth_right + 1 - self.bounding_smooth_left
+        height = self.bounding_smooth_down - self.bounding_smooth_up
+        width = self.bounding_smooth_right - self.bounding_smooth_left
         return height, width
 
     def get_bounding_up_corner(self):
@@ -372,8 +372,21 @@ class PageCharRegressionLabel:
         else:
             raise RuntimeError()
 
-    def generate_corner_shift_ratios(self):
-        pass
+    def generate_clockwise_shift_ratios(self):
+        up_idx, up_point = self.get_bounding_up_corner()
+        right_idx, right_point = self.get_bounding_right_corner()
+        down_idx, down_point = self.get_bounding_down_corner()
+        left_idx, left_point = self.get_bounding_left_corner()
+        assert len(set((up_idx, down_idx, left_idx, right_idx))) == 4
+
+        height, width = self.generate_bounding_smooth_shape()
+
+        up_ratio = (up_point.smooth_x - self.bounding_smooth_left) / width
+        right_ratio = (right_point.smooth_y - self.bounding_smooth_up) / height
+        down_ratio = (self.bounding_smooth_right - down_point.smooth_x) / width
+        left_ratio = (self.bounding_smooth_down - left_point.smooth_y) / height
+
+        return up_ratio, right_ratio, down_ratio, left_ratio
 
     @property
     def valid(self):
