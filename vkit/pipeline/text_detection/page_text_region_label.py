@@ -373,20 +373,46 @@ class PageCharRegressionLabel:
             raise RuntimeError()
 
     def generate_clockwise_shift_ratios(self):
+        height, width = self.generate_bounding_smooth_shape()
+
         up_idx, up_point = self.get_bounding_up_corner()
         right_idx, right_point = self.get_bounding_right_corner()
         down_idx, down_point = self.get_bounding_down_corner()
         left_idx, left_point = self.get_bounding_left_corner()
-        assert len(set((up_idx, down_idx, left_idx, right_idx))) == 4
 
-        height, width = self.generate_bounding_smooth_shape()
+        num_point_instances = len(set((up_idx, right_idx, down_idx, left_idx)))
 
-        up_ratio = (up_point.smooth_x - self.bounding_smooth_left) / width
-        right_ratio = (right_point.smooth_y - self.bounding_smooth_up) / height
-        down_ratio = (self.bounding_smooth_right - down_point.smooth_x) / width
-        left_ratio = (self.bounding_smooth_down - left_point.smooth_y) / height
+        if num_point_instances == 4:
+            # Case 0, all points are lying on the border.
+            up_ratio = (up_point.smooth_x - self.bounding_smooth_left) / width
+            right_ratio = (right_point.smooth_y - self.bounding_smooth_up) / height
+            down_ratio = (self.bounding_smooth_right - down_point.smooth_x) / width
+            left_ratio = (self.bounding_smooth_down - left_point.smooth_y) / height
+
+        elif num_point_instances == 3:
+            # Case 1, one point is deviated.
+            # TODO:
+            raise RuntimeError()
+
+        elif num_point_instances == 2:
+            # Case 2, two points are deviated.
+            # TODO:
+            raise RuntimeError()
+
+        else:
+            raise RuntimeError()
 
         return up_ratio, right_ratio, down_ratio, left_ratio
+
+    def generate_clockwise_shift_corner_indices(self):
+        # For testing.
+        up_idx, _ = self.get_bounding_up_corner()
+        right_idx, _ = self.get_bounding_right_corner()
+        down_idx, _ = self.get_bounding_down_corner()
+        left_idx, _ = self.get_bounding_left_corner()
+        assert len(set((up_idx, right_idx, down_idx, left_idx))) == 4
+
+        return up_idx, right_idx, down_idx, left_idx
 
     @property
     def valid(self):
