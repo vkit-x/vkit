@@ -287,7 +287,90 @@ class PageCharRegressionLabel:
         return height, width
 
     def get_bounding_up_corner(self):
-        pass
+        # ┌───►
+        # ├───────┐
+        # │       │
+        # │       │
+        # └───────┘
+        idx_point_pairs = [(idx, point)
+                           for idx, point in enumerate(self.corner_points)
+                           if point.smooth_y == self.bounding_smooth_up]
+
+        if len(idx_point_pairs) == 1:
+            return idx_point_pairs[0]
+        elif len(idx_point_pairs) == 2:
+            (idx0, point0), (idx1, point1) = idx_point_pairs
+            assert point0.smooth_x != point1.smooth_x
+            if point0.smooth_x < point1.smooth_x:
+                return idx0, point0
+            else:
+                return idx1, point1
+        else:
+            raise RuntimeError()
+
+    def get_bounding_down_corner(self):
+        # ┌───────┐
+        # │       │
+        # │       │
+        # └───────┤
+        #     ◄───┘
+        idx_point_pairs = [(idx, point)
+                           for idx, point in enumerate(self.corner_points)
+                           if point.smooth_y == self.bounding_smooth_down]
+
+        if len(idx_point_pairs) == 1:
+            return idx_point_pairs[0]
+        elif len(idx_point_pairs) == 2:
+            (idx0, point0), (idx1, point1) = idx_point_pairs
+            assert point0.smooth_x != point1.smooth_x
+            if point0.smooth_x > point1.smooth_x:
+                return idx0, point0
+            else:
+                return idx1, point1
+        else:
+            raise RuntimeError()
+
+    def get_bounding_left_corner(self):
+        #   ┌───────┐
+        # ▲ │       │
+        # │ │       │
+        # └─┴───────┘
+        idx_point_pairs = [(idx, point)
+                           for idx, point in enumerate(self.corner_points)
+                           if point.smooth_x == self.bounding_smooth_left]
+
+        if len(idx_point_pairs) == 1:
+            return idx_point_pairs[0]
+        elif len(idx_point_pairs) == 2:
+            (idx0, point0), (idx1, point1) = idx_point_pairs
+            assert point0.smooth_y != point1.smooth_y
+            if point0.smooth_y > point1.smooth_y:
+                return idx0, point0
+            else:
+                return idx1, point1
+        else:
+            raise RuntimeError()
+
+    def get_bounding_right_corner(self):
+        # ┌───────┬─┐
+        # │       │ │
+        # │       │ ▼
+        # └───────┘
+        idx_point_pairs = [(idx, point)
+                           for idx, point in enumerate(self.corner_points)
+                           if point.smooth_x == self.bounding_smooth_right]
+
+        if len(idx_point_pairs) == 1:
+            return idx_point_pairs[0]
+        elif len(idx_point_pairs) == 2:
+            (idx0, point0), (idx1, point1) = idx_point_pairs
+            assert point0.smooth_y != point1.smooth_y
+            if point0.smooth_y < point1.smooth_y:
+                return idx0, point0
+            else:
+                return idx1, point1
+        else:
+            raise RuntimeError()
 
     def generate_corner_shift_ratios(self):
         pass
