@@ -127,6 +127,7 @@ class PageCharRegressionLabel:
     _bounding_smooth_down: Optional[float] = attrs_lazy_field()
     _bounding_smooth_left: Optional[float] = attrs_lazy_field()
     _bounding_smooth_right: Optional[float] = attrs_lazy_field()
+    _bounding_orientation_idx: Optional[int] = attrs_lazy_field()
 
     _up_left_vector: Optional[Vector] = attrs_lazy_field()
     _up_right_vector: Optional[Vector] = attrs_lazy_field()
@@ -140,12 +141,45 @@ class PageCharRegressionLabel:
     _valid: Optional[bool] = attrs_lazy_field()
     _clockwise_angle_distribution: Optional[Sequence[float]] = attrs_lazy_field()
 
+    @property
+    def corner_points(self):
+        yield from (self.up_left, self.up_right, self.down_right, self.down_left)
+
+    @classmethod
+    def get_bounding_orientation_idx(cls, down_left: Point, down_right: Point):
+        vector = Vector(
+            y=down_right.smooth_y - down_left.smooth_y,
+            x=down_right.smooth_x - down_left.smooth_x,
+        )
+        #        0
+        #  ┌───────────┐
+        #  │           │
+        # 2│           │3
+        #  │           │
+        #  └───────────┘
+        #        1
+        factor = vector.theta / PI
+        if 1.75 <= factor or factor < 0.25:
+            return 1
+        elif 0.25 <= factor < 0.75:
+            return 2
+        elif 0.75 <= factor < 1.25:
+            return 0
+        elif 1.25 <= factor:
+            return 3
+        else:
+            raise RuntimeError()
+
     def lazy_post_init(self):
         if self._bounding_smooth_up is None:
             self._bounding_smooth_up = min(point.smooth_y for point in self.corner_points)
             self._bounding_smooth_down = max(point.smooth_y for point in self.corner_points)
             self._bounding_smooth_left = min(point.smooth_x for point in self.corner_points)
             self._bounding_smooth_right = max(point.smooth_x for point in self.corner_points)
+            self._bounding_orientation_idx = self.get_bounding_orientation_idx(
+                down_left=self.down_left,
+                down_right=self.down_right,
+            )
 
         initialized = (self._up_left_vector is not None)
         if initialized:
@@ -258,10 +292,6 @@ class PageCharRegressionLabel:
         return downsampled
 
     @property
-    def corner_points(self):
-        yield from (self.up_left, self.up_right, self.down_right, self.down_left)
-
-    @property
     def bounding_smooth_up(self):
         self.lazy_post_init()
         return unwrap_optional_field(self._bounding_smooth_up)
@@ -281,138 +311,16 @@ class PageCharRegressionLabel:
         self.lazy_post_init()
         return unwrap_optional_field(self._bounding_smooth_right)
 
-    def generate_bounding_smooth_shape(self):
+    @property
+    def bounding_smooth_shape(self):
         height = self.bounding_smooth_down - self.bounding_smooth_up
         width = self.bounding_smooth_right - self.bounding_smooth_left
         return height, width
 
-    def get_bounding_up_corner(self):
-        # ┌───►
-        # ├───────┐
-        # │       │
-        # │       │
-        # └───────┘
-        idx_point_pairs = [(idx, point)
-                           for idx, point in enumerate(self.corner_points)
-                           if point.smooth_y == self.bounding_smooth_up]
-
-        if len(idx_point_pairs) == 1:
-            return idx_point_pairs[0]
-        elif len(idx_point_pairs) == 2:
-            (idx0, point0), (idx1, point1) = idx_point_pairs
-            assert point0.smooth_x != point1.smooth_x
-            if point0.smooth_x < point1.smooth_x:
-                return idx0, point0
-            else:
-                return idx1, point1
-        else:
-            raise RuntimeError()
-
-    def get_bounding_down_corner(self):
-        # ┌───────┐
-        # │       │
-        # │       │
-        # └───────┤
-        #     ◄───┘
-        idx_point_pairs = [(idx, point)
-                           for idx, point in enumerate(self.corner_points)
-                           if point.smooth_y == self.bounding_smooth_down]
-
-        if len(idx_point_pairs) == 1:
-            return idx_point_pairs[0]
-        elif len(idx_point_pairs) == 2:
-            (idx0, point0), (idx1, point1) = idx_point_pairs
-            assert point0.smooth_x != point1.smooth_x
-            if point0.smooth_x > point1.smooth_x:
-                return idx0, point0
-            else:
-                return idx1, point1
-        else:
-            raise RuntimeError()
-
-    def get_bounding_left_corner(self):
-        #   ┌───────┐
-        # ▲ │       │
-        # │ │       │
-        # └─┴───────┘
-        idx_point_pairs = [(idx, point)
-                           for idx, point in enumerate(self.corner_points)
-                           if point.smooth_x == self.bounding_smooth_left]
-
-        if len(idx_point_pairs) == 1:
-            return idx_point_pairs[0]
-        elif len(idx_point_pairs) == 2:
-            (idx0, point0), (idx1, point1) = idx_point_pairs
-            assert point0.smooth_y != point1.smooth_y
-            if point0.smooth_y > point1.smooth_y:
-                return idx0, point0
-            else:
-                return idx1, point1
-        else:
-            raise RuntimeError()
-
-    def get_bounding_right_corner(self):
-        # ┌───────┬─┐
-        # │       │ │
-        # │       │ ▼
-        # └───────┘
-        idx_point_pairs = [(idx, point)
-                           for idx, point in enumerate(self.corner_points)
-                           if point.smooth_x == self.bounding_smooth_right]
-
-        if len(idx_point_pairs) == 1:
-            return idx_point_pairs[0]
-        elif len(idx_point_pairs) == 2:
-            (idx0, point0), (idx1, point1) = idx_point_pairs
-            assert point0.smooth_y != point1.smooth_y
-            if point0.smooth_y < point1.smooth_y:
-                return idx0, point0
-            else:
-                return idx1, point1
-        else:
-            raise RuntimeError()
-
-    def generate_clockwise_shift_ratios(self):
-        height, width = self.generate_bounding_smooth_shape()
-
-        up_idx, up_point = self.get_bounding_up_corner()
-        right_idx, right_point = self.get_bounding_right_corner()
-        down_idx, down_point = self.get_bounding_down_corner()
-        left_idx, left_point = self.get_bounding_left_corner()
-
-        num_point_instances = len(set((up_idx, right_idx, down_idx, left_idx)))
-
-        if num_point_instances == 4:
-            # Case 0, all points are lying on the border.
-            up_ratio = (up_point.smooth_x - self.bounding_smooth_left) / width
-            right_ratio = (right_point.smooth_y - self.bounding_smooth_up) / height
-            down_ratio = (self.bounding_smooth_right - down_point.smooth_x) / width
-            left_ratio = (self.bounding_smooth_down - left_point.smooth_y) / height
-
-        elif num_point_instances == 3:
-            # Case 1, one point is deviated.
-            # TODO:
-            raise RuntimeError()
-
-        elif num_point_instances == 2:
-            # Case 2, two points are deviated.
-            # TODO:
-            raise RuntimeError()
-
-        else:
-            raise RuntimeError()
-
-        return up_ratio, right_ratio, down_ratio, left_ratio
-
-    def generate_clockwise_shift_corner_indices(self):
-        # For testing.
-        up_idx, _ = self.get_bounding_up_corner()
-        right_idx, _ = self.get_bounding_right_corner()
-        down_idx, _ = self.get_bounding_down_corner()
-        left_idx, _ = self.get_bounding_left_corner()
-        assert len(set((up_idx, right_idx, down_idx, left_idx))) == 4
-
-        return up_idx, right_idx, down_idx, left_idx
+    @property
+    def bounding_orientation_idx(self):
+        self.lazy_post_init()
+        return unwrap_optional_field(self._bounding_orientation_idx)
 
     @property
     def valid(self):
