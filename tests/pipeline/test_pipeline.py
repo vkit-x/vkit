@@ -359,7 +359,7 @@ def visualize_page_text_region_label_step_output(
 
         offset_y, offset_x = label.generate_up_left_offsets()
         up_left = Point.create(y=label_point.smooth_y + offset_y, x=label_point.smooth_x + offset_x)
-        assert math.isclose(point_distance(up_left, label.up_left), 0)
+        assert math.isclose(point_distance(up_left, label.up_left), 0, abs_tol=1E-3)
 
         theta = np.arctan2(offset_y, offset_x)
         two_pi = 2 * np.pi
@@ -374,7 +374,7 @@ def visualize_page_text_region_label_step_output(
             y=label_point.smooth_y + np.sin(theta) * up_right_dis,
             x=label_point.smooth_x + np.cos(theta) * up_right_dis,
         )
-        assert point_distance(up_right, label.up_right) <= 2
+        assert math.isclose(point_distance(up_right, label.up_right), 0, abs_tol=1E-3)
 
         theta += angle_distrib[1] * two_pi
         theta = theta % two_pi
@@ -382,7 +382,7 @@ def visualize_page_text_region_label_step_output(
             y=label_point.smooth_y + np.sin(theta) * down_right_dis,
             x=label_point.smooth_x + np.cos(theta) * down_right_dis,
         )
-        assert point_distance(down_right, label.down_right) <= 2
+        assert math.isclose(point_distance(down_right, label.down_right), 0, abs_tol=1E-3)
 
         theta += angle_distrib[2] * two_pi
         theta = theta % two_pi
@@ -390,7 +390,7 @@ def visualize_page_text_region_label_step_output(
             y=label_point.smooth_y + np.sin(theta) * down_left_dis,
             x=label_point.smooth_x + np.cos(theta) * down_left_dis,
         )
-        assert point_distance(down_left, label.down_left) <= 2
+        assert math.isclose(point_distance(down_left, label.down_left), 0, abs_tol=1E-3)
 
     for label in output.page_char_regression_labels:
         check_point_reconstruction(label)
