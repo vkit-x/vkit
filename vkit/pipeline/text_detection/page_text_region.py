@@ -49,14 +49,15 @@ class PageTextRegionStepConfig:
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
     text_region_resize_char_height_median_min: int = 30
     text_region_resize_char_height_median_max: int = 45
-    text_region_typical_post_rotate_prob: float = 0.2
-    text_region_untypical_post_rotate_prob: float = 0.2
+    prob_text_region_typical_post_rotate: float = 0.2
+    prob_text_region_untypical_post_rotate: float = 0.2
     negative_text_region_ratio: float = 0.1
-    negative_text_region_post_rotate_prob: float = 0.2
+    prob_negative_text_region_post_rotate: float = 0.2
     stack_flattened_text_regions_pad: int = 2
-    enable_post_rotate: bool = False
-    post_rotate_angle_min: int = -10
-    post_rotate_angle_max: int = 10
+    prob_post_rotate_90_angle: float = 0.5
+    prob_post_rotate_random_angle: float = 0.0
+    post_rotate_random_angle_min: int = -5
+    post_rotate_random_angle_max: int = 5
     enable_debug: bool = False
 
 
@@ -1028,11 +1029,11 @@ class PageTextRegionStep(
             # Post rotate.
             post_rotate_angle = 0
             if flattened_text_region.is_typical:
-                if rng.random() < self.config.text_region_typical_post_rotate_prob:
+                if rng.random() < self.config.prob_text_region_typical_post_rotate:
                     # Upside down only.
                     post_rotate_angle = 180
             else:
-                if rng.random() < self.config.text_region_untypical_post_rotate_prob:
+                if rng.random() < self.config.prob_text_region_untypical_post_rotate:
                     # 3-way rotate.
                     post_rotate_angle = rng_choice(rng, (180, 90, 270), probs=(0.5, 0.25, 0.25))
 
@@ -1080,11 +1081,11 @@ class PageTextRegionStep(
             # Post rotate.
             post_rotate_angle = 0
             if flattened_text_region.is_typical:
-                if rng.random() < self.config.text_region_typical_post_rotate_prob:
+                if rng.random() < self.config.prob_text_region_typical_post_rotate:
                     # Upside down only.
                     post_rotate_angle = 180
             else:
-                if rng.random() < self.config.text_region_untypical_post_rotate_prob:
+                if rng.random() < self.config.prob_text_region_untypical_post_rotate:
                     # 3-way rotate.
                     post_rotate_angle = rng_choice(rng, (180, 90, 270), probs=(0.5, 0.25, 0.25))
 
@@ -1263,15 +1264,20 @@ class PageTextRegionStep(
         shape_before_rotate = image.shape
         rotate_angle = 0
 
-        if self.config.enable_post_rotate:
-            # For unpacking.
-            num_char_polygons = len(char_polygons)
-            rotate_angle = int(
+        if rng.random() < self.config.prob_post_rotate_90_angle:
+            rotate_angle = 90
+
+        if rng.random() < self.config.prob_post_rotate_random_angle:
+            rotate_angle += int(
                 rng.integers(
-                    self.config.post_rotate_angle_min,
-                    self.config.post_rotate_angle_max + 1,
+                    self.config.post_rotate_random_angle_min,
+                    self.config.post_rotate_random_angle_max + 1,
                 )
             )
+
+        if rotate_angle != 0:
+            # For unpacking.
+            num_char_polygons = len(char_polygons)
             rotated_result = rotate.distort(
                 {'angle': rotate_angle},
                 image=image,

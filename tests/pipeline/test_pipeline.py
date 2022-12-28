@@ -253,7 +253,7 @@ def visualize_page_text_region_step_output(
     cur_write_image(f'page_{seed}_stacked_image_char_polygons.jpg', painter.image)
 
 
-def paint_page_char_regression_labels(
+def paint_page_char_regression_labels_way_0(
     page_image: Image,
     page_char_regression_labels: Sequence[PageCharRegressionLabel],
 ):
@@ -265,7 +265,7 @@ def paint_page_char_regression_labels(
     lines_color: List[str] = []
 
     for label in page_char_regression_labels:
-        label_point = Point.create(y=label.label_point_y, x=label.label_point_x)
+        label_point = Point.create(y=label.label_point_smooth_y, x=label.label_point_smooth_x)
         points.append(label_point)
         if label.tag == PageCharRegressionLabelTag.CENTROID:
             points_color.append('red')
@@ -293,6 +293,49 @@ def paint_page_char_regression_labels(
     return painter.image
 
 
+def paint_page_char_regression_labels_way_1(
+    page_image: Image,
+    page_char_regression_labels: Sequence[PageCharRegressionLabel],
+):
+    visited_char_indices: Set[int] = set()
+    points: List[Point] = []
+    points_color: List[str] = []
+    lines: List[Line] = []
+    lines_color: List[str] = []
+
+    for label in page_char_regression_labels:
+        if label.char_idx in visited_char_indices:
+            continue
+
+        points.extend([label.up_left, label.up_right, label.down_right, label.down_left])
+        points_color.extend(['blue', 'yellow', 'white', '#00ffff'])
+        visited_char_indices.add(label.char_idx)
+
+        bounding_up_left = Point.create(y=label.bounding_smooth_up, x=label.bounding_smooth_left)
+        bounding_up_right = Point.create(y=label.bounding_smooth_up, x=label.bounding_smooth_right)
+        bounding_down_left = Point.create(
+            y=label.bounding_smooth_down,
+            x=label.bounding_smooth_left,
+        )
+        bounding_down_right = Point.create(
+            y=label.bounding_smooth_down,
+            x=label.bounding_smooth_right,
+        )
+
+        lines.append(Line(point_begin=bounding_up_left, point_end=bounding_up_right))
+        lines.append(Line(point_begin=bounding_down_left, point_end=bounding_down_right))
+        lines.append(Line(point_begin=bounding_up_left, point_end=bounding_down_left))
+        lines.append(Line(point_begin=bounding_up_right, point_end=bounding_down_right))
+        color = ['blue'] * 4
+        color[label.bounding_orientation_idx] = 'red'
+        lines_color.extend(color)
+
+    painter = Painter(page_image)
+    painter.paint_lines(lines, color=lines_color, alpha=0.8)
+    painter.paint_points(points, radius=2, color=points_color, alpha=0.9)
+    return painter.image
+
+
 def visualize_page_text_region_label_step_output(
     seed: int,
     page_image: Image,
@@ -306,16 +349,17 @@ def visualize_page_text_region_label_step_output(
 
     def point_distance(point0: Point, point1: Point):
         import math
-        return math.hypot(point0.y - point1.y, point0.x - point1.x)
+        return math.hypot(point0.smooth_y - point1.smooth_y, point0.smooth_x - point1.smooth_x)
 
     def check_point_reconstruction(label: PageCharRegressionLabel):
+        import math
         import numpy as np
 
-        label_point = Point.create(y=label.label_point_y, x=label.label_point_x)
+        label_point = Point.create(y=label.label_point_smooth_y, x=label.label_point_smooth_x)
 
         offset_y, offset_x = label.generate_up_left_offsets()
-        up_left = Point.create(y=label_point.y + offset_y, x=label_point.x + offset_x)
-        assert point_distance(up_left, label.up_left) == 0
+        up_left = Point.create(y=label_point.smooth_y + offset_y, x=label_point.smooth_x + offset_x)
+        assert math.isclose(point_distance(up_left, label.up_left), 0, abs_tol=1E-3)
 
         theta = np.arctan2(offset_y, offset_x)
         two_pi = 2 * np.pi
@@ -327,33 +371,38 @@ def visualize_page_text_region_label_step_output(
         theta += angle_distrib[0] * two_pi
         theta = theta % two_pi
         up_right = Point.create(
-            y=label_point.y + np.sin(theta) * up_right_dis,
-            x=label_point.x + np.cos(theta) * up_right_dis,
+            y=label_point.smooth_y + np.sin(theta) * up_right_dis,
+            x=label_point.smooth_x + np.cos(theta) * up_right_dis,
         )
-        assert point_distance(up_right, label.up_right) <= 2
+        assert math.isclose(point_distance(up_right, label.up_right), 0, abs_tol=1E-3)
 
         theta += angle_distrib[1] * two_pi
         theta = theta % two_pi
         down_right = Point.create(
-            y=label_point.y + np.sin(theta) * down_right_dis,
-            x=label_point.x + np.cos(theta) * down_right_dis,
+            y=label_point.smooth_y + np.sin(theta) * down_right_dis,
+            x=label_point.smooth_x + np.cos(theta) * down_right_dis,
         )
-        assert point_distance(down_right, label.down_right) <= 2
+        assert math.isclose(point_distance(down_right, label.down_right), 0, abs_tol=1E-3)
 
         theta += angle_distrib[2] * two_pi
         theta = theta % two_pi
         down_left = Point.create(
-            y=label_point.y + np.sin(theta) * down_left_dis,
-            x=label_point.x + np.cos(theta) * down_left_dis,
+            y=label_point.smooth_y + np.sin(theta) * down_left_dis,
+            x=label_point.smooth_x + np.cos(theta) * down_left_dis,
         )
-        assert point_distance(down_left, label.down_left) <= 2
+        assert math.isclose(point_distance(down_left, label.down_left), 0, abs_tol=1E-3)
 
     for label in output.page_char_regression_labels:
         check_point_reconstruction(label)
 
     cur_write_image(
-        f'page_{seed}_stacked_image_label_char_regression.jpg',
-        paint_page_char_regression_labels(page_image, output.page_char_regression_labels),
+        f'page_{seed}_stacked_image_label_char_regression_way_0.jpg',
+        paint_page_char_regression_labels_way_0(page_image, output.page_char_regression_labels),
+    )
+
+    cur_write_image(
+        f'page_{seed}_stacked_image_label_char_regression_way_1.jpg',
+        paint_page_char_regression_labels_way_1(page_image, output.page_char_regression_labels),
     )
 
 
@@ -391,8 +440,16 @@ def visualize_page_text_region_cropping_step_output(
         )
 
         cur_write_image(
-            f'page_{seed}_cropped_text_region_{idx}_char_regression_label.jpg',
-            paint_page_char_regression_labels(
+            f'page_{seed}_cropped_text_region_{idx}_char_regression_label_way_0.jpg',
+            paint_page_char_regression_labels_way_0(
+                cropped_page_text_region.page_image,
+                cropped_page_text_region.page_char_regression_labels,
+            ),
+        )
+
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_char_regression_label_way_1.jpg',
+            paint_page_char_regression_labels_way_1(
                 cropped_page_text_region.page_image,
                 cropped_page_text_region.page_char_regression_labels,
             ),

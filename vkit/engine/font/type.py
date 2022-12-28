@@ -34,6 +34,7 @@ import cv2 as cv
 
 from vkit.utility import (
     attrs_lazy_field,
+    unwrap_optional_field,
     get_cattrs_converter_ignoring_init_equals_false,
     dyn_structure,
     PathType,
@@ -236,14 +237,12 @@ class FontCollection:
     @property
     def name_to_font_meta(self):
         self.lazy_post_init()
-        assert self._name_to_font_meta is not None
-        return self._name_to_font_meta
+        return unwrap_optional_field(self._name_to_font_meta)
 
     @property
     def char_to_font_meta_names(self):
         self.lazy_post_init()
-        assert self._char_to_font_meta_names is not None
-        return self._char_to_font_meta_names
+        return unwrap_optional_field(self._char_to_font_meta_names)
 
     def filter_font_metas(self, chars: Iterable[str]):
         font_meta_names = set.intersection(

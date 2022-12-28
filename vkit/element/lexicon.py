@@ -19,7 +19,7 @@ import attrs
 import cattrs
 import iolite as io
 
-from vkit.utility import attrs_lazy_field, dyn_structure, PathType
+from vkit.utility import attrs_lazy_field, unwrap_optional_field, dyn_structure, PathType
 
 
 @attrs.define(frozen=True)
@@ -77,20 +77,17 @@ class LexiconCollection:
     @property
     def char_to_lexicon(self):
         self.lazy_post_init()
-        assert self._char_to_lexicon is not None
-        return self._char_to_lexicon
+        return unwrap_optional_field(self._char_to_lexicon)
 
     @property
     def tag_to_lexicons(self):
         self.lazy_post_init()
-        assert self._tag_to_lexicons is not None
-        return self._tag_to_lexicons
+        return unwrap_optional_field(self._tag_to_lexicons)
 
     @property
     def tags(self):
         self.lazy_post_init()
-        assert self._tags is not None
-        return self._tags
+        return unwrap_optional_field(self._tags)
 
     def has_char(self, char: str):
         return char in self.char_to_lexicon

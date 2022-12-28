@@ -11,23 +11,31 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from .type import PathType
-from .opt import (
-    attrs_lazy_field,
-    unwrap_optional_field,
-    get_cattrs_converter_ignoring_init_equals_false,
-    is_path_type,
-    read_json_file,
-    get_data_folder,
-    rng_choice,
-    rng_choice_with_size,
-    rng_shuffle,
-    sample_cv_resize_interpolation,
-    dyn_structure,
-    normalize_to_probs,
-    normalize_to_keys_and_probs,
-    convert_camel_case_name_to_snake_case_name,
-    get_config_class_snake_case_name,
-    get_generic_classes,
-)
-from .pool import Pool, PoolConfig
+from typing import Optional
+
+import attrs
+
+from vkit.utility import attrs_lazy_field
+
+
+@attrs.define
+class Foo:
+    a: int
+    _b: Optional[int] = attrs_lazy_field()
+
+    @property
+    def b(self):
+        if self._b is None:
+            self._b = self.a + 1
+        return self._b
+
+
+def test_attrs_lazy_field():
+    foo0 = Foo(42)
+    assert foo0.b == 43
+    foo1 = attrs.evolve(foo0)
+    assert foo1._b is None  # type: ignore
+    assert foo1.b == 43
+    foo2 = attrs.evolve(foo0, a=1)
+    assert foo2._b is None  # type: ignore
+    assert foo2.b == 2

@@ -43,6 +43,14 @@ def attrs_lazy_field():
     return attrs.field(default=None, init=False, repr=False)
 
 
+_T_FIELD = TypeVar('_T_FIELD')
+
+
+def unwrap_optional_field(field: Optional[_T_FIELD]) -> _T_FIELD:
+    assert field is not None
+    return field
+
+
 def get_cattrs_converter_ignoring_init_equals_false():
     converter = cattrs.Converter()
     converter.register_unstructure_hook_factory(

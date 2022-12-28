@@ -18,7 +18,7 @@ import attrs
 import numpy as np
 import cv2 as cv
 
-from vkit.utility import attrs_lazy_field
+from vkit.utility import attrs_lazy_field, unwrap_optional_field
 from vkit.element import Shapable, PointList, Polygon
 
 
@@ -64,14 +64,12 @@ class ImageGrid:
     @property
     def image_height(self):
         self.lazy_post_init()
-        assert self._image_height is not None
-        return self._image_height
+        return unwrap_optional_field(self._image_height)
 
     @property
     def image_width(self):
         self.lazy_post_init()
-        assert self._image_width is not None
-        return self._image_width
+        return unwrap_optional_field(self._image_width)
 
     @property
     def image_shape(self):
@@ -80,14 +78,12 @@ class ImageGrid:
     @property
     def cached_trans_mat(self):
         self.lazy_post_init()
-        assert self._cached_trans_mat is not None
-        return self._cached_trans_mat
+        return unwrap_optional_field(self._cached_trans_mat)
 
     @property
     def cached_inv_trans_mat(self):
         self.lazy_post_init()
-        assert self._cached_inv_trans_mat is not None
-        return self._cached_inv_trans_mat
+        return unwrap_optional_field(self._cached_inv_trans_mat)
 
     @property
     def num_rows(self):
