@@ -47,8 +47,8 @@ class PageTextRegionStepConfig:
     text_region_flattener_typical_long_side_ratio_min: float = 3.0
     text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.85
     text_region_flattener_text_region_polygon_dilate_ratio_max: float = 1.0
-    text_region_resize_char_height_median_min: int = 30
-    text_region_resize_char_height_median_max: int = 45
+    text_region_resize_char_height_median_min: int = 32
+    text_region_resize_char_height_median_max: int = 46
     prob_text_region_typical_post_rotate: float = 0.2
     prob_text_region_untypical_post_rotate: float = 0.2
     negative_text_region_ratio: float = 0.1
