@@ -17,7 +17,7 @@ import functools
 import attrs
 from numpy.random import Generator as RandomGenerator, default_rng
 
-from vkit.element import Point, Line, Polygon, Image
+from vkit.element import Point, Line, Box, Polygon, Image
 from vkit.mechanism.painter import Painter
 from vkit.pipeline import (
     pipeline_step_collection_factory,
@@ -406,6 +406,31 @@ def visualize_page_text_region_label_step_output(
     )
 
 
+def paint_image_cell(
+    image: Image,
+    downsampling_factor: int,
+):
+    assert downsampling_factor > 1
+    ups = list(range(0, image.height, downsampling_factor))
+    lefts = list(range(0, image.width, downsampling_factor))
+    boxes: List[Box] = []
+    color: List[str] = []
+    for up_idx, up in enumerate(ups):
+        down = up + downsampling_factor - 1
+        if down >= image.height:
+            break
+        for left_idx, left in enumerate(lefts):
+            right = left + downsampling_factor - 1
+            if right >= image.width:
+                break
+            boxes.append(Box(up=up, down=down, left=left, right=right))
+            color.append(['red', 'blue'][(up_idx + left_idx) % 2])
+
+    painter = Painter(image)
+    painter.paint_boxes(boxes, color=color, alpha=0.3)
+    return painter.image
+
+
 def visualize_page_text_region_cropping_step_output(
     seed: int,
     output: PageTextRegionCroppingStepOutput,
@@ -417,6 +442,20 @@ def visualize_page_text_region_cropping_step_output(
             f'page_{seed}_cropped_text_region_{idx}_image.jpg',
             cropped_page_text_region.page_image,
         )
+
+        if True:
+            cur_write_image(
+                f'page_{seed}_cropped_text_region_{idx}_image_ds_8.jpg',
+                paint_image_cell(cropped_page_text_region.page_image, 8),
+            )
+            cur_write_image(
+                f'page_{seed}_cropped_text_region_{idx}_image_ds_16.jpg',
+                paint_image_cell(cropped_page_text_region.page_image, 16),
+            )
+            cur_write_image(
+                f'page_{seed}_cropped_text_region_{idx}_image_ds_32.jpg',
+                paint_image_cell(cropped_page_text_region.page_image, 32),
+            )
 
         painter = Painter(cropped_page_text_region.page_image)
         painter.paint_mask(cropped_page_text_region.page_char_mask)
