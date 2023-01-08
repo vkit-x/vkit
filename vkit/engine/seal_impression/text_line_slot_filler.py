@@ -36,7 +36,7 @@ def fill_text_line_to_seal_impression(
 
     for text_line_slot_idx, text_line in zip(text_line_slot_indices, text_lines):
         if text_line_slot_idx >= len(seal_impression.text_line_slots):
-            logger.error('something wrong.')
+            logger.error('fill_text_line_to_seal_impression: something wrong.')
             break
 
         assert text_line.is_hori
@@ -62,8 +62,9 @@ def fill_text_line_to_seal_impression(
                 in enumerate(zip(text_line.char_boxes, text_line.char_glyphs)):
             # Get the char slot to be filled.
             if char_slot_idx >= len(text_line_slot.char_slots):
-                logger.warning('something wrong.')
+                logger.error('fill_text_line_to_seal_impression: something wrong.')
                 break
+
             char_slot = text_line_slot.char_slots[char_slot_idx]
 
             # Convert char glyph to score map and adjust aspect ratio.
@@ -125,39 +126,18 @@ def fill_text_line_to_seal_impression(
             dst_left = char_slot.point_up.x - rotated_point_up.x
             dst_right = dst_left + rotated_char_score_map.width - 1
 
-            # Corner case: out-of-bound.
-            src_up = 0
-            if dst_up < 0:
-                src_up = abs(dst_up)
-                dst_up = 0
-
-            src_down = rotated_char_score_map.height - 1
-            if dst_down >= score_map.height:
-                src_down -= dst_down + 1 - score_map.height
-                dst_down = score_map.height - 1
-
-            assert src_up <= src_down and dst_up <= dst_down
-            assert src_down - src_up == dst_down - dst_up
-
-            src_left = 0
-            if dst_left < 0:
-                src_left = abs(dst_left)
-                dst_left = 0
-
-            src_right = rotated_char_score_map.width - 1
-            if dst_right >= score_map.width:
-                src_right -= dst_right + 1 - score_map.width
-                dst_right = score_map.width - 1
-
-            assert src_left <= src_right and dst_left <= dst_right
-            assert src_right - src_left == dst_right - dst_left
+            if dst_up < 0 \
+                    or dst_down >= score_map.height \
+                    or dst_left < 0 \
+                    or dst_right >= score_map.width:
+                logger.error('fill_text_line_to_seal_impression: out-of-bound.')
+                continue
 
             # Fill.
-            src_box = Box(up=src_up, down=src_down, left=src_left, right=src_right)
             dst_box = Box(up=dst_up, down=dst_down, left=dst_left, right=dst_right)
             dst_box.fill_score_map(
                 score_map,
-                src_box.extract_score_map(rotated_char_score_map),
+                rotated_char_score_map,
                 keep_max_value=True,
             )
 
