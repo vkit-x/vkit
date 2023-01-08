@@ -102,6 +102,7 @@ def fill_text_line_to_seal_impression(
                 with char_score_map.writable_context:
                     char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
 
+            # To match char_slot.point_up.
             point_up = Point.create(y=0, x=char_score_map.width / 2)
 
             # Rotate.
@@ -116,15 +117,13 @@ def fill_text_line_to_seal_impression(
             rotated_point_up = rotated_result.point
             assert rotated_point_up
 
-            # Shift bounding box based on point_up.
+            # Calculate the bounding box based on point_up.
+            # NOTE: rotated_point_up.y represents the vertical offset here.
             dst_up = char_slot.point_up.y - rotated_point_up.y
-            dst_down = char_slot.point_up.y + (
-                rotated_char_score_map.height - 1 - rotated_point_up.y
-            )
+            dst_down = dst_up + rotated_char_score_map.height - 1
+            # NOTE: rotated_point_up.x represents the horizontal offset here.
             dst_left = char_slot.point_up.x - rotated_point_up.x
-            dst_right = char_slot.point_up.x + (
-                rotated_char_score_map.width - 1 - rotated_point_up.x
-            )
+            dst_right = dst_left + rotated_char_score_map.width - 1
 
             # Corner case: out-of-bound.
             src_up = 0
