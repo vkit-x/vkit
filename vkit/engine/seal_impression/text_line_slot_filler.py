@@ -11,12 +11,13 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Sequence, Optional
+from typing import Sequence, List, Optional
 import logging
 
 import numpy as np
+import attrs
 
-from vkit.element import Point, Box, ScoreMap
+from vkit.element import Point, Box, Polygon, ScoreMap
 from vkit.engine.font import TextLine
 from vkit.mechanism.distortion import rotate
 from .type import SealImpression
@@ -31,6 +32,7 @@ def fill_text_line_to_seal_impression(
     internal_text_line: Optional[TextLine],
 ):
     score_map = ScoreMap.from_shape(seal_impression.shape)
+    char_polygons: List[Polygon] = []
 
     assert len(text_line_slot_indices) == len(text_lines)
 
@@ -42,20 +44,21 @@ def fill_text_line_to_seal_impression(
         assert text_line.is_hori
         assert not text_line.shifted
 
-        # Get the reference char height of text line, for adjusting aspect ratio.
-        ref_char_height = 0
-        ref_char_width = 0
-        for char_glyph in text_line.char_glyphs:
-            if char_glyph.ref_char_height > ref_char_height:
-                ref_char_height = char_glyph.ref_char_height
-                ref_char_width = char_glyph.ref_char_width
-        assert ref_char_height > 0 and ref_char_width > 0
-
         # Get the text line slot to be filled.
         text_line_slot = seal_impression.text_line_slots[text_line_slot_idx]
-        char_aspect_ratio = text_line_slot.char_aspect_ratio
-        text_line_aspect_ratio = ref_char_width / ref_char_height
-        resized_width_factor = char_aspect_ratio / text_line_aspect_ratio
+
+        # Get the reference char height of text line, for adjusting aspect ratio.
+        text_line_ref_char_height = 0
+        text_line_ref_char_width = 0
+        for char_glyph in text_line.char_glyphs:
+            if char_glyph.ref_char_height > text_line_ref_char_height:
+                text_line_ref_char_height = char_glyph.ref_char_height
+                text_line_ref_char_width = char_glyph.ref_char_width
+        assert text_line_ref_char_height > 0 and text_line_ref_char_width > 0
+        text_line_aspect_ratio = text_line_ref_char_width / text_line_ref_char_height
+
+        # For resizing.
+        resized_char_width_factor = text_line_slot.char_aspect_ratio / text_line_aspect_ratio
 
         # Fill each char to the char slot.
         for char_slot_idx, (char_box, char_glyph) \
@@ -69,42 +72,64 @@ def fill_text_line_to_seal_impression(
 
             # Convert char glyph to score map and adjust aspect ratio.
             # NOTE: Only the width of char could be resized.
-            box = char_box.box
-            resized_width = max(1, round(resized_width_factor * box.width))
-            char_glyph_shape = (box.height, resized_width)
+            resized_width = max(1, round(resized_char_width_factor * char_glyph.width))
+            resized_box = attrs.evolve(char_box.box, left=0, right=resized_width - 1)
             # NOTE: Since the height of char is fixed, we simply preserve the text line height.
             char_score_map = ScoreMap.from_shape((text_line.box.height, resized_width))
 
             if char_glyph.score_map:
                 char_glyph_score_map = char_glyph.score_map
-                if char_glyph_score_map.shape != char_glyph_shape:
+                if char_glyph_score_map.shape != resized_box.shape:
                     char_glyph_score_map = char_glyph_score_map.to_resized_score_map(
-                        resized_height=char_glyph_shape[0],
-                        resized_width=char_glyph_shape[1],
+                        resized_height=resized_box.height,
+                        resized_width=resized_box.width,
                         cv_resize_interpolation=text_line.cv_resize_interpolation,
                     )
-                assert char_score_map.width == char_glyph_score_map.width
-                with char_score_map.writable_context:
-                    char_score_map.mat[box.up:box.down + 1] = char_glyph_score_map.mat
+                resized_box.fill_score_map(char_score_map, char_glyph_score_map)
 
             else:
                 # LCD, fallback to mask.
                 char_glyph_mask = char_glyph.get_glyph_mask(
-                    box=box,
+                    box=char_box.box,
                     cv_resize_interpolation=text_line.cv_resize_interpolation,
                 )
-                if char_glyph_mask.shape != char_glyph_shape:
+                if char_glyph_mask.shape != resized_box.shape:
                     char_glyph_mask = char_glyph_mask.to_resized_mask(
-                        resized_height=char_glyph_shape[0],
-                        resized_width=char_glyph_shape[1],
+                        resized_height=resized_box.height,
+                        resized_width=resized_box.width,
                         cv_resize_interpolation=text_line.cv_resize_interpolation,
                     )
-                assert char_score_map.width == char_glyph_mask.width
-                with char_score_map.writable_context:
-                    char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
+                resized_box.fill_score_map(char_score_map, char_glyph_mask.mat.astype(np.float32))
 
             # To match char_slot.point_up.
             point_up = Point.create(y=0, x=char_score_map.width / 2)
+
+            # Generate char polygon.
+            up = resized_box.up
+            down = resized_box.down
+            ref_char_height = char_glyph.ref_char_height
+            if resized_box.height < ref_char_height:
+                inc = ref_char_height - resized_box.height
+                half_inc = inc / 2
+                up = up - half_inc
+                down = down + half_inc
+
+            left = resized_box.left
+            right = resized_box.right
+            # NOTE: Resize factor is applied.
+            ref_char_width = resized_char_width_factor * char_glyph.ref_char_width
+            if resized_box.width < ref_char_width:
+                inc = ref_char_width - resized_box.width
+                half_inc = inc / 2
+                left = left - half_inc
+                right = right + half_inc
+
+            char_polygon = Polygon.from_xy_pairs([
+                (left, up),
+                (right, up),
+                (right, down),
+                (left, down),
+            ])
 
             # Rotate.
             rotated_result = rotate.distort(
@@ -112,11 +137,16 @@ def fill_text_line_to_seal_impression(
                 {'angle': char_slot.angle - 270},
                 score_map=char_score_map,
                 point=point_up,
+                polygon=char_polygon,
+                # The char polygon could be out-of-bound and should not be clipped.
+                disable_clip_result_elements=True,
             )
             rotated_char_score_map = rotated_result.score_map
             assert rotated_char_score_map
             rotated_point_up = rotated_result.point
             assert rotated_point_up
+            rotated_char_polygon = rotated_result.polygon
+            assert rotated_char_polygon
 
             # Calculate the bounding box based on point_up.
             # NOTE: rotated_point_up.y represents the vertical offset here.
@@ -141,6 +171,13 @@ def fill_text_line_to_seal_impression(
                 keep_max_value=True,
             )
 
+            # Shift and keep rotated char polygon.
+            rotated_char_polygon = rotated_char_polygon.to_shifted_polygon(
+                offset_y=dst_up,
+                offset_x=dst_left,
+            )
+            char_polygons.append(rotated_char_polygon)
+
     if internal_text_line:
         internal_text_line_box = seal_impression.internal_text_line_box
         assert internal_text_line_box
@@ -154,8 +191,10 @@ def fill_text_line_to_seal_impression(
         else:
             internal_text_line.box.fill_score_map(score_map, internal_text_line.mask.mat)
 
+        # TODO: char polygons.
+
     # Adjust alpha.
     score_map_max = score_map.mat.max()
     score_map.assign_mat(score_map.mat * seal_impression.alpha / score_map_max)
 
-    return score_map
+    return score_map, char_polygons

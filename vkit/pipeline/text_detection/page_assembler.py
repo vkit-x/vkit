@@ -190,7 +190,8 @@ class PageAssemblerStep(
 
             # Prepare foreground (text) and background.
             background_mask = seal_impression.background_mask
-            text_line_filled_score_map = fill_text_line_to_seal_impression(
+            # TODO
+            text_line_filled_score_map, _ = fill_text_line_to_seal_impression(
                 seal_impression,
                 seal_impression_resource.text_line_slot_indices,
                 seal_impression_resource.text_lines,

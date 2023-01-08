@@ -842,6 +842,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         get_active_mask: bool = False,
         get_config: bool = False,
         get_state: bool = False,
+        disable_clip_result_elements: bool = False,
         rng: Optional[RandomGenerator] = None,
     ):
         # yapf: enable
@@ -905,6 +906,7 @@ class Distortion(Generic[_T_CONFIG, _T_STATE]):
         if get_state:
             result.state = internals.state
 
-        self.clip_result_elements(result)
+        if not disable_clip_result_elements:
+            self.clip_result_elements(result)
 
         return result
