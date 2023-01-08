@@ -11,12 +11,12 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Sequence
+from typing import Sequence, List
 
 import attrs
 from numpy.random import Generator as RandomGenerator
 
-from vkit.element import Shapable, Box, Image
+from vkit.element import Shapable, Box, Polygon, Image
 from vkit.engine.seal_impression import fill_text_line_to_seal_impression
 from vkit.mechanism.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
@@ -78,6 +78,11 @@ class PageNonTextRegionCollection:
 
 
 @attrs.define
+class PageSealImpressionCharPolygonCollection:
+    char_polygons: Sequence[Polygon]
+
+
+@attrs.define
 class Page(Shapable):
     image: Image
     page_image_collection: PageImageCollection
@@ -88,6 +93,7 @@ class Page(Shapable):
     page_text_line_polygon_collection: PageTextLinePolygonCollection
     page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
     page_non_text_region_collection: PageNonTextRegionCollection
+    page_seal_impression_char_polygon_collection: PageSealImpressionCharPolygonCollection
 
     @property
     def height(self):
@@ -181,6 +187,7 @@ class PageAssemblerStep(
             box.fill_image(assembled_image, value=image, alpha=alpha)
 
         # Page seal impressions.
+        page_seal_impression_char_polygons: List[Polygon] = []
         for seal_impression, seal_impression_resource in zip(
             page_seal_impression_text_line_collection.seal_impressions,
             page_seal_impression_text_line_collection.seal_impression_resources,
@@ -190,8 +197,7 @@ class PageAssemblerStep(
 
             # Prepare foreground (text) and background.
             background_mask = seal_impression.background_mask
-            # TODO
-            text_line_filled_score_map, _ = fill_text_line_to_seal_impression(
+            text_line_filled_score_map, char_polygons = fill_text_line_to_seal_impression(
                 seal_impression,
                 seal_impression_resource.text_line_slot_indices,
                 seal_impression_resource.text_lines,
@@ -203,13 +209,16 @@ class PageAssemblerStep(
                 {'angle': seal_impression_resource.angle},
                 mask=background_mask,
                 score_map=text_line_filled_score_map,
+                polygons=char_polygons,
             )
             assert rotated_result.mask
             background_mask = rotated_result.mask
             assert rotated_result.score_map
             text_line_filled_score_map = rotated_result.score_map
             assert background_mask.shape == text_line_filled_score_map.shape
+            assert rotated_result.polygons
 
+            # Placement box.
             box_center_point = seal_impression_resource.box.get_center_point()
             up = box_center_point.y - background_mask.height // 2
             down = up + background_mask.height - 1
@@ -218,41 +227,22 @@ class PageAssemblerStep(
 
             if up < 0 or down >= assembled_image.height \
                     or left < 0 or right >= assembled_image.width:
-                extract_up = 0
-                if up < 0:
-                    extract_up = abs(up)
-                    up = 0
-
-                extract_down = background_mask.height - 1
-                if down >= assembled_image.height:
-                    extract_down -= down + 1 - assembled_image.height
-                    down = assembled_image.height - 1
-
-                extract_left = 0
-                if left < 0:
-                    extract_left = abs(left)
-                    left = 0
-
-                extract_right = background_mask.width - 1
-                if right >= assembled_image.width:
-                    extract_right -= right + 1 - assembled_image.width
-                    right = assembled_image.width - 1
-
-                extract_box = Box(
-                    up=extract_up,
-                    down=extract_down,
-                    left=extract_left,
-                    right=extract_right,
-                )
-                background_mask = extract_box.extract_mask(background_mask)
-                text_line_filled_score_map = extract_box.extract_score_map(
-                    text_line_filled_score_map
-                )
+                # Simply ignore this seal impression.
+                continue
 
             # Rendering.
             box = Box(up=up, down=down, left=left, right=right)
             box.fill_image(assembled_image, value=color, image_mask=background_mask, alpha=alpha)
             box.fill_image(assembled_image, value=color, alpha=text_line_filled_score_map)
+
+            # Shift and keep char polyghons.
+            char_polygons = [
+                char_polygon.to_shifted_polygon(
+                    offset_y=up,
+                    offset_x=left,
+                ) for char_polygon in rotated_result.polygons
+            ]
+            page_seal_impression_char_polygons.extend(char_polygons)
 
         # For char-level polygon regression.
         page_disconnected_text_region_collection = PageDisconnectedTextRegionCollection(
@@ -261,6 +251,11 @@ class PageAssemblerStep(
 
         # For sampling negative text region area.
         page_non_text_region_collection = PageNonTextRegionCollection(page_layout.non_text_regions)
+
+        # For generating char-level seal impression labeling.
+        page_seal_impression_char_polygon_collection = PageSealImpressionCharPolygonCollection(
+            char_polygons=page_seal_impression_char_polygons,
+        )
 
         page = Page(
             image=assembled_image,
@@ -272,6 +267,9 @@ class PageAssemblerStep(
             page_text_line_polygon_collection=page_text_line_polygon_collection,
             page_disconnected_text_region_collection=page_disconnected_text_region_collection,
             page_non_text_region_collection=page_non_text_region_collection,
+            page_seal_impression_char_polygon_collection=(
+                page_seal_impression_char_polygon_collection
+            ),
         )
         return PageAssemblerStepOutput(page=page)
 
