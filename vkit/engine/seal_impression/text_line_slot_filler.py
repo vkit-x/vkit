@@ -191,7 +191,12 @@ def fill_text_line_to_seal_impression(
         else:
             internal_text_line.box.fill_score_map(score_map, internal_text_line.mask.mat)
 
-        # TODO: char polygons.
+        char_polygons.extend(
+            internal_text_line.to_char_polygons(
+                page_height=score_map.height,
+                page_width=score_map.width,
+            )
+        )
 
     # Adjust alpha.
     score_map_max = score_map.mat.max()
