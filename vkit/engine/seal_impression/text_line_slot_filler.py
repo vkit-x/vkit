@@ -42,6 +42,7 @@ def fill_text_line_to_seal_impression(
         assert text_line.is_hori
         assert not text_line.shifted
 
+        # Get the reference char height of text line, for adjusting aspect ratio.
         ref_char_height = 0
         ref_char_width = 0
         for char_glyph in text_line.char_glyphs:
@@ -50,23 +51,27 @@ def fill_text_line_to_seal_impression(
                 ref_char_width = char_glyph.ref_char_width
         assert ref_char_height > 0 and ref_char_width > 0
 
+        # Get the text line slot to be filled.
         text_line_slot = seal_impression.text_line_slots[text_line_slot_idx]
         char_aspect_ratio = text_line_slot.char_aspect_ratio
         text_line_aspect_ratio = ref_char_width / ref_char_height
         resized_width_factor = char_aspect_ratio / text_line_aspect_ratio
 
+        # Fill each char to the char slot.
         for char_slot_idx, (char_box, char_glyph) \
                 in enumerate(zip(text_line.char_boxes, text_line.char_glyphs)):
-            # Get char slot to be filled.
+            # Get the char slot to be filled.
             if char_slot_idx >= len(text_line_slot.char_slots):
                 logger.warning('something wrong.')
                 break
             char_slot = text_line_slot.char_slots[char_slot_idx]
 
-            # Convert char glyph to score map.
+            # Convert char glyph to score map and adjust aspect ratio.
+            # NOTE: Only the width of char could be resized.
             box = char_box.box
             resized_width = max(1, round(resized_width_factor * box.width))
             char_glyph_shape = (box.height, resized_width)
+            # NOTE: Since the height of char is fixed, we simply preserve the text line height.
             char_score_map = ScoreMap.from_shape((text_line.box.height, resized_width))
 
             if char_glyph.score_map:
@@ -77,6 +82,7 @@ def fill_text_line_to_seal_impression(
                         resized_width=char_glyph_shape[1],
                         cv_resize_interpolation=text_line.cv_resize_interpolation,
                     )
+                assert char_score_map.width == char_glyph_score_map.width
                 with char_score_map.writable_context:
                     char_score_map.mat[box.up:box.down + 1] = char_glyph_score_map.mat
 
@@ -92,6 +98,7 @@ def fill_text_line_to_seal_impression(
                         resized_width=char_glyph_shape[1],
                         cv_resize_interpolation=text_line.cv_resize_interpolation,
                     )
+                assert char_score_map.width == char_glyph_mask.width
                 with char_score_map.writable_context:
                     char_score_map.mat[box.up:box.down + 1] = char_glyph_mask.mat.astype(np.float32)
 
