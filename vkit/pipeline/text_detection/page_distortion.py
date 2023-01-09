@@ -46,6 +46,7 @@ from .page_assembler import (
     PageAssemblerStepOutput,
     PageDisconnectedTextRegionCollection,
     PageNonTextRegionCollection,
+    PageSealImpressionCharPolygonCollection,
 )
 
 
@@ -93,6 +94,7 @@ class PageDistortionStepOutput:
     page_text_line_heights_debug_image: Optional[Image]
     page_disconnected_text_region_collection: PageDisconnectedTextRegionCollection
     page_non_text_region_collection: PageNonTextRegionCollection
+    page_seal_impression_char_polygon_collection: PageSealImpressionCharPolygonCollection
 
 
 _E = TypeVar('_E', Point, Polygon)
@@ -302,6 +304,8 @@ class PageDistortionStep(
         page_text_line_polygon_collection = page.page_text_line_polygon_collection
         page_disconnected_text_region_collection = page.page_disconnected_text_region_collection
         page_non_text_region_collection = page.page_non_text_region_collection
+        page_seal_impression_char_polygon_collection = \
+            page.page_seal_impression_char_polygon_collection
 
         # Flatten.
         polygon_flattener = ElementFlattener([
@@ -313,6 +317,8 @@ class PageDistortionStep(
             tuple(page_disconnected_text_region_collection.to_polygons()),
             # For sampling negative text region area.
             tuple(page_non_text_region_collection.to_polygons()),
+            # For generating char-level seal impression labeling.
+            page_seal_impression_char_polygon_collection.char_polygons,
         ])
         point_flattener = ElementFlattener([
             # Char level.
@@ -367,6 +373,8 @@ class PageDistortionStep(
             disconnected_text_region_polygons,
             # For sampling negative text region area.
             non_text_region_polygons,
+            # For generating char-level seal impression labeling.
+            page_seal_impression_char_polygons,
         ) = polygon_flattener.unflatten(result.polygons)
 
         (
@@ -446,7 +454,10 @@ class PageDistortionStep(
                     NonTextRegion(non_text_region_polygon)
                     for non_text_region_polygon in non_text_region_polygons
                 ],
-            )
+            ),
+            page_seal_impression_char_polygon_collection=PageSealImpressionCharPolygonCollection(
+                char_polygons=page_seal_impression_char_polygons,
+            ),
         )
 
 

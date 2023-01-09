@@ -79,7 +79,7 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     output.page_active_mask.fill_image(image, (255, 0, 0), 0.5)
     cur_write_image(f'page_{seed}_active_mask.jpg', image)
 
-    # Char level polygon ordering.
+    # Char-level polygon ordering.
     if False:
         points: List[Point] = []
         point_colors: List[str] = []
@@ -89,7 +89,21 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
             point_colors.extend(['red', 'green', 'blue', 'lightskyblue'])
         painter = Painter.create(output.page_image)
         painter.paint_points(points, color=point_colors, radius=1)
-        cur_write_image(f'page_{seed}_char_polygon.png', painter.image, frames_offset=1)
+        cur_write_image(
+            f'page_{seed}_char_polygons.png',
+            painter.image,
+            frames_offset=1,
+        )
+
+    # Char-level seal impression polygons.
+    if False:
+        painter = Painter.create(output.page_image)
+        painter.paint_polygons(output.page_seal_impression_char_polygon_collection.char_polygons)
+        cur_write_image(
+            f'page_{seed}_seal_impression_char_polygons.png',
+            painter.image,
+            frames_offset=1,
+        )
 
     # Char level mask.
     image = output.page_image.copy()
