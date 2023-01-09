@@ -64,6 +64,7 @@ class PageDistortionStepConfig:
     )
     enable_debug_random_distortion: bool = False
     enable_distorted_char_mask: bool = True
+    enable_distorted_seal_impression_char_mask: bool = True
     char_mask_engine_config: Mapping[str, Any] = attrs.field(factory=lambda: {'type': 'default'})
     enable_distorted_char_height_score_map: bool = True
     enable_debug_distorted_char_heights: bool = False
@@ -84,6 +85,7 @@ class PageDistortionStepOutput:
     page_active_mask: Mask
     page_char_polygon_collection: PageCharPolygonCollection
     page_char_mask: Optional[Mask]
+    page_seal_impression_char_mask: Optional[Mask]
     page_char_height_score_map: Optional[ScoreMap]
     page_char_heights: Optional[Sequence[float]]
     page_char_heights_debug_image: Optional[Image]
@@ -222,6 +224,7 @@ class PageDistortionStep(
         self,
         distorted_image: Image,
         char_polygons: Sequence[Polygon],
+        seal_impression_char_polygons: Sequence[Polygon],
         char_height_points_up: PointList,
         char_height_points_down: PointList,
     ):
@@ -237,6 +240,17 @@ class PageDistortionStep(
             )
             char_mask = result.combined_chars_mask
             fill_char_height_score_map_masks = result.char_masks
+
+        seal_impression_char_mask: Optional[Mask] = None
+        if self.config.enable_distorted_seal_impression_char_mask:
+            result = self.char_mask_engine_executor.run(
+                CharMaskEngineRunConfig(
+                    height=distorted_image.height,
+                    width=distorted_image.width,
+                    char_polygons=seal_impression_char_polygons,
+                ),
+            )
+            seal_impression_char_mask = result.combined_chars_mask
 
         char_height_score_map: Optional[ScoreMap] = None
         char_heights: Optional[List[float]] = None
@@ -291,6 +305,7 @@ class PageDistortionStep(
 
         return (
             char_mask,
+            seal_impression_char_mask,
             char_height_score_map,
             char_heights,
             char_heights_debug_image,
@@ -374,7 +389,7 @@ class PageDistortionStep(
             # For sampling negative text region area.
             non_text_region_polygons,
             # For generating char-level seal impression labeling.
-            page_seal_impression_char_polygons,
+            seal_impression_char_polygons,
         ) = polygon_flattener.unflatten(result.polygons)
 
         (
@@ -406,12 +421,14 @@ class PageDistortionStep(
         )
         (
             char_mask,
+            seal_impression_char_mask,
             char_height_score_map,
             char_heights,
             char_heights_debug_image,
         ) = self.generate_char_labelings(
             distorted_image=result.image,
             char_polygons=char_polygons,
+            seal_impression_char_polygons=seal_impression_char_polygons,
             char_height_points_up=char_height_points_up,
             char_height_points_down=char_height_points_down,
         )
@@ -428,6 +445,7 @@ class PageDistortionStep(
                 height_points_down=char_height_points_down,
             ),
             page_char_mask=char_mask,
+            page_seal_impression_char_mask=seal_impression_char_mask,
             page_char_height_score_map=char_height_score_map,
             page_char_heights=char_heights,
             page_char_heights_debug_image=char_heights_debug_image,
@@ -456,7 +474,7 @@ class PageDistortionStep(
                 ],
             ),
             page_seal_impression_char_polygon_collection=PageSealImpressionCharPolygonCollection(
-                char_polygons=page_seal_impression_char_polygons,
+                char_polygons=seal_impression_char_polygons,
             ),
         )
 

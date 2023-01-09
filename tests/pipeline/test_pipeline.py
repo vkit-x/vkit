@@ -164,6 +164,11 @@ def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutpu
         painter = Painter.create(cropped_page.page_image)
         painter.paint_mask(cropped_page.page_char_mask)
         cur_write_image(f'page_{seed}_cropped_{idx}_mask.png', painter.image)
+
+        painter = Painter.create(cropped_page.page_image)
+        painter.paint_mask(cropped_page.page_seal_impression_char_mask)
+        cur_write_image(f'page_{seed}_cropped_{idx}_seal_impression_mask.png', painter.image)
+
         painter = Painter.create(cropped_page.page_image)
         painter.paint_score_map(cropped_page.page_char_height_score_map)
         cur_write_image(f'page_{seed}_cropped_{idx}_score_map.png', painter.image)
@@ -194,6 +199,10 @@ def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutpu
     cur_write_image = functools.partial(write_image, frames_offset=1)
 
     cur_write_image(f'page_{seed}_resized_image.jpg', output.page_image)
+
+    painter = Painter(output.page_image)
+    painter.paint_mask(output.page_seal_impression_char_mask)
+    cur_write_image(f'page_{seed}_resized_seal_impression_char_mask.jpg', painter.image)
 
     painter = Painter(output.page_image)
     painter.paint_mask(output.page_text_line_mask, alpha=0.9)
@@ -538,7 +547,7 @@ def debug_adaptive_scaling_dataset_steps():
         rng = default_rng(seed)
         output = pipeline.run(rng)
         visualize_page_distortion_step_output(seed, output.page_distortion_step_output)
-        if False:
+        if True:
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
         if True:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)
