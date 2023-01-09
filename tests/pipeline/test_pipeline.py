@@ -79,7 +79,7 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     output.page_active_mask.fill_image(image, (255, 0, 0), 0.5)
     cur_write_image(f'page_{seed}_active_mask.jpg', image)
 
-    # Char level polygon ordering.
+    # Char-level polygon ordering.
     if False:
         points: List[Point] = []
         point_colors: List[str] = []
@@ -89,7 +89,21 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
             point_colors.extend(['red', 'green', 'blue', 'lightskyblue'])
         painter = Painter.create(output.page_image)
         painter.paint_points(points, color=point_colors, radius=1)
-        cur_write_image(f'page_{seed}_char_polygon.png', painter.image, frames_offset=1)
+        cur_write_image(
+            f'page_{seed}_char_polygons.png',
+            painter.image,
+            frames_offset=1,
+        )
+
+    # Char-level seal impression polygons.
+    if False:
+        painter = Painter.create(output.page_image)
+        painter.paint_polygons(output.page_seal_impression_char_polygon_collection.char_polygons)
+        cur_write_image(
+            f'page_{seed}_seal_impression_char_polygons.png',
+            painter.image,
+            frames_offset=1,
+        )
 
     # Char level mask.
     image = output.page_image.copy()
@@ -150,6 +164,11 @@ def visualize_page_cropping_step_output(seed: int, output: PageCroppingStepOutpu
         painter = Painter.create(cropped_page.page_image)
         painter.paint_mask(cropped_page.page_char_mask)
         cur_write_image(f'page_{seed}_cropped_{idx}_mask.png', painter.image)
+
+        painter = Painter.create(cropped_page.page_image)
+        painter.paint_mask(cropped_page.page_seal_impression_char_mask)
+        cur_write_image(f'page_{seed}_cropped_{idx}_seal_impression_mask.png', painter.image)
+
         painter = Painter.create(cropped_page.page_image)
         painter.paint_score_map(cropped_page.page_char_height_score_map)
         cur_write_image(f'page_{seed}_cropped_{idx}_score_map.png', painter.image)
@@ -180,6 +199,10 @@ def visualize_page_resizing_step_output(seed: int, output: PageResizingStepOutpu
     cur_write_image = functools.partial(write_image, frames_offset=1)
 
     cur_write_image(f'page_{seed}_resized_image.jpg', output.page_image)
+
+    painter = Painter(output.page_image)
+    painter.paint_mask(output.page_seal_impression_char_mask)
+    cur_write_image(f'page_{seed}_resized_seal_impression_char_mask.jpg', painter.image)
 
     painter = Painter(output.page_image)
     painter.paint_mask(output.page_text_line_mask, alpha=0.9)
@@ -524,7 +547,7 @@ def debug_adaptive_scaling_dataset_steps():
         rng = default_rng(seed)
         output = pipeline.run(rng)
         visualize_page_distortion_step_output(seed, output.page_distortion_step_output)
-        if False:
+        if True:
             visualize_page_resizing_step_output(seed, output.page_resizing_step_output)
         if True:
             visualize_page_cropping_step_output(seed, output.page_cropping_step_output)

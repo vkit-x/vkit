@@ -37,7 +37,6 @@ warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 @attrs.define(frozen=True)
 class Box(Shapable):
     # By design, smooth positioning is not supported in Box.
-
     up: int
     down: int
     left: int

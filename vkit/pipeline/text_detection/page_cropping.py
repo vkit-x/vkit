@@ -49,6 +49,7 @@ class PageCroppingStepInput:
 class DownsampledLabel:
     shape: Tuple[int, int]
     page_char_mask: Mask
+    page_seal_impression_char_mask: Mask
     page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
@@ -59,6 +60,7 @@ class DownsampledLabel:
 class CroppedPage:
     page_image: Image
     page_char_mask: Mask
+    page_seal_impression_char_mask: Mask
     page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
@@ -87,6 +89,7 @@ class PageCroppingStep(
         page_image: Image,
         page_active_mask: Mask,
         page_char_mask: Mask,
+        page_seal_impression_char_mask: Mask,
         page_char_height_score_map: ScoreMap,
         page_text_line_mask: Mask,
         page_text_line_height_score_map: ScoreMap,
@@ -116,6 +119,10 @@ class PageCroppingStep(
 
         page_char_mask = cropper.crop_mask(
             page_char_mask,
+            core_only=True,
+        )
+        page_seal_impression_char_mask = cropper.crop_mask(
+            page_seal_impression_char_mask,
             core_only=True,
         )
         page_char_height_score_map = cropper.crop_score_map(
@@ -176,6 +183,15 @@ class PageCroppingStep(
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
 
+            downsampled_page_seal_impression_char_mask = \
+                page_seal_impression_char_mask.to_box_detached()
+            downsampled_page_seal_impression_char_mask = \
+                downsampled_page_seal_impression_char_mask.to_resized_mask(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
             downsampled_page_char_height_score_map = page_char_height_score_map.to_box_detached()
             downsampled_page_char_height_score_map = \
                 downsampled_page_char_height_score_map.to_resized_score_map(
@@ -204,6 +220,7 @@ class PageCroppingStep(
             downsampled_label = DownsampledLabel(
                 shape=downsampled_shape,
                 page_char_mask=downsampled_page_char_mask,
+                page_seal_impression_char_mask=downsampled_page_seal_impression_char_mask,
                 page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_text_line_mask=downsampled_page_text_line_mask,
                 page_text_line_height_score_map=downsampled_page_text_line_height_score_map,
@@ -213,6 +230,7 @@ class PageCroppingStep(
         return CroppedPage(
             page_image=page_image,
             page_char_mask=page_char_mask,
+            page_seal_impression_char_mask=page_seal_impression_char_mask,
             page_char_height_score_map=page_char_height_score_map,
             page_text_line_mask=page_text_line_mask,
             page_text_line_height_score_map=page_text_line_height_score_map,
@@ -225,6 +243,7 @@ class PageCroppingStep(
         page_image = page_resizing_step_output.page_image
         page_active_mask = page_resizing_step_output.page_active_mask
         page_char_mask = page_resizing_step_output.page_char_mask
+        page_seal_impression_char_mask = page_resizing_step_output.page_seal_impression_char_mask
         page_char_height_score_map = page_resizing_step_output.page_char_height_score_map
         page_text_line_mask = page_resizing_step_output.page_text_line_mask
         page_text_line_height_score_map = page_resizing_step_output.page_text_line_height_score_map
@@ -252,6 +271,7 @@ class PageCroppingStep(
                 page_image=page_image,
                 page_active_mask=page_active_mask,
                 page_char_mask=page_char_mask,
+                page_seal_impression_char_mask=page_seal_impression_char_mask,
                 page_char_height_score_map=page_char_height_score_map,
                 page_text_line_mask=page_text_line_mask,
                 page_text_line_height_score_map=page_text_line_height_score_map,

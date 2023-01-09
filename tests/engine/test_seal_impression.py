@@ -161,7 +161,7 @@ def test_ellipse_filling():
                 rng=rng,
             )
 
-        filled_score_map = fill_text_line_to_seal_impression(
+        filled_score_map, char_polygons = fill_text_line_to_seal_impression(
             seal_impression,
             list(range(len(text_lines))),
             text_lines,
@@ -177,3 +177,7 @@ def test_ellipse_filling():
         image[filled_score_map] = seal_impression.color
 
         write_image(f'{rng_seed}.jpg', image)
+
+        painter = Painter(image)
+        painter.paint_polygons(char_polygons)
+        write_image(f'{rng_seed}-char_polygons.jpg', painter.image)
