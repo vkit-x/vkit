@@ -152,7 +152,7 @@ class CropperState:
         )
 
     @classmethod
-    def create(
+    def create_from_random_proposal(
         cls,
         shape: Tuple[int, int],
         core_size: int,
@@ -250,7 +250,7 @@ class CropperState:
 class Cropper:
 
     @classmethod
-    def create(
+    def create_from_random_proposal(
         cls,
         shape: Tuple[int, int],
         core_size: int,
@@ -258,7 +258,7 @@ class Cropper:
         rng: RandomGenerator,
         pad_value: int = 0,
     ):
-        cropper_state = CropperState.create(
+        cropper_state = CropperState.create_from_random_proposal(
             shape=shape,
             core_size=core_size,
             pad_size=pad_size,

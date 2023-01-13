@@ -130,7 +130,7 @@ class PageTextRegionCroppingStep(
         rng: RandomGenerator,
     ):
         if rotate_angle != 0:
-            cropper_before_rotate = Cropper.create(
+            cropper_before_rotate = Cropper.create_from_random_proposal(
                 shape=shape_before_rotate,
                 core_size=self.config.core_size,
                 pad_size=self.config.pad_size,
@@ -158,7 +158,7 @@ class PageTextRegionCroppingStep(
             )
 
         else:
-            cropper = Cropper.create(
+            cropper = Cropper.create_from_random_proposal(
                 shape=page_image.shape,
                 core_size=self.config.core_size,
                 pad_size=self.config.pad_size,

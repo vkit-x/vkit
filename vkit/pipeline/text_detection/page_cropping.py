@@ -97,7 +97,7 @@ class PageCroppingStep(
         force_crop_center: bool = False,
     ):
         if not force_crop_center:
-            cropper = Cropper.create(
+            cropper = Cropper.create_from_random_proposal(
                 shape=page_image.shape,
                 core_size=self.config.core_size,
                 pad_size=self.config.pad_size,
