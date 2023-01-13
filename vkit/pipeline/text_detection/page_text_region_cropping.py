@@ -137,8 +137,8 @@ class PageTextRegionCroppingStep(
                 pad_value=self.config.pad_value,
                 rng=rng,
             )
-            origin_box_before_rotate = cropper_before_rotate.cropper_state.origin_box
-            center_point_before_rotate = origin_box_before_rotate.get_center_point()
+            original_box_before_rotate = cropper_before_rotate.cropper_state.original_box
+            center_point_before_rotate = original_box_before_rotate.get_center_point()
 
             rotated_result = rotate.distort(
                 {'angle': rotate_angle},
@@ -167,19 +167,19 @@ class PageTextRegionCroppingStep(
             )
 
         # Pick labels.
-        origin_core_shapely_polygon = cropper.origin_core_box.to_shapely_polygon()
+        original_core_shapely_polygon = cropper.original_core_box.to_shapely_polygon()
 
         centroid_labels: List[PageCharRegressionLabel] = []
-        for shapely_point in centroid_strtree.query(origin_core_shapely_polygon):
-            if not origin_core_shapely_polygon.intersects(shapely_point):
+        for shapely_point in centroid_strtree.query(original_core_shapely_polygon):
+            if not original_core_shapely_polygon.intersects(shapely_point):
                 continue
             assert isinstance(shapely_point, ShapelyPoint)
             centroid_xy_pair = (int(shapely_point.x), int(shapely_point.y))
             centroid_labels.extend(centroid_xy_pair_to_labels[centroid_xy_pair])
 
         deviate_labels: List[PageCharRegressionLabel] = []
-        for shapely_point in deviate_strtree.query(origin_core_shapely_polygon):
-            if not origin_core_shapely_polygon.intersects(shapely_point):
+        for shapely_point in deviate_strtree.query(original_core_shapely_polygon):
+            if not original_core_shapely_polygon.intersects(shapely_point):
                 continue
             assert isinstance(shapely_point, ShapelyPoint)
             deviate_xy_pair = (int(shapely_point.x), int(shapely_point.y))
@@ -190,8 +190,8 @@ class PageTextRegionCroppingStep(
             return None
 
         # Shift labels.
-        offset_y = cropper.target_box.up - cropper.origin_box.up
-        offset_x = cropper.target_box.left - cropper.origin_box.left
+        offset_y = cropper.target_box.up - cropper.original_box.up
+        offset_x = cropper.target_box.left - cropper.original_box.left
         shifted_centroid_labels = [
             centroid_label.to_shifted_page_char_regression_label(
                 offset_y=offset_y,
