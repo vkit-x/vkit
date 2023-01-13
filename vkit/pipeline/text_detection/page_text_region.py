@@ -598,8 +598,8 @@ class TextRegionFlattener:
                 char_polygons = grouped_char_polygons[idx]
                 relative_char_polygons = [
                     char_polygon.to_relative_polygon(
-                        origin_y=bounding_box.up,
-                        origin_x=bounding_box.left,
+                        original_y=bounding_box.up,
+                        original_x=bounding_box.left,
                     ) for char_polygon in char_polygons
                 ]
 
@@ -635,8 +635,8 @@ class TextRegionFlattener:
             if rotated_char_polygons:
                 trimmed_char_polygons = [
                     rotated_char_polygon.to_relative_polygon(
-                        origin_y=rotated_trimmed_box.up,
-                        origin_x=rotated_trimmed_box.left,
+                        original_y=rotated_trimmed_box.up,
+                        original_x=rotated_trimmed_box.left,
                     ) for rotated_char_polygon in rotated_char_polygons
                 ]
 

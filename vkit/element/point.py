@@ -191,8 +191,8 @@ class PointList(List[Point]):
             ) for point in self
         )
 
-    def to_relative_points(self, origin_y: int, origin_x: int):
-        return self.to_shifted_points(offset_y=-origin_y, offset_x=-origin_x)
+    def to_relative_points(self, original_y: int, original_x: int):
+        return self.to_shifted_points(offset_y=-original_y, offset_x=-original_x)
 
     def to_conducted_resized_points(
         self,
@@ -265,8 +265,8 @@ class PointTuple(Tuple[Point, ...]):
             ) for point in self
         )
 
-    def to_relative_points(self, origin_y: int, origin_x: int):
-        return self.to_shifted_points(offset_y=-origin_y, offset_x=-origin_x)
+    def to_relative_points(self, original_y: int, original_x: int):
+        return self.to_shifted_points(offset_y=-original_y, offset_x=-original_x)
 
     def to_conducted_resized_points(
         self,

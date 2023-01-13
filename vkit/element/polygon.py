@@ -268,14 +268,14 @@ class Polygon:
     def to_shifted_points(self, offset_y: int = 0, offset_x: int = 0):
         return self.points.to_shifted_points(offset_y=offset_y, offset_x=offset_x)
 
-    def to_relative_points(self, origin_y: int, origin_x: int):
-        return self.points.to_relative_points(origin_y=origin_y, origin_x=origin_x)
+    def to_relative_points(self, original_y: int, original_x: int):
+        return self.points.to_relative_points(original_y=original_y, original_x=original_x)
 
     def to_shifted_polygon(self, offset_y: int = 0, offset_x: int = 0):
         return Polygon(points=self.to_shifted_points(offset_y=offset_y, offset_x=offset_x))
 
-    def to_relative_polygon(self, origin_y: int, origin_x: int):
-        return Polygon(points=self.to_relative_points(origin_y=origin_y, origin_x=origin_x))
+    def to_relative_polygon(self, original_y: int, original_x: int):
+        return Polygon(points=self.to_relative_points(original_y=original_y, original_x=original_x))
 
     def to_conducted_resized_polygon(
         self,

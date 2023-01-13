@@ -163,8 +163,8 @@ class Mask(Shapable):
         for box in boxes:
             if attached_box:
                 box = box.to_relative_box(
-                    origin_y=attached_box.up,
-                    origin_x=attached_box.left,
+                    original_y=attached_box.up,
+                    original_x=attached_box.left,
                 )
             np_boxed_active_count = box.extract_np_array(np_active_count)
             np_boxed_active_count += 1
@@ -185,8 +185,8 @@ class Mask(Shapable):
             box = polygon.bounding_box
             if attached_box:
                 box = box.to_relative_box(
-                    origin_y=attached_box.up,
-                    origin_x=attached_box.left,
+                    original_y=attached_box.up,
+                    original_x=attached_box.left,
                 )
             np_boxed_active_count = box.extract_np_array(np_active_count)
             np_boxed_active_count[polygon.internals.np_mask] += 1
@@ -208,8 +208,8 @@ class Mask(Shapable):
                 box = mask.box
                 if attached_box:
                     box = box.to_relative_box(
-                        origin_y=attached_box.up,
-                        origin_x=attached_box.left,
+                        original_y=attached_box.up,
+                        original_x=attached_box.left,
                     )
                 np_boxed_active_count = box.extract_np_array(np_active_count)
             else:
@@ -233,8 +233,8 @@ class Mask(Shapable):
                 box = score_map.box
                 if attached_box:
                     box = box.to_relative_box(
-                        origin_y=attached_box.up,
-                        origin_x=attached_box.left,
+                        original_y=attached_box.up,
+                        original_x=attached_box.left,
                     )
                 np_boxed_active_count = box.extract_np_array(np_active_count)
             else:

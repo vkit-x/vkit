@@ -112,13 +112,13 @@ class CameraModel:
             [0, 0, camera_distance],
             dtype=np.float32,
         ).reshape(-1, 1)
-        wc_shifted_origin_vec = np.matmul(
+        wc_shifted_original_vec = np.matmul(
             # NOTE: The rotation matrix is orthogonal,
             # hence it's inverse is equal to it's transpose.
             rotation_mat.transpose(),
             cc_principal_point_vec,
         )
-        wc_shifted_principal_point_vec = wc_shifted_origin_vec - principal_point
+        wc_shifted_principal_point_vec = wc_shifted_original_vec - principal_point
 
         translation_vec: np.ndarray = np.matmul(
             rotation_mat,
