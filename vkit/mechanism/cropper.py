@@ -31,10 +31,10 @@ class CropperState:
     width: int
     pad_value: int
     crop_size: int
-    origin_box: Box
+    original_box: Box
     target_box: Box
     core_box: Box
-    origin_core_box: Box
+    original_core_box: Box
 
     @classmethod
     def sample_cropping_positions(
@@ -110,7 +110,7 @@ class CropperState:
         left: int,
         right: int,
     ):
-        origin_box = Box(
+        original_box = Box(
             up=up,
             down=down,
             left=left,
@@ -119,9 +119,9 @@ class CropperState:
 
         target_box = Box(
             up=vert_offset,
-            down=vert_offset + origin_box.height - 1,
+            down=vert_offset + original_box.height - 1,
             left=hori_offset,
-            right=hori_offset + origin_box.width - 1,
+            right=hori_offset + original_box.width - 1,
         )
 
         core_begin = pad_size
@@ -133,7 +133,7 @@ class CropperState:
             right=core_end,
         )
 
-        origin_core_box = Box(
+        original_core_box = Box(
             up=up + core_box.up - target_box.up,
             down=down + core_box.down - target_box.down,
             left=left + core_box.left - target_box.left,
@@ -145,10 +145,10 @@ class CropperState:
             width=width,
             pad_value=pad_value,
             crop_size=crop_size,
-            origin_box=origin_box,
+            original_box=original_box,
             target_box=target_box,
             core_box=core_box,
-            origin_core_box=origin_core_box,
+            original_core_box=original_core_box,
         )
 
     @classmethod
@@ -240,7 +240,9 @@ class CropperState:
 
     @property
     def need_post_filling(self):
-        return self.origin_box.height != self.crop_size or self.origin_box.width != self.crop_size
+        return (
+            self.original_box.height != self.crop_size or self.original_box.width != self.crop_size
+        )
 
     @property
     def cropped_shape(self):
@@ -289,8 +291,8 @@ class Cropper:
         self.cropper_state = cropper_state
 
     @property
-    def origin_box(self):
-        return self.cropper_state.origin_box
+    def original_box(self):
+        return self.cropper_state.original_box
 
     @property
     def target_box(self):
@@ -301,8 +303,8 @@ class Cropper:
         return self.cropper_state.core_box
 
     @property
-    def origin_core_box(self):
-        return self.cropper_state.origin_core_box
+    def original_core_box(self):
+        return self.cropper_state.original_core_box
 
     @property
     def need_post_filling(self):
@@ -321,7 +323,7 @@ class Cropper:
         return self.cropper_state.pad_value
 
     def crop_mask(self, mask: Mask, core_only: bool = False):
-        mask = self.origin_box.extract_mask(mask)
+        mask = self.original_box.extract_mask(mask)
 
         if self.need_post_filling:
             new_mask = Mask.from_shape(self.cropped_shape)
@@ -335,7 +337,7 @@ class Cropper:
         return mask
 
     def crop_score_map(self, score_map: ScoreMap, core_only: bool = False):
-        score_map = self.origin_box.extract_score_map(score_map)
+        score_map = self.original_box.extract_score_map(score_map)
 
         if self.need_post_filling:
             new_score_map = ScoreMap.from_shape(
@@ -352,7 +354,7 @@ class Cropper:
         return score_map
 
     def crop_image(self, image: Image):
-        image = self.origin_box.extract_image(image)
+        image = self.original_box.extract_image(image)
 
         if self.need_post_filling:
             new_image = Image.from_shape(
