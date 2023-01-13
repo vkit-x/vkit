@@ -37,7 +37,7 @@ class CropperState:
     origin_core_box: Box
 
     @classmethod
-    def sample_cropping_positions(
+    def sample_cropping_positions_along_axis(
         cls,
         core_size: int,
         pad_size: int,
@@ -62,7 +62,7 @@ class CropperState:
         return offset, begin, end
 
     @classmethod
-    def sample_cropper_state(
+    def sample_cropping_positions(
         cls,
         height: int,
         width: int,
@@ -71,14 +71,14 @@ class CropperState:
         crop_size: int,
         rng: RandomGenerator,
     ):
-        vert_offset, up, down = cls.sample_cropping_positions(
+        vert_offset, up, down = cls.sample_cropping_positions_along_axis(
             core_size=core_size,
             pad_size=pad_size,
             crop_size=crop_size,
             length=height,
             rng=rng,
         )
-        hori_offset, left, right = cls.sample_cropping_positions(
+        hori_offset, left, right = cls.sample_cropping_positions_along_axis(
             core_size=core_size,
             pad_size=pad_size,
             crop_size=crop_size,
@@ -169,7 +169,7 @@ class CropperState:
             hori_offset,
             left,
             right,
-        ) = cls.sample_cropper_state(
+        ) = cls.sample_cropping_positions(
             height=height,
             width=width,
             core_size=core_size,
