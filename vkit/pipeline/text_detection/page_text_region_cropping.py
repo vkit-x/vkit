@@ -166,7 +166,7 @@ class PageTextRegionCroppingStep(
                 rng=rng,
             )
 
-        # Pick labels.
+        # Remove labels out of the origina core box.
         original_core_shapely_polygon = cropper.original_core_box.to_shapely_polygon()
 
         centroid_labels: List[PageCharRegressionLabel] = []
@@ -177,13 +177,18 @@ class PageTextRegionCroppingStep(
             centroid_xy_pair = (int(shapely_point.x), int(shapely_point.y))
             centroid_labels.extend(centroid_xy_pair_to_labels[centroid_xy_pair])
 
+        preserved_char_indices = set(centroid_label.char_idx for centroid_label in centroid_labels)
         deviate_labels: List[PageCharRegressionLabel] = []
         for shapely_point in deviate_strtree.query(original_core_shapely_polygon):
             if not original_core_shapely_polygon.intersects(shapely_point):
                 continue
             assert isinstance(shapely_point, ShapelyPoint)
             deviate_xy_pair = (int(shapely_point.x), int(shapely_point.y))
-            deviate_labels.extend(deviate_xy_pair_to_labels[deviate_xy_pair])
+            for deviate_label in deviate_xy_pair_to_labels[deviate_xy_pair]:
+                if deviate_label.char_idx not in preserved_char_indices:
+                    # If the centroid is not preserved, ignore this deviate label as well.
+                    continue
+                deviate_labels.append(deviate_label)
 
         if len(centroid_labels) < self.config.num_centroid_points_min \
                 or len(deviate_labels) < self.config.num_deviate_points_min:
