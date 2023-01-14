@@ -312,6 +312,13 @@ class PageCharRegressionLabel:
         return unwrap_optional_field(self._bounding_smooth_right)
 
     @property
+    def bounding_center_point(self):
+        return Point.create(
+            y=(self.bounding_smooth_up + self.bounding_smooth_down) / 2,
+            x=(self.bounding_smooth_left + self.bounding_smooth_right) / 2,
+        )
+
+    @property
     def bounding_smooth_shape(self):
         height = self.bounding_smooth_down - self.bounding_smooth_up
         width = self.bounding_smooth_right - self.bounding_smooth_left

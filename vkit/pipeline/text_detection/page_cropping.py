@@ -53,7 +53,7 @@ class DownsampledLabel:
     page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
-    core_box: Box
+    target_core_box: Box
 
 
 @attrs.define
@@ -64,7 +64,7 @@ class CroppedPage:
     page_char_height_score_map: ScoreMap
     page_text_line_mask: Mask
     page_text_line_height_score_map: ScoreMap
-    core_box: Box
+    target_core_box: Box
     downsampled_label: Optional[DownsampledLabel]
 
 
@@ -97,7 +97,7 @@ class PageCroppingStep(
         force_crop_center: bool = False,
     ):
         if not force_crop_center:
-            cropper = Cropper.create(
+            cropper = Cropper.create_from_random_proposal(
                 shape=page_image.shape,
                 core_size=self.config.core_size,
                 pad_size=self.config.pad_size,
@@ -141,7 +141,7 @@ class PageCroppingStep(
 
         if self.config.drop_cropped_page_with_small_text_ratio:
             num_text_pixels = (page_char_mask.mat > 0).sum()
-            text_ratio = num_text_pixels / cropper.core_box.area
+            text_ratio = num_text_pixels / cropper.target_core_box.area
             if text_ratio < self.config.text_ratio_min:
                 return None
 
@@ -161,18 +161,20 @@ class PageCroppingStep(
 
             assert self.config.pad_size % downsample_labeling_factor == 0
             assert self.config.core_size % downsample_labeling_factor == 0
-            assert cropper.core_box.height == cropper.core_box.width == self.config.core_size
+            assert cropper.target_core_box.height \
+                == cropper.target_core_box.width \
+                == self.config.core_size
 
             downsampled_pad_size = self.config.pad_size // downsample_labeling_factor
             downsampled_core_size = self.config.core_size // downsample_labeling_factor
 
-            downsampled_core_begin = downsampled_pad_size
-            downsampled_core_end = downsampled_core_begin + downsampled_core_size - 1
-            downsampled_core_box = Box(
-                up=downsampled_core_begin,
-                down=downsampled_core_end,
-                left=downsampled_core_begin,
-                right=downsampled_core_end,
+            downsampled_target_core_begin = downsampled_pad_size
+            downsampled_target_core_end = downsampled_target_core_begin + downsampled_core_size - 1
+            downsampled_target_core_box = Box(
+                up=downsampled_target_core_begin,
+                down=downsampled_target_core_end,
+                left=downsampled_target_core_begin,
+                right=downsampled_target_core_end,
             )
 
             downsampled_page_char_mask = page_char_mask.to_box_detached()
@@ -224,7 +226,7 @@ class PageCroppingStep(
                 page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_text_line_mask=downsampled_page_text_line_mask,
                 page_text_line_height_score_map=downsampled_page_text_line_height_score_map,
-                core_box=downsampled_core_box,
+                target_core_box=downsampled_target_core_box,
             )
 
         return CroppedPage(
@@ -234,7 +236,7 @@ class PageCroppingStep(
             page_char_height_score_map=page_char_height_score_map,
             page_text_line_mask=page_text_line_mask,
             page_text_line_height_score_map=page_text_line_height_score_map,
-            core_box=cropper.core_box,
+            target_core_box=cropper.target_core_box,
             downsampled_label=downsampled_label,
         )
 

@@ -65,7 +65,7 @@ class DownsampledLabel:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
-    core_box: Box
+    target_core_box: Box
 
 
 @attrs.define
@@ -75,7 +75,7 @@ class CroppedPageTextRegion:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
-    core_box: Box
+    target_core_box: Box
     downsampled_label: Optional[DownsampledLabel]
 
 
@@ -130,7 +130,7 @@ class PageTextRegionCroppingStep(
         rng: RandomGenerator,
     ):
         if rotate_angle != 0:
-            cropper_before_rotate = Cropper.create(
+            cropper_before_rotate = Cropper.create_from_random_proposal(
                 shape=shape_before_rotate,
                 core_size=self.config.core_size,
                 pad_size=self.config.pad_size,
@@ -158,7 +158,7 @@ class PageTextRegionCroppingStep(
             )
 
         else:
-            cropper = Cropper.create(
+            cropper = Cropper.create_from_random_proposal(
                 shape=page_image.shape,
                 core_size=self.config.core_size,
                 pad_size=self.config.pad_size,
@@ -166,7 +166,7 @@ class PageTextRegionCroppingStep(
                 rng=rng,
             )
 
-        # Pick labels.
+        # Remove labels out of the origina core box.
         original_core_shapely_polygon = cropper.original_core_box.to_shapely_polygon()
 
         centroid_labels: List[PageCharRegressionLabel] = []
@@ -177,13 +177,18 @@ class PageTextRegionCroppingStep(
             centroid_xy_pair = (int(shapely_point.x), int(shapely_point.y))
             centroid_labels.extend(centroid_xy_pair_to_labels[centroid_xy_pair])
 
+        preserved_char_indices = set(centroid_label.char_idx for centroid_label in centroid_labels)
         deviate_labels: List[PageCharRegressionLabel] = []
         for shapely_point in deviate_strtree.query(original_core_shapely_polygon):
             if not original_core_shapely_polygon.intersects(shapely_point):
                 continue
             assert isinstance(shapely_point, ShapelyPoint)
             deviate_xy_pair = (int(shapely_point.x), int(shapely_point.y))
-            deviate_labels.extend(deviate_xy_pair_to_labels[deviate_xy_pair])
+            for deviate_label in deviate_xy_pair_to_labels[deviate_xy_pair]:
+                if deviate_label.char_idx not in preserved_char_indices:
+                    # If the centroid is not preserved, ignore this deviate label as well.
+                    continue
+                deviate_labels.append(deviate_label)
 
         if len(centroid_labels) < self.config.num_centroid_points_min \
                 or len(deviate_labels) < self.config.num_deviate_points_min:
@@ -230,18 +235,20 @@ class PageTextRegionCroppingStep(
 
             assert self.config.pad_size % downsample_labeling_factor == 0
             assert self.config.core_size % downsample_labeling_factor == 0
-            assert cropper.core_box.height == cropper.core_box.width == self.config.core_size
+            assert cropper.target_core_box.height \
+                == cropper.target_core_box.width \
+                == self.config.core_size
 
             downsampled_pad_size = self.config.pad_size // downsample_labeling_factor
             downsampled_core_size = self.config.core_size // downsample_labeling_factor
 
-            downsampled_core_begin = downsampled_pad_size
-            downsampled_core_end = downsampled_core_begin + downsampled_core_size - 1
-            downsampled_core_box = Box(
-                up=downsampled_core_begin,
-                down=downsampled_core_end,
-                left=downsampled_core_begin,
-                right=downsampled_core_end,
+            downsampled_target_core_begin = downsampled_pad_size
+            downsampled_target_core_end = downsampled_target_core_begin + downsampled_core_size - 1
+            downsampled_target_core_box = Box(
+                up=downsampled_target_core_begin,
+                down=downsampled_target_core_end,
+                left=downsampled_target_core_begin,
+                right=downsampled_target_core_end,
             )
 
             downsampled_page_char_mask = page_char_mask.to_box_detached()
@@ -281,7 +288,7 @@ class PageTextRegionCroppingStep(
                 page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_char_gaussian_score_map=downsampled_page_char_gaussian_score_map,
                 page_char_regression_labels=downsampled_page_char_regression_labels,
-                core_box=downsampled_core_box,
+                target_core_box=downsampled_target_core_box,
             )
 
         return CroppedPageTextRegion(
@@ -290,7 +297,7 @@ class PageTextRegionCroppingStep(
             page_char_height_score_map=page_char_height_score_map,
             page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=shifted_centroid_labels + shifted_deviate_labels,
-            core_box=cropper.core_box,
+            target_core_box=cropper.target_core_box,
             downsampled_label=downsampled_label,
         )
 
