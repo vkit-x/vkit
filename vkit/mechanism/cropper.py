@@ -33,7 +33,7 @@ class CropperState:
     crop_size: int
     original_box: Box
     target_box: Box
-    core_box: Box
+    target_core_box: Box
     original_core_box: Box
 
     @classmethod
@@ -48,18 +48,18 @@ class CropperState:
         if core_size <= length:
             core_begin = rng.integers(0, length - core_size + 1)
             begin = core_begin - pad_size
-            offset = 0
+            target_offset = 0
             if begin < 0:
-                offset = abs(begin)
+                target_offset = abs(begin)
                 begin = 0
 
         else:
             begin = 0
-            offset = pad_size
-            offset += rng.integers(0, core_size - length + 1)
+            target_offset = pad_size
+            target_offset += rng.integers(0, core_size - length + 1)
 
-        end = min(length - 1, begin + (crop_size - offset) - 1)
-        return offset, begin, end
+        end = min(length - 1, begin + (crop_size - target_offset) - 1)
+        return target_offset, begin, end
 
     @classmethod
     def sample_cropping_positions(
@@ -71,14 +71,22 @@ class CropperState:
         crop_size: int,
         rng: RandomGenerator,
     ):
-        vert_offset, up, down = cls.sample_cropping_positions_along_axis(
+        (
+            target_vert_offset,
+            original_up,
+            original_down,
+        ) = cls.sample_cropping_positions_along_axis(
             core_size=core_size,
             pad_size=pad_size,
             crop_size=crop_size,
             length=height,
             rng=rng,
         )
-        hori_offset, left, right = cls.sample_cropping_positions_along_axis(
+        (
+            target_hori_offset,
+            original_left,
+            original_right,
+        ) = cls.sample_cropping_positions_along_axis(
             core_size=core_size,
             pad_size=pad_size,
             crop_size=crop_size,
@@ -86,12 +94,12 @@ class CropperState:
             rng=rng,
         )
         return (
-            vert_offset,
-            up,
-            down,
-            hori_offset,
-            left,
-            right,
+            target_vert_offset,
+            original_up,
+            original_down,
+            target_hori_offset,
+            original_left,
+            original_right,
         )
 
     @classmethod
@@ -103,41 +111,41 @@ class CropperState:
         pad_value: int,
         core_size: int,
         crop_size: int,
-        vert_offset: int,
-        up: int,
-        down: int,
-        hori_offset: int,
-        left: int,
-        right: int,
+        target_vert_offset: int,
+        original_up: int,
+        original_down: int,
+        target_hori_offset: int,
+        original_left: int,
+        original_right: int,
     ):
         original_box = Box(
-            up=up,
-            down=down,
-            left=left,
-            right=right,
+            up=original_up,
+            down=original_down,
+            left=original_left,
+            right=original_right,
         )
 
         target_box = Box(
-            up=vert_offset,
-            down=vert_offset + original_box.height - 1,
-            left=hori_offset,
-            right=hori_offset + original_box.width - 1,
+            up=target_vert_offset,
+            down=target_vert_offset + original_box.height - 1,
+            left=target_hori_offset,
+            right=target_hori_offset + original_box.width - 1,
         )
 
-        core_begin = pad_size
-        core_end = core_begin + core_size - 1
-        core_box = Box(
-            up=core_begin,
-            down=core_end,
-            left=core_begin,
-            right=core_end,
+        target_core_begin = pad_size
+        target_core_end = target_core_begin + core_size - 1
+        target_core_box = Box(
+            up=target_core_begin,
+            down=target_core_end,
+            left=target_core_begin,
+            right=target_core_end,
         )
 
         original_core_box = Box(
-            up=up + core_box.up - target_box.up,
-            down=down + core_box.down - target_box.down,
-            left=left + core_box.left - target_box.left,
-            right=right + core_box.right - target_box.right,
+            up=original_up + target_core_box.up - target_box.up,
+            down=original_down + target_core_box.down - target_box.down,
+            left=original_left + target_core_box.left - target_box.left,
+            right=original_right + target_core_box.right - target_box.right,
         )
 
         return CropperState(
@@ -147,7 +155,7 @@ class CropperState:
             crop_size=crop_size,
             original_box=original_box,
             target_box=target_box,
-            core_box=core_box,
+            target_core_box=target_core_box,
             original_core_box=original_core_box,
         )
 
@@ -163,12 +171,12 @@ class CropperState:
         height, width = shape
         crop_size = 2 * pad_size + core_size
         (
-            vert_offset,
-            up,
-            down,
-            hori_offset,
-            left,
-            right,
+            target_vert_offset,
+            original_up,
+            original_down,
+            target_hori_offset,
+            original_left,
+            original_right,
         ) = cls.sample_cropping_positions(
             height=height,
             width=width,
@@ -184,12 +192,12 @@ class CropperState:
             pad_value=pad_value,
             core_size=core_size,
             crop_size=crop_size,
-            vert_offset=vert_offset,
-            up=up,
-            down=down,
-            hori_offset=hori_offset,
-            left=left,
-            right=right,
+            target_vert_offset=target_vert_offset,
+            original_up=original_up,
+            original_down=original_down,
+            target_hori_offset=target_hori_offset,
+            original_left=original_left,
+            original_right=original_right,
         )
 
     @classmethod
@@ -207,19 +215,19 @@ class CropperState:
         assert 0 <= center_point.y < height
         assert 0 <= center_point.x < width
 
-        vert_offset = 0
+        target_vert_offset = 0
         up = center_point.y - crop_size // 2
         down = up + crop_size - 1
         if up < 0:
-            vert_offset = abs(up)
+            target_vert_offset = abs(up)
             up = 0
         down = min(height - 1, down)
 
-        hori_offset = 0
+        target_hori_offset = 0
         left = center_point.x - crop_size // 2
         right = left + crop_size - 1
         if left < 0:
-            hori_offset = abs(left)
+            target_hori_offset = abs(left)
             left = 0
         right = min(width - 1, right)
 
@@ -230,12 +238,12 @@ class CropperState:
             pad_value=pad_value,
             core_size=core_size,
             crop_size=crop_size,
-            vert_offset=vert_offset,
-            up=up,
-            down=down,
-            hori_offset=hori_offset,
-            left=left,
-            right=right,
+            target_vert_offset=target_vert_offset,
+            original_up=up,
+            original_down=down,
+            target_hori_offset=target_hori_offset,
+            original_left=left,
+            original_right=right,
         )
 
     @property
@@ -299,8 +307,8 @@ class Cropper:
         return self.cropper_state.target_box
 
     @property
-    def core_box(self):
-        return self.cropper_state.core_box
+    def target_core_box(self):
+        return self.cropper_state.target_core_box
 
     @property
     def original_core_box(self):
@@ -331,8 +339,8 @@ class Cropper:
             mask = new_mask
 
         if core_only:
-            mask = self.core_box.extract_mask(mask)
-            mask = mask.to_box_attached(self.core_box)
+            mask = self.target_core_box.extract_mask(mask)
+            mask = mask.to_box_attached(self.target_core_box)
 
         return mask
 
@@ -348,8 +356,8 @@ class Cropper:
             score_map = new_score_map
 
         if core_only:
-            score_map = self.core_box.extract_score_map(score_map)
-            score_map = score_map.to_box_attached(self.core_box)
+            score_map = self.target_core_box.extract_score_map(score_map)
+            score_map = score_map.to_box_attached(self.target_core_box)
 
         return score_map
 

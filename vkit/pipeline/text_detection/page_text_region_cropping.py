@@ -65,7 +65,7 @@ class DownsampledLabel:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
-    core_box: Box
+    target_core_box: Box
 
 
 @attrs.define
@@ -75,7 +75,7 @@ class CroppedPageTextRegion:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
-    core_box: Box
+    target_core_box: Box
     downsampled_label: Optional[DownsampledLabel]
 
 
@@ -230,18 +230,20 @@ class PageTextRegionCroppingStep(
 
             assert self.config.pad_size % downsample_labeling_factor == 0
             assert self.config.core_size % downsample_labeling_factor == 0
-            assert cropper.core_box.height == cropper.core_box.width == self.config.core_size
+            assert cropper.target_core_box.height \
+                == cropper.target_core_box.width \
+                == self.config.core_size
 
             downsampled_pad_size = self.config.pad_size // downsample_labeling_factor
             downsampled_core_size = self.config.core_size // downsample_labeling_factor
 
-            downsampled_core_begin = downsampled_pad_size
-            downsampled_core_end = downsampled_core_begin + downsampled_core_size - 1
-            downsampled_core_box = Box(
-                up=downsampled_core_begin,
-                down=downsampled_core_end,
-                left=downsampled_core_begin,
-                right=downsampled_core_end,
+            downsampled_target_core_begin = downsampled_pad_size
+            downsampled_target_core_end = downsampled_target_core_begin + downsampled_core_size - 1
+            downsampled_target_core_box = Box(
+                up=downsampled_target_core_begin,
+                down=downsampled_target_core_end,
+                left=downsampled_target_core_begin,
+                right=downsampled_target_core_end,
             )
 
             downsampled_page_char_mask = page_char_mask.to_box_detached()
@@ -281,7 +283,7 @@ class PageTextRegionCroppingStep(
                 page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_char_gaussian_score_map=downsampled_page_char_gaussian_score_map,
                 page_char_regression_labels=downsampled_page_char_regression_labels,
-                core_box=downsampled_core_box,
+                target_core_box=downsampled_target_core_box,
             )
 
         return CroppedPageTextRegion(
@@ -290,7 +292,7 @@ class PageTextRegionCroppingStep(
             page_char_height_score_map=page_char_height_score_map,
             page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=shifted_centroid_labels + shifted_deviate_labels,
-            core_box=cropper.core_box,
+            target_core_box=cropper.target_core_box,
             downsampled_label=downsampled_label,
         )
 
