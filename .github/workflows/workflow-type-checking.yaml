@@ -20,6 +20,7 @@ jobs:
             exit 1
           fi
 
+          sudo pip install -U pip
           sudo pip install -e .
           sudo pip install 'pytest<7.2.0'
       - name: Type checking
