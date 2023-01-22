@@ -466,7 +466,7 @@ def visualize_page_text_region_cropping_step_output(
             cropped_page_text_region.page_image,
         )
 
-        if True:
+        if False:
             cur_write_image(
                 f'page_{seed}_cropped_text_region_{idx}_image_ds_8.jpg',
                 paint_image_cell(cropped_page_text_region.page_image, 8),
@@ -515,6 +515,13 @@ def visualize_page_text_region_cropping_step_output(
                 cropped_page_text_region.page_image,
                 cropped_page_text_region.page_char_regression_labels,
             ),
+        )
+
+        painter = Painter(cropped_page_text_region.page_image)
+        painter.paint_mask(cropped_page_text_region.page_char_bounding_box_mask)
+        cur_write_image(
+            f'page_{seed}_cropped_text_region_{idx}_char_bounding_box_mask.jpg',
+            painter.image,
         )
 
         downsampled_label = cropped_page_text_region.downsampled_label

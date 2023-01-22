@@ -491,6 +491,10 @@ class PageTextRegionLabelStep(
             page_char_regression_labels.append(label)
 
             # 2. The deviate points.
+            if self.config.num_deviate_char_regression_labels <= 0:
+                # Generating deviate points are optional.
+                continue
+
             bounding_box = polygon.bounding_box
 
             # Sample points in shfited bounding box space.
