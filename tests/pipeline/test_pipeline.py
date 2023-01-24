@@ -83,7 +83,7 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     if False:
         points: List[Point] = []
         point_colors: List[str] = []
-        for polygon in output.page_char_polygon_collection.polygons:
+        for polygon in output.page_char_polygon_collection.char_polygons:
             assert polygon.num_points == 4
             points.extend(polygon.points)
             point_colors.extend(['red', 'green', 'blue', 'lightskyblue'])
@@ -114,7 +114,7 @@ def visualize_page_distortion_step_output(seed: int, output: PageDistortionStepO
     if False:
         points: List[Point] = []
         point_colors: List[str] = []
-        for polygon in output.page_char_polygon_collection.polygons:
+        for polygon in output.page_char_polygon_collection.char_polygons:
             assert polygon.num_points == 4
             points.extend(polygon.points)
             point_colors.extend(['red', 'green', 'blue', 'lightskyblue'])

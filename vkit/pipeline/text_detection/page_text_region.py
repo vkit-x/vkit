@@ -1176,7 +1176,7 @@ class PageTextRegionStep(
         precise_text_region_tree = STRtree(precise_text_region_shapely_polygons)
 
         id_to_char_polygons: DefaultDict[int, List[Polygon]] = defaultdict(list)
-        for char_polygon in page_char_polygon_collection.polygons:
+        for char_polygon in page_char_polygon_collection.char_polygons:
             best_precise_text_region_id = None
             intersected_ratio_max = 0
 

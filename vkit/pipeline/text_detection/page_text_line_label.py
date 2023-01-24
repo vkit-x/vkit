@@ -49,7 +49,7 @@ class PageTextLinePolygonCollection:
 class PageCharPolygonCollection:
     height: int
     width: int
-    polygons: Sequence[Polygon]
+    char_polygons: Sequence[Polygon]
     height_points_up: PointList
     height_points_down: PointList
 
@@ -94,7 +94,7 @@ class PageTextLineLabelStep(
         return PageCharPolygonCollection(
             height=page_text_line_collection.height,
             width=page_text_line_collection.width,
-            polygons=char_polygons,
+            char_polygons=char_polygons,
             height_points_up=height_points_up,
             height_points_down=height_points_down,
         )
