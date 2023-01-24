@@ -99,9 +99,11 @@ class PageDistortionStepOutput:
     page_seal_impression_char_polygon_collection: PageSealImpressionCharPolygonCollection
 
 
+# TODO: More types.
 _E = TypeVar('_E', Point, Polygon)
 
 
+# TODO: Move to distortion.
 class ElementFlattener(Generic[_E]):
 
     def __init__(self, grouped_elements: Sequence[Sequence[_E]]):
