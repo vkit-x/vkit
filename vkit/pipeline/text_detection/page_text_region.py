@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 @attrs.define
 class PageTextRegionStepConfig:
+    use_adjusted_char_polygons: bool = False
     prob_drop_single_char_page_text_region_info: float = 0.5
     text_region_flattener_typical_long_side_ratio_min: float = 3.0
     text_region_flattener_text_region_polygon_dilate_ratio_min: float = 0.85
@@ -1176,7 +1177,13 @@ class PageTextRegionStep(
         precise_text_region_tree = STRtree(precise_text_region_shapely_polygons)
 
         id_to_char_polygons: DefaultDict[int, List[Polygon]] = defaultdict(list)
-        for char_polygon in page_char_polygon_collection.char_polygons:
+
+        if not self.config.use_adjusted_char_polygons:
+            selected_char_polygons = page_char_polygon_collection.char_polygons
+        else:
+            selected_char_polygons = page_char_polygon_collection.adjusted_char_polygons
+
+        for char_polygon in selected_char_polygons:
             best_precise_text_region_id = None
             intersected_ratio_max = 0
 

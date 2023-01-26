@@ -328,6 +328,7 @@ class PageDistortionStep(
         polygon_flattener = ElementFlattener([
             # Char level.
             page_char_polygon_collection.char_polygons,
+            page_char_polygon_collection.adjusted_char_polygons,
             # Text line level.
             page_text_line_polygon_collection.polygons,
             # For char-level polygon regression.
@@ -384,6 +385,7 @@ class PageDistortionStep(
         (
             # Char level.
             char_polygons,
+            adjusted_char_polygons,
             # Text line level.
             text_line_polygons,
             # For char-level polygon regression.
@@ -443,6 +445,7 @@ class PageDistortionStep(
                 height=result.image.height,
                 width=result.image.width,
                 char_polygons=char_polygons,
+                adjusted_char_polygons=adjusted_char_polygons,
                 height_points_up=char_height_points_up,
                 height_points_down=char_height_points_down,
             ),
