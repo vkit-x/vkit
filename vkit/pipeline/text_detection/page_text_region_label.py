@@ -23,7 +23,7 @@ import cv2 as cv
 from sklearn.neighbors import KDTree
 
 from vkit.utility import attrs_lazy_field, unwrap_optional_field, normalize_to_probs
-from vkit.element import Point, PointList, Polygon, Mask, ScoreMap
+from vkit.element import Point, PointList, Box, Polygon, Mask, ScoreMap
 from vkit.mechanism.distortion.geometric.affine import affine_points
 from vkit.engine.char_heatmap import (
     char_heatmap_default_engine_executor_factory,
@@ -359,6 +359,7 @@ class PageTextRegionLabelStepOutput:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
+    page_char_bounding_box_mask: Mask
 
 
 class PageTextRegionLabelStep(
@@ -490,6 +491,10 @@ class PageTextRegionLabelStep(
             page_char_regression_labels.append(label)
 
             # 2. The deviate points.
+            if self.config.num_deviate_char_regression_labels <= 0:
+                # Generating deviate points are optional.
+                continue
+
             bounding_box = polygon.bounding_box
 
             # Sample points in shfited bounding box space.
@@ -570,6 +575,22 @@ class PageTextRegionLabelStep(
 
         return page_char_regression_labels
 
+    def generate_page_char_bounding_box_mask(
+        self,
+        shape: Tuple[int, int],
+        page_char_regression_labels: Sequence[PageCharRegressionLabel],
+    ):
+        page_char_bounding_box_mask = Mask.from_shape(shape)
+        for page_char_regression_label in page_char_regression_labels:
+            box = Box(
+                up=math.floor(page_char_regression_label.bounding_smooth_up),
+                down=math.ceil(page_char_regression_label.bounding_smooth_down),
+                left=math.floor(page_char_regression_label.bounding_smooth_left),
+                right=math.ceil(page_char_regression_label.bounding_smooth_right),
+            )
+            box.fill_mask(page_char_bounding_box_mask)
+        return page_char_bounding_box_mask
+
     def run(self, input: PageTextRegionLabelStepInput, rng: RandomGenerator):
         page_text_region_step_output = input.page_text_region_step_output
         page_image = page_text_region_step_output.page_image
@@ -603,10 +624,16 @@ class PageTextRegionLabelStep(
             page_image.shape,
             page_char_polygons,
         )
+
         page_char_regression_labels = self.generate_page_char_regression_labels(
             page_image.shape,
             page_char_polygons,
             rng,
+        )
+
+        page_char_bounding_box_mask = self.generate_page_char_bounding_box_mask(
+            page_image.shape,
+            page_char_regression_labels,
         )
 
         return PageTextRegionLabelStepOutput(
@@ -614,6 +641,7 @@ class PageTextRegionLabelStep(
             page_char_height_score_map=page_char_height_score_map,
             page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=page_char_regression_labels,
+            page_char_bounding_box_mask=page_char_bounding_box_mask,
         )
 
 

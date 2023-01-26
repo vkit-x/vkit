@@ -65,6 +65,7 @@ class DownsampledLabel:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
+    page_char_bounding_box_mask: Mask
     target_core_box: Box
 
 
@@ -75,6 +76,7 @@ class CroppedPageTextRegion:
     page_char_height_score_map: ScoreMap
     page_char_gaussian_score_map: ScoreMap
     page_char_regression_labels: Sequence[PageCharRegressionLabel]
+    page_char_bounding_box_mask: Mask
     target_core_box: Box
     downsampled_label: Optional[DownsampledLabel]
 
@@ -123,6 +125,7 @@ class PageTextRegionCroppingStep(
         page_char_mask: Mask,
         page_char_height_score_map: ScoreMap,
         page_char_gaussian_score_map: ScoreMap,
+        page_char_bounding_box_mask: Mask,
         centroid_strtree: STRtree,
         centroid_xy_pair_to_labels: Mapping[Tuple[int, int], Sequence[PageCharRegressionLabel]],
         deviate_strtree: STRtree,
@@ -210,7 +213,7 @@ class PageTextRegionCroppingStep(
             ) for deviate_label in deviate_labels
         ]
 
-        # Crop image and score map.
+        # Crop image and labeling maps.
         page_image = cropper.crop_image(page_image)
         page_char_mask = cropper.crop_mask(
             page_char_mask,
@@ -222,6 +225,10 @@ class PageTextRegionCroppingStep(
         )
         page_char_gaussian_score_map = cropper.crop_score_map(
             page_char_gaussian_score_map,
+            core_only=True,
+        )
+        page_char_bounding_box_mask = cropper.crop_mask(
+            page_char_bounding_box_mask,
             core_only=True,
         )
 
@@ -276,6 +283,15 @@ class PageTextRegionCroppingStep(
                     cv_resize_interpolation=cv.INTER_AREA,
                 )
 
+            downsampled_page_char_bounding_box_mask = \
+                page_char_bounding_box_mask.to_box_detached()
+            downsampled_page_char_bounding_box_mask = \
+                downsampled_page_char_bounding_box_mask.to_resized_mask(
+                    resized_height=downsampled_core_size,
+                    resized_width=downsampled_core_size,
+                    cv_resize_interpolation=cv.INTER_AREA,
+                )
+
             downsampled_page_char_regression_labels = [
                 label.to_downsampled_page_char_regression_label(
                     self.config.downsample_labeling_factor
@@ -288,6 +304,7 @@ class PageTextRegionCroppingStep(
                 page_char_height_score_map=downsampled_page_char_height_score_map,
                 page_char_gaussian_score_map=downsampled_page_char_gaussian_score_map,
                 page_char_regression_labels=downsampled_page_char_regression_labels,
+                page_char_bounding_box_mask=downsampled_page_char_bounding_box_mask,
                 target_core_box=downsampled_target_core_box,
             )
 
@@ -297,6 +314,7 @@ class PageTextRegionCroppingStep(
             page_char_height_score_map=page_char_height_score_map,
             page_char_gaussian_score_map=page_char_gaussian_score_map,
             page_char_regression_labels=shifted_centroid_labels + shifted_deviate_labels,
+            page_char_bounding_box_mask=page_char_bounding_box_mask,
             target_core_box=cropper.target_core_box,
             downsampled_label=downsampled_label,
         )
@@ -317,6 +335,8 @@ class PageTextRegionCroppingStep(
             page_text_region_label_step_output.page_char_gaussian_score_map
         page_char_regression_labels = \
             page_text_region_label_step_output.page_char_regression_labels
+        page_char_bounding_box_mask = \
+            page_text_region_label_step_output.page_char_bounding_box_mask
 
         (
             centroid_strtree,
@@ -350,6 +370,7 @@ class PageTextRegionCroppingStep(
                 page_char_mask=page_char_mask,
                 page_char_height_score_map=page_char_height_score_map,
                 page_char_gaussian_score_map=page_char_gaussian_score_map,
+                page_char_bounding_box_mask=page_char_bounding_box_mask,
                 centroid_strtree=centroid_strtree,
                 centroid_xy_pair_to_labels=centroid_xy_pair_to_labels,
                 deviate_strtree=deviate_strtree,

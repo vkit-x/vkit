@@ -627,14 +627,20 @@ class TextLine:
             (left, down),
         ])
 
-    def to_char_polygons(self, page_height: int, page_width: int):
+    def to_char_polygons(
+        self,
+        page_height: int,
+        page_width: int,
+        ref_char_height_ratio: float = 1.0,
+        ref_char_width_ratio: float = 1.0,
+    ):
         assert len(self.char_boxes) == len(self.char_glyphs)
 
         if self.is_hori:
             polygons: List[Polygon] = []
             for char_box, char_glyph in zip(self.char_boxes, self.char_glyphs):
-                ref_char_height = char_glyph.ref_char_height
-                ref_char_width = char_glyph.ref_char_width
+                ref_char_height = char_glyph.ref_char_height * ref_char_height_ratio
+                ref_char_width = char_glyph.ref_char_width * ref_char_width_ratio
                 box = char_box.box
 
                 up = box.up
@@ -664,8 +670,8 @@ class TextLine:
         else:
             polygons: List[Polygon] = []
             for char_box, char_glyph in zip(self.char_boxes, self.char_glyphs):
-                ref_char_height = char_glyph.ref_char_height
-                ref_char_width = char_glyph.ref_char_width
+                ref_char_height = char_glyph.ref_char_height * ref_char_height_ratio
+                ref_char_width = char_glyph.ref_char_width * ref_char_width_ratio
                 box = char_box.box
 
                 left = box.left

@@ -28,6 +28,8 @@ class PageTextLineLabelStepConfig:
     enable_boundary_mask: bool = False
     boundary_dilate_ratio: float = 0.5
     enable_boundary_score_map: bool = False
+    adjusted_ref_char_height_ratio: float = 0.6
+    adjusted_ref_char_width_ratio: float = 0.6
 
 
 @attrs.define
@@ -49,7 +51,8 @@ class PageTextLinePolygonCollection:
 class PageCharPolygonCollection:
     height: int
     width: int
-    polygons: Sequence[Polygon]
+    char_polygons: Sequence[Polygon]
+    adjusted_char_polygons: Sequence[Polygon]
     height_points_up: PointList
     height_points_down: PointList
 
@@ -77,6 +80,7 @@ class PageTextLineLabelStep(
         page_text_line_collection: PageTextLineCollection,
     ):
         char_polygons: List[Polygon] = []
+        adjusted_char_polygons: List[Polygon] = []
         height_points_up = PointList()
         height_points_down = PointList()
 
@@ -87,14 +91,27 @@ class PageTextLineLabelStep(
                     page_width=page_text_line_collection.width,
                 )
             )
+            adjusted_char_polygons.extend(
+                text_line.to_char_polygons(
+                    page_height=page_text_line_collection.height,
+                    page_width=page_text_line_collection.width,
+                    ref_char_height_ratio=self.config.adjusted_ref_char_height_ratio,
+                    ref_char_width_ratio=self.config.adjusted_ref_char_width_ratio,
+                )
+            )
             height_points_up.extend(text_line.get_char_level_height_points(is_up=True))
             height_points_down.extend(text_line.get_char_level_height_points(is_up=False))
 
-        assert len(char_polygons) == len(height_points_up) == len(height_points_down)
+        assert len(char_polygons) \
+            == len(adjusted_char_polygons) \
+            == len(height_points_up) \
+            == len(height_points_down)
+
         return PageCharPolygonCollection(
             height=page_text_line_collection.height,
             width=page_text_line_collection.width,
-            polygons=char_polygons,
+            char_polygons=char_polygons,
+            adjusted_char_polygons=adjusted_char_polygons,
             height_points_up=height_points_up,
             height_points_down=height_points_down,
         )
