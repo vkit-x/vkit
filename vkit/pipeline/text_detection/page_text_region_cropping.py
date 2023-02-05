@@ -35,9 +35,6 @@ from .page_text_region_label import (
     PageTextRegionLabelStepOutput,
 )
 
-# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
-warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
-
 
 @attrs.define
 class PageTextRegionCroppingStepConfig:

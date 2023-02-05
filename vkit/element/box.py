@@ -30,9 +30,6 @@ from .opt import (
     fill_np_array,
 )
 
-# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
-warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
-
 
 @attrs.define(frozen=True)
 class Box(Shapable):
@@ -424,7 +421,8 @@ class Box(Shapable):
 class BoxOverlappingValidator:
 
     def __init__(self, boxes: Iterable[Box]):
-        self.strtree = STRtree(box.to_shapely_polygon() for box in boxes)
+        geoms = tuple(box.to_shapely_polygon() for box in boxes)
+        self.strtree = STRtree(geoms)
 
     def is_overlapped(self, box: Box):
         shapely_polygon = box.to_shapely_polygon()
