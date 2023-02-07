@@ -642,14 +642,14 @@ def patch_unionized_unionized_shapely_polygon(unionized_shapely_polygon: Shapely
     eps = calculate_patch_buffer_eps(unionized_shapely_polygon)
     unionized_shapely_polygon = unionized_shapely_polygon.buffer(
         eps,
-        cap_style=CAP_STYLE.round,
-        join_style=JOIN_STYLE.round,
-    )  # type: ignore
+        cap_style=CAP_STYLE.round,  # type: ignore
+        join_style=JOIN_STYLE.round,  # type: ignore
+    )
     unionized_shapely_polygon = unionized_shapely_polygon.buffer(
         -eps,
-        cap_style=CAP_STYLE.round,
-        join_style=JOIN_STYLE.round,
-    )  # type: ignore
+        cap_style=CAP_STYLE.round,  # type: ignore
+        join_style=JOIN_STYLE.round,  # type: ignore
+    )
     return unionized_shapely_polygon
 
 
@@ -664,7 +664,7 @@ def unionize_polygons(polygons: Iterable[Polygon]):
         assert isinstance(unary_union_output, ShapelyPolygon)
         unary_union_output = [unary_union_output]
 
-    for unionized_shapely_polygon in unary_union_output:
+    for unionized_shapely_polygon in unary_union_output:  # type: ignore
         unionized_shapely_polygon = patch_unionized_unionized_shapely_polygon(
             unionized_shapely_polygon
         )
