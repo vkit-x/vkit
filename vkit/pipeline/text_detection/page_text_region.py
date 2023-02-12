@@ -1205,12 +1205,13 @@ class PageTextRegionStep(
                 logger.warning(f'Cannot assign a text region for char_polygon={char_polygon}')
 
         page_text_region_infos: List[PageTextRegionInfo] = []
-        for ptrp_idx, char_polygons in ptrp_idx_to_char_polygons.items():
-            precise_text_region_polygon = precise_text_region_polygons[ptrp_idx]
+        for ptrp_idx, precise_text_region_polygon in enumerate(precise_text_region_polygons):
+            if ptrp_idx not in ptrp_idx_to_char_polygons:
+                continue
             page_text_region_infos.append(
                 PageTextRegionInfo(
                     precise_text_region_polygon=precise_text_region_polygon,
-                    char_polygons=char_polygons,
+                    char_polygons=ptrp_idx_to_char_polygons[ptrp_idx],
                 )
             )
 
