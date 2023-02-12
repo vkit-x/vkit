@@ -161,9 +161,11 @@ class PageTextRegionCroppingStep(
         original_core_shapely_polygon = cropper.original_core_box.to_shapely_polygon()
 
         centroid_labels: List[PageCharRegressionLabel] = []
-        for centroid_page_char_regression_label_idx in centroid_strtree.query(
-            original_core_shapely_polygon,
-            predicate='intersects',
+        for centroid_page_char_regression_label_idx in sorted(
+            centroid_strtree.query(
+                original_core_shapely_polygon,
+                predicate='intersects',
+            )
         ):
             centroid_label = \
                 centroid_page_char_regression_labels[centroid_page_char_regression_label_idx]
@@ -171,9 +173,11 @@ class PageTextRegionCroppingStep(
 
         preserved_char_indices = set(centroid_label.char_idx for centroid_label in centroid_labels)
         deviate_labels: List[PageCharRegressionLabel] = []
-        for deviate_page_char_regression_label_idx in deviate_strtree.query(
-            original_core_shapely_polygon,
-            predicate='intersects',
+        for deviate_page_char_regression_label_idx in sorted(
+            deviate_strtree.query(
+                original_core_shapely_polygon,
+                predicate='intersects',
+            )
         ):
             deviate_label = \
                 deviate_page_char_regression_labels[deviate_page_char_regression_label_idx]

@@ -906,7 +906,7 @@ class PageTextRegionStep(
         candidate_shapely_polygon = candidate_polygon.to_shapely_polygon()
         candidate_mask = candidate_polygon.mask
 
-        for anchor_idx in strtree.query(candidate_shapely_polygon):
+        for anchor_idx in sorted(strtree.query(candidate_shapely_polygon)):
             anchor_polygon = anchor_polygons[anchor_idx]
             anchor_mask = anchor_polygon.mask
 
