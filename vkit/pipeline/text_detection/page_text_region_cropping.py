@@ -11,14 +11,11 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import Sequence, Mapping, Tuple, DefaultDict, List, Optional
-from collections import defaultdict
+from typing import Sequence, Tuple, List, Optional
 import itertools
-import warnings
 
 import attrs
 from numpy.random import Generator as RandomGenerator
-from shapely.errors import ShapelyDeprecationWarning
 from shapely.strtree import STRtree
 from shapely.geometry import Point as ShapelyPoint
 import cv2 as cv
@@ -34,9 +31,6 @@ from .page_text_region_label import (
     PageCharRegressionLabel,
     PageTextRegionLabelStepOutput,
 )
-
-# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
-warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 
 @attrs.define
@@ -101,21 +95,15 @@ class PageTextRegionCroppingStep(
     ):
         shapely_points: List[ShapelyPoint] = []
 
-        xy_pair_to_labels: DefaultDict[
-            Tuple[int, int],
-            List[PageCharRegressionLabel],
-        ] = defaultdict(list)  # yapf: disable
-
         for label in labels:
             # Original resolution.
             assert not label.is_downsampled
             # As int.
             xy_pair = (label.downsampled_label_point_x, label.downsampled_label_point_y)
             shapely_points.append(ShapelyPoint(*xy_pair))
-            xy_pair_to_labels[xy_pair].append(label)
 
         strtree = STRtree(shapely_points)
-        return strtree, xy_pair_to_labels
+        return strtree
 
     def sample_cropped_page_text_regions(
         self,
@@ -127,9 +115,9 @@ class PageTextRegionCroppingStep(
         page_char_gaussian_score_map: ScoreMap,
         page_char_bounding_box_mask: Mask,
         centroid_strtree: STRtree,
-        centroid_xy_pair_to_labels: Mapping[Tuple[int, int], Sequence[PageCharRegressionLabel]],
+        centroid_page_char_regression_labels: Sequence[PageCharRegressionLabel],
         deviate_strtree: STRtree,
-        deviate_xy_pair_to_labels: Mapping[Tuple[int, int], Sequence[PageCharRegressionLabel]],
+        deviate_page_char_regression_labels: Sequence[PageCharRegressionLabel],
         rng: RandomGenerator,
     ):
         if rotate_angle != 0:
@@ -169,29 +157,34 @@ class PageTextRegionCroppingStep(
                 rng=rng,
             )
 
-        # Remove labels out of the origina core box.
+        # Remove labels out of the original core box.
         original_core_shapely_polygon = cropper.original_core_box.to_shapely_polygon()
 
         centroid_labels: List[PageCharRegressionLabel] = []
-        for shapely_point in centroid_strtree.query(original_core_shapely_polygon):
-            if not original_core_shapely_polygon.intersects(shapely_point):
-                continue
-            assert isinstance(shapely_point, ShapelyPoint)
-            centroid_xy_pair = (int(shapely_point.x), int(shapely_point.y))
-            centroid_labels.extend(centroid_xy_pair_to_labels[centroid_xy_pair])
+        for centroid_page_char_regression_label_idx in sorted(
+            centroid_strtree.query(
+                original_core_shapely_polygon,
+                predicate='intersects',
+            )
+        ):
+            centroid_label = \
+                centroid_page_char_regression_labels[centroid_page_char_regression_label_idx]
+            centroid_labels.append(centroid_label)
 
         preserved_char_indices = set(centroid_label.char_idx for centroid_label in centroid_labels)
         deviate_labels: List[PageCharRegressionLabel] = []
-        for shapely_point in deviate_strtree.query(original_core_shapely_polygon):
-            if not original_core_shapely_polygon.intersects(shapely_point):
+        for deviate_page_char_regression_label_idx in sorted(
+            deviate_strtree.query(
+                original_core_shapely_polygon,
+                predicate='intersects',
+            )
+        ):
+            deviate_label = \
+                deviate_page_char_regression_labels[deviate_page_char_regression_label_idx]
+            if deviate_label.char_idx not in preserved_char_indices:
+                # If the centroid is not preserved, ignore this deviate label as well.
                 continue
-            assert isinstance(shapely_point, ShapelyPoint)
-            deviate_xy_pair = (int(shapely_point.x), int(shapely_point.y))
-            for deviate_label in deviate_xy_pair_to_labels[deviate_xy_pair]:
-                if deviate_label.char_idx not in preserved_char_indices:
-                    # If the centroid is not preserved, ignore this deviate label as well.
-                    continue
-                deviate_labels.append(deviate_label)
+            deviate_labels.append(deviate_label)
 
         if len(centroid_labels) < self.config.num_centroid_points_min \
                 or len(deviate_labels) < self.config.num_deviate_points_min:
@@ -338,20 +331,21 @@ class PageTextRegionCroppingStep(
         page_char_bounding_box_mask = \
             page_text_region_label_step_output.page_char_bounding_box_mask
 
-        (
-            centroid_strtree,
-            centroid_xy_pair_to_labels,
-        ) = self.build_strtree_for_page_char_regression_labels([
+        centroid_page_char_regression_labels = [
             label for label in page_char_regression_labels
             if label.tag == PageCharRegressionLabelTag.CENTROID
-        ])
-        (
-            deviate_strtree,
-            deviate_xy_pair_to_labels,
-        ) = self.build_strtree_for_page_char_regression_labels([
+        ]
+        centroid_strtree = self.build_strtree_for_page_char_regression_labels(
+            centroid_page_char_regression_labels
+        )
+
+        deviate_page_char_regression_labels = [
             label for label in page_char_regression_labels
             if label.tag == PageCharRegressionLabelTag.DEVIATE
-        ])
+        ]
+        deviate_strtree = self.build_strtree_for_page_char_regression_labels(
+            deviate_page_char_regression_labels
+        )
 
         num_samples = round(
             self.config.num_samples_factor_relative_to_num_cropped_pages * num_cropped_pages
@@ -372,9 +366,9 @@ class PageTextRegionCroppingStep(
                 page_char_gaussian_score_map=page_char_gaussian_score_map,
                 page_char_bounding_box_mask=page_char_bounding_box_mask,
                 centroid_strtree=centroid_strtree,
-                centroid_xy_pair_to_labels=centroid_xy_pair_to_labels,
+                centroid_page_char_regression_labels=centroid_page_char_regression_labels,
                 deviate_strtree=deviate_strtree,
-                deviate_xy_pair_to_labels=deviate_xy_pair_to_labels,
+                deviate_page_char_regression_labels=deviate_page_char_regression_labels,
                 rng=rng,
             )
             if cropped_page_text_region:

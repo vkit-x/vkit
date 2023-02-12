@@ -13,11 +13,9 @@
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
 from typing import Optional, Tuple, Union, Iterable
 import math
-import warnings
 
 import attrs
 import numpy as np
-from shapely.errors import ShapelyDeprecationWarning
 from shapely.geometry import box as build_shapely_polygon_as_box
 from shapely.strtree import STRtree
 
@@ -29,9 +27,6 @@ from .opt import (
     generate_shape_and_resized_shape,
     fill_np_array,
 )
-
-# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
-warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 
 @attrs.define(frozen=True)
@@ -424,14 +419,13 @@ class Box(Shapable):
 class BoxOverlappingValidator:
 
     def __init__(self, boxes: Iterable[Box]):
-        self.strtree = STRtree(box.to_shapely_polygon() for box in boxes)
+        geoms = tuple(box.to_shapely_polygon() for box in boxes)
+        self.strtree = STRtree(geoms)
 
     def is_overlapped(self, box: Box):
         shapely_polygon = box.to_shapely_polygon()
-        for _ in self.strtree.query(shapely_polygon):
-            # NOTE: No need to test intersection since the extent of a box is itself.
-            return True
-        return False
+        # NOTE: No need to test intersection, since the extent (bounding box) of a box is itself.
+        return any(True for _ in self.strtree.query(shapely_polygon))
 
 
 def generate_fill_by_boxes_mask(

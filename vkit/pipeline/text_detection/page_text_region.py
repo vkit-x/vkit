@@ -11,19 +11,17 @@
 # SSPL distribution, student/academic purposes, hobby projects, internal research
 # projects without external distribution, or other projects where all SSPL
 # obligations can be met. For more information, please see the "LICENSE_SSPL.txt" file.
-from typing import cast, List, Optional, Dict, DefaultDict, Sequence, Tuple
+from typing import cast, List, Optional, DefaultDict, Sequence, Tuple
 from collections import defaultdict
 import itertools
 import math
 import statistics
 import logging
-import warnings
 
 import attrs
 from numpy.random import Generator as RandomGenerator
 import numpy as np
 from sklearn.neighbors import KDTree
-from shapely.errors import ShapelyDeprecationWarning
 from shapely.strtree import STRtree
 from shapely.geometry import Polygon as ShapelyPolygon
 from rectpack import newPacker as RectPacker
@@ -34,9 +32,6 @@ from vkit.mechanism.distortion import rotate
 from ..interface import PipelineStep, PipelineStepFactory
 from .page_distortion import PageDistortionStepOutput
 from .page_resizing import PageResizingStepOutput
-
-# Shapely version has been explicitly locked under 2.0, hence ignore this warning.
-warnings.filterwarnings('ignore', category=ShapelyDeprecationWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -905,15 +900,14 @@ class PageTextRegionStep(
     def strtree_query_intersected_polygons(
         cls,
         strtree: STRtree,
-        id_to_anchor_polygon: Dict[int, Polygon],
+        anchor_polygons: Sequence[Polygon],
         candidate_polygon: Polygon,
     ):
         candidate_shapely_polygon = candidate_polygon.to_shapely_polygon()
         candidate_mask = candidate_polygon.mask
 
-        for anchor_shapely_polygon in strtree.query(candidate_shapely_polygon):
-            anchor_id = id(anchor_shapely_polygon)
-            anchor_polygon = id_to_anchor_polygon[anchor_id]
+        for anchor_idx in sorted(strtree.query(candidate_shapely_polygon)):
+            anchor_polygon = anchor_polygons[anchor_idx]
             anchor_mask = anchor_polygon.mask
 
             intersected_ratio = calculate_boxed_masks_intersected_ratio(
@@ -923,7 +917,7 @@ class PageTextRegionStep(
             )
 
             yield (
-                anchor_id,
+                anchor_idx,
                 anchor_polygon,
                 anchor_mask,
                 candidate_mask,
@@ -1119,13 +1113,11 @@ class PageTextRegionStep(
             debug = PageTextRegionStepDebug()
 
         # Build R-tree to track text regions.
-        # https://github.com/shapely/shapely/issues/640
-        id_to_disconnected_text_region_polygon: Dict[int, Polygon] = {}
+        disconnected_text_region_polygons: List[Polygon] = []
         disconnected_text_region_shapely_polygons: List[ShapelyPolygon] = []
-
         for polygon in page_disconnected_text_region_collection.to_polygons():
+            disconnected_text_region_polygons.append(polygon)
             shapely_polygon = polygon.to_shapely_polygon()
-            id_to_disconnected_text_region_polygon[id(shapely_polygon)] = polygon
             disconnected_text_region_shapely_polygons.append(shapely_polygon)
 
         disconnected_text_region_tree = STRtree(disconnected_text_region_shapely_polygons)
@@ -1146,7 +1138,7 @@ class PageTextRegionStep(
             for _, _, disconnected_text_region_mask, precise_mask, _ in \
                     self.strtree_query_intersected_polygons(
                         strtree=disconnected_text_region_tree,
-                        id_to_anchor_polygon=id_to_disconnected_text_region_polygon,
+                        anchor_polygons=disconnected_text_region_polygons,
                         candidate_polygon=precise_polygon,
                     ):
                 precise_text_region_candidate_polygons.extend(
@@ -1161,49 +1153,49 @@ class PageTextRegionStep(
             debug.precise_text_region_candidate_polygons = precise_text_region_candidate_polygons
 
         # Help gc.
-        del id_to_disconnected_text_region_polygon
+        del disconnected_text_region_polygons
         del disconnected_text_region_shapely_polygons
         del disconnected_text_region_tree
 
         # Bind char-level polygon to precise text region.
-        id_to_precise_text_region_polygon: Dict[int, Polygon] = {}
+        precise_text_region_polygons: List[Polygon] = []
         precise_text_region_shapely_polygons: List[ShapelyPolygon] = []
 
         for polygon in precise_text_region_candidate_polygons:
+            precise_text_region_polygons.append(polygon)
             shapely_polygon = polygon.to_shapely_polygon()
-            id_to_precise_text_region_polygon[id(shapely_polygon)] = polygon
             precise_text_region_shapely_polygons.append(shapely_polygon)
 
         precise_text_region_tree = STRtree(precise_text_region_shapely_polygons)
-
-        id_to_char_polygons: DefaultDict[int, List[Polygon]] = defaultdict(list)
 
         if not self.config.use_adjusted_char_polygons:
             selected_char_polygons = page_char_polygon_collection.char_polygons
         else:
             selected_char_polygons = page_char_polygon_collection.adjusted_char_polygons
 
+        ptrp_idx_to_char_polygons: DefaultDict[int, List[Polygon]] = defaultdict(list)
+
         for char_polygon in selected_char_polygons:
-            best_precise_text_region_id = None
+            best_precise_text_region_polygon_idx = None
             intersected_ratio_max = 0
 
             for (
-                precise_text_region_id,
+                precise_text_region_polygon_idx,
                 _,
                 _,
                 _,
                 intersected_ratio,
             ) in self.strtree_query_intersected_polygons(
                 strtree=precise_text_region_tree,
-                id_to_anchor_polygon=id_to_precise_text_region_polygon,
+                anchor_polygons=precise_text_region_polygons,
                 candidate_polygon=char_polygon,
             ):
                 if intersected_ratio > intersected_ratio_max:
                     intersected_ratio_max = intersected_ratio
-                    best_precise_text_region_id = precise_text_region_id
+                    best_precise_text_region_polygon_idx = precise_text_region_polygon_idx
 
-            if best_precise_text_region_id is not None:
-                id_to_char_polygons[best_precise_text_region_id].append(char_polygon)
+            if best_precise_text_region_polygon_idx is not None:
+                ptrp_idx_to_char_polygons[best_precise_text_region_polygon_idx].append(char_polygon)
             else:
                 # NOTE: Text line with only a small char (i.e. delimiter) could enter this branch.
                 # In such case, the text line bounding box is smaller than the char polygon, since
@@ -1213,21 +1205,18 @@ class PageTextRegionStep(
                 logger.warning(f'Cannot assign a text region for char_polygon={char_polygon}')
 
         page_text_region_infos: List[PageTextRegionInfo] = []
-        for precise_text_region_shapely_polygon in precise_text_region_shapely_polygons:
-            ptrsp_id = id(precise_text_region_shapely_polygon)
-            if ptrsp_id not in id_to_char_polygons:
-                # Not related to any char polygons.
+        for ptrp_idx, precise_text_region_polygon in enumerate(precise_text_region_polygons):
+            if ptrp_idx not in ptrp_idx_to_char_polygons:
                 continue
-            assert id_to_char_polygons[ptrsp_id]
             page_text_region_infos.append(
                 PageTextRegionInfo(
-                    precise_text_region_polygon=id_to_precise_text_region_polygon[ptrsp_id],
-                    char_polygons=id_to_char_polygons[ptrsp_id],
+                    precise_text_region_polygon=precise_text_region_polygon,
+                    char_polygons=ptrp_idx_to_char_polygons[ptrp_idx],
                 )
             )
 
         # Help gc.
-        del id_to_precise_text_region_polygon
+        del precise_text_region_polygons
         del precise_text_region_shapely_polygons
         del precise_text_region_tree
 
