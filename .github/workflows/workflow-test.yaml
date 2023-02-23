@@ -53,17 +53,9 @@ jobs:
 
           lines = text_deps.splitlines()
           new_lines = []
-          # Handle logical or condition, i.e. opencv-python-headless.
-          visited_pkgs = set()
           for line in lines:
               new_line = line.replace('>=', '==', 1)
-              pkg = new_line.split('==')[0]
-              if pkg in visited_pkgs:
-                  print(f'! line = "{line}" is ignored.')
-                  continue
-              else:
-                  new_lines.append(new_line)
-                  visited_pkgs.add(pkg)
+              new_lines.append(new_line)
           new_text_deps = '\n'.join(new_lines)
 
           new_text = text[:begin] + new_text_deps + text[end:]
