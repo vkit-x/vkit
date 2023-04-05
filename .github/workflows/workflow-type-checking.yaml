@@ -11,7 +11,7 @@ jobs:
           node -v
           yarn --version
 
-          npm install -g pyright@1.1.301
+          npm install -g pyright@1.1.302
           pyright --version
       - name: Install project (required by pyright)
         run: |
